@@ -1,0 +1,372 @@
+﻿@page "/faq"
+@rendermode InteractiveServer
+<PageTitle>ЧаВо</PageTitle>
+
+@* FAQ.razor *@
+<div class="container py-5">
+    <!-- Заголовок страницы -->
+    <div class="text-center mb-5 px-3 px-sm-0">
+        <h1 class="display-4 fw-bold text-black" style="font-size: clamp(1.8rem, 8vw, 3.5rem);">
+            <i class="bi bi-question-circle me-2 me-sm-3"></i>
+            Часто задаваемые вопросы
+        </h1>
+        <p class="lead text-muted mx-auto" style="max-width: 600px; font-size: clamp(1rem, 4vw, 1.25rem);">
+            Ответы на популярные вопросы о системе автоматизации
+        </p>
+
+        <!-- Бейджи с адаптивным отображением -->
+        <div class="d-flex flex-wrap justify-content-center gap-2 mt-4 mt-sm-3 px-2">
+            <span class="badge bg-primary bg-opacity-10 text-primary p-2 p-sm-3 rounded-pill d-inline-flex align-items-center"
+                  style="font-size: clamp(0.8rem, 3.5vw, 1rem);">
+                <i class="bi bi-robot me-1 me-sm-2"></i>
+                <span class="d-none d-sm-inline">Telegram интеграция</span>
+                <span class="d-inline d-sm-none">Telegram</span>
+            </span>
+
+            <span class="badge bg-success bg-opacity-10 text-success p-2 p-sm-3 rounded-pill d-inline-flex align-items-center"
+                  style="font-size: clamp(0.8rem, 3.5vw, 1rem);">
+                <i class="bi bi-cloud me-1 me-sm-2"></i>
+                <span class="d-none d-sm-inline">Облачное решение</span>
+                <span class="d-inline d-sm-none">Облако</span>
+            </span>
+
+            <span class="badge bg-info bg-opacity-10 text-info p-2 p-sm-3 rounded-pill d-inline-flex align-items-center"
+                  style="font-size: clamp(0.8rem, 3.5vw, 1rem);">
+                <i class="bi bi-shield me-1 me-sm-2"></i>
+                <span class="d-none d-sm-inline">24/7 поддержка</span>
+                <span class="d-inline d-sm-none">Поддержка</span>
+            </span>
+        </div>
+
+       
+    </div>
+
+    
+
+    <!-- Поиск по FAQ (опционально) -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text"
+                       class="form-control border-start-0 ps-0"
+                       placeholder="Поиск по вопросам..."
+                       @bind="searchQuery"
+                       @oninput="FilterFAQs" />
+                @if (!string.IsNullOrEmpty(searchQuery))
+                {
+                    <button class="btn btn-outline-secondary" @onclick="ClearSearch">
+                        <i class="bi bi-x"></i>
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Аккордеон с вопросами -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="accordion" id="faqAccordion">
+                @foreach (var faq in filteredFaqs)
+                {
+                    <div class="accordion-item border-0 mb-3 shadow-sm rounded-3">
+                        <h2 class="accordion-header" id="heading@(faq.Id)">
+                            <button class="accordion-button @(faq.IsOpen ? "" : "collapsed") bg-light rounded-3"
+                                    type="button"
+                                    @onclick="() => ToggleFaq(faq)"
+                                    aria-expanded="@(faq.IsOpen ? "true" : "false")"
+                                    aria-controls="collapse@(faq.Id)">
+                                <div class="d-flex align-items-center w-100">
+                                    <span class="badge bg-primary me-3 rounded-pill">@faq.Id</span>
+                                    <span class="fw-semibold">@faq.Question</span>
+                                    @if (faq.IsNew)
+                                    {
+                                        <span class="badge bg-success ms-3">NEW</span>
+                                    }
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="collapse@(faq.Id)"
+                             class="accordion-collapse collapse @(faq.IsOpen ? "show" : "")"
+                             aria-labelledby="heading@(faq.Id)">
+                            <div class="accordion-body p-4">
+                                @if (faq.HasSubItems)
+                                {
+                                    <div class="mb-3">
+                                        <strong class="text-black">@faq.SubTitle</strong>
+                                    </div>
+                                }
+
+                                <div class="faq-content">
+                                    @if (faq.Id == 1)
+                                    {
+                                        <div class="mb-4">
+                                            <p class=" text-black mb-3">@faq.Answer</p>
+                                            
+                                            <div class="alert alert-info bg-opacity-10 border-0 mt-3">
+                                                <i class="bi bi-info-circle me-2"></i>
+                                                Система обеспечивает комплексное сопровождение клиента на всех этапах взаимодействия, а также поддерживает гибкую интеграцию с популярными сторонними сервисами и корпоративными платформами.
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (faq.Id == 2)
+                                    {
+                                        <div class="mb-4">
+                                            <p class=" text-black mb-3">@faq.Answer</p>
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-md-6">
+                                                    <div class="card border-0 bg-light">
+                                                        <div class="card-body">
+                                                            <i class="bi bi-telegram fs-1 text-primary mb-2"></i>
+                                                            <h6 class="fw-bold">Двусторонняя связь</h6>
+                                                            <p class="small text-muted">CRM и мессенджера: все диалоги с клиентами в одном окне, без задержек и потерь данных.</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="card border-0 bg-light">
+                                                        <div class="card-body">
+                                                            <i class="bi bi-bell fs-1 text-warning mb-2"></i>
+                                                            <h6 class="fw-bold">Мгновенные уведомления</h6>
+                                                            <p class="small text-muted">О важных событиях: вы всегда в курсе статуса заказов, остатков на складе и других ключевых показателей бизнеса.</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <p class="mb-3">@faq.Answer</p>
+                                    }
+
+                                    @if (faq.AdditionalInfo != null)
+                                    {
+                                        <div class="mt-3 p-3 bg-light rounded-3">
+                                            <i class="bi bi-info-circle text-primary me-2"></i>
+                                            <span class="text-muted">@faq.AdditionalInfo</span>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (faq.ShowHelpfulButtons)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                                        <div>
+                                            <small class="text-muted me-3">Был ли ответ полезен?</small>
+                                            <button class="btn btn-sm btn-outline-success me-2" @onclick="() => MarkHelpful(faq.Id, true)">
+                                                <i class="bi bi-hand-thumbs-up"></i> Да
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => MarkHelpful(faq.Id, false)">
+                                                <i class="bi bi-hand-thumbs-down"></i> Нет
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">
+                                            <i class="bi bi-clock me-1"></i>
+                                            Обновлено: @faq.LastUpdated.ToString("dd.MM.yyyy")
+                                        </small>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (filteredFaqs.Count == 0)
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-emoji-frown display-1 text-muted mb-3"></i>
+                    <h4 class="text-muted">Ничего не найдено</h4>
+                    <p class="text-muted">Попробуйте изменить поисковый запрос</p>
+                    <button class="btn btn-primary" @onclick="ClearSearch">
+                        <i class="bi bi-arrow-left me-2"></i>Сбросить поиск
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Блок "Остались вопросы?" -->
+    <div class="row justify-content-center mt-5">
+        <div class="col-lg-8">
+            <div class="card border-0 bg-primary bg-opacity-10 text-center p-5 rounded-4">
+                <i class="bi bi-chat-dots display-1 text-primary mb-3"></i>
+                <h3 class="fw-bold mb-3">Остались вопросы?</h3>
+                <p class="text-muted mb-4">
+                    Наши специалисты готовы помочь вам с любыми вопросами о системе
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="mailto:support@example.com" class="btn btn-primary px-4">
+                        <i class="bi bi-envelope me-2"></i>
+                        support@example.com
+                    </a>
+                    <a href="https://t.me/support" class="btn btn-outline-primary px-4">
+                        <i class="bi bi-telegram me-2"></i>
+                        Telegram поддержка
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@code {
+    private string searchQuery = string.Empty;
+    private List<FAQItem> allFaqs = new();
+    private List<FAQItem> filteredFaqs = new();
+
+    protected override void OnInitialized()
+    {
+        LoadFAQs();
+    }
+
+    private void LoadFAQs()
+    {
+        allFaqs = new List<FAQItem>
+        {
+            new FAQItem
+            {
+                Id = 1,
+                Question = "Что представляет собой ваша система автоматизации?",
+                Answer = "Комплексная система автоматизации, объединяющая функционал управления рестораном, обработки записей и складской логистики. Архитектура решения предусматривает двустороннюю систему уведомлений, гарантирующую своевременное оповещение клиентов и администрации о статусе операций и критических событиях.",
+                IsOpen = true,
+                ShowHelpfulButtons = true,
+                LastUpdated = DateTime.Now.AddDays(-5),
+                HasSubItems = true,
+                SubTitle = "Система предназначена для:"
+            },
+            new FAQItem
+            {
+                Id = 2,
+                Question = "Как организована интеграция с Telegram?",
+                Answer = @"Модуль интеграции с Telegram обеспечивает функционал: Трансляция контента: автоматизированная выгрузка меню и прайс-листов;
+                        Мониторинг ресурсов: отображение свободных посадочных мест в заведении или доступных дат для предварительной записи.
+                        Управление заказами: реализация сквозного процесса бронирования без перехода в сторонние интерфейсы. ",
+                IsOpen = false,
+                ShowHelpfulButtons = true,
+                LastUpdated = DateTime.Now.AddDays(-2),
+                IsNew = true,
+                HasSubItems = true
+            },
+            new FAQItem
+            {
+                Id = 3,
+                Question = "Насколько сложен интерфейс системы для новых пользователей?",
+                Answer = @"Пользовательский интерфейс спроектирован в соответствии с принципами юзабилити, что обеспечивает быструю адаптацию сотрудников независимо
+                    их квалификации. Система поддерживает детализированную конфигурацию параметров,
+                    позволяя выполнять тонкую настройку workflows, прав доступа и бизнес-правил под требования конкретного предприятия.",
+                AdditionalInfo = "Система позволяет быстро настроить необходимые процессы и начать работу в течение первого дня использования.",
+                IsOpen = false,
+                ShowHelpfulButtons = true,
+                LastUpdated = DateTime.Now.AddDays(-10)
+            },
+            new FAQItem
+            {
+                Id = 4,
+                Question = "Подходит ли система для управления несколькими проектами?",
+                Answer = "Масштабируемая архитектура системы специально разработана для поддержки множества проектов.",
+                AdditionalInfo = "Возможно ведение неограниченного количества проектов в рамках одной учетной записи.",
+                IsOpen = false,
+                ShowHelpfulButtons = true,
+                LastUpdated = DateTime.Now.AddDays(-7)
+            },
+            new FAQItem
+            {
+                Id = 5,
+                Question = "Какие технические требования предъявляются к системе?",
+                Answer = "Веб-ориентированное решение, для доступа из любой точки мира",
+                AdditionalInfo = "Доступ через любой современный браузер. Минимальная скорость интернета от 1 Мбит/с.",
+                IsOpen = false,
+                ShowHelpfulButtons = true,
+                LastUpdated = DateTime.Now.AddDays(-15)
+            },
+            new FAQItem
+            {
+                Id = 6,
+                Question = "Как происходит внедрение системы?",
+                Answer = @"Процесс развёртывания решения занимает от 3 до 7 рабочих дней и включает:
+                    Предварительный аудит текущей инфраструктуры заказчика;
+                    Адаптацию конфигурации системы под регламенты предприятия;
+                    Подключение необходимых интеграций и тестирование работоспособности;
+                    Инструктаж персонала и передачу системы в промышленную эксплуатацию.
+                    Все работы осуществляются в персональном порядке с назначением ответственного менеджера проекта.",
+                IsOpen = false,
+                ShowHelpfulButtons = true,
+                LastUpdated = DateTime.Now.AddDays(-3),
+                HasSubItems = true
+            },
+            new FAQItem
+            {
+                Id = 7,
+                Question = "Предоставляется ли техническая поддержка?",
+                Answer = @"Поддержка пользователей осуществляется через многоканальную систему обслуживания, включающую:
+                    Электронная почта: приём заявок и документальное сопровождение;
+                    Мессенджеры (Telegram): оперативные консультации в режиме реального времени;
+                    Личный кабинет: система тикетов для отслеживания статуса обращений;
+                    Телефонная линия: экстренная помощь при критических инцидентах.
+                    Режим работы и приоритет обработки запросов определяются тарифным планом клиента.",
+                IsOpen = false,
+                ShowHelpfulButtons = true,
+                LastUpdated = DateTime.Now.AddDays(-1)
+            }
+        };
+
+        FilterFAQs();
+    }
+
+    private void FilterFAQs()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredFaqs = allFaqs.ToList();
+        }
+        else
+        {
+            filteredFaqs = allFaqs
+                .Where(f => f.Question.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                            f.Answer.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = string.Empty;
+        FilterFAQs();
+    }
+
+    private void MarkHelpful(int id, bool isHelpful)
+    {
+        Console.WriteLine($"FAQ {id} marked as {(isHelpful ? "helpful" : "not helpful")}");
+    }
+
+    private void ToggleFaq(FAQItem clickedFaq)
+    {
+        // Закрываем все вопросы
+        foreach (var faq in allFaqs)
+        {
+            faq.IsOpen = false;
+        }
+
+        // Открываем только выбранный
+        clickedFaq.IsOpen = !clickedFaq.IsOpen;
+
+        StateHasChanged();
+    }
+
+    private class FAQItem
+    {
+        public int Id { get; set; }
+        public string Question { get; set; } = string.Empty;
+        public string Answer { get; set; } = string.Empty;
+        public string? AdditionalInfo { get; set; }
+        public bool IsOpen { get; set; }
+        public bool ShowHelpfulButtons { get; set; }
+        public DateTime LastUpdated { get; set; }
+        public bool IsNew { get; set; }
+        public bool HasSubItems { get; set; }
+        public string? SubTitle { get; set; }
+    }
+}

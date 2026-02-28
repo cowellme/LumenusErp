@@ -1,0 +1,185 @@
+﻿@page "/"
+@rendermode InteractiveServer
+<PageTitle>LunenusErp - Современная ERP система</PageTitle>
+
+<!-- Hero Section -->
+<section class="hero-section back mb-5 radius p-5 text-white py-5">
+    <div class="container radius mb-5">
+        <div class="row">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <h1 class="display-3 fw-bold mb-4 animate__animated animate__fadeInUp">
+                    Lunenus<span class="text-black">Erp</span>
+                </h1>
+                <p class="lead mb-4 animate__animated animate__fadeInUp animate__delay-1s">
+                    Полное управление бизнес-процессами в единой экосистеме
+                </p>
+                <div class="d-flex gap-3 animate__animated animate__fadeInUp animate__delay-2s">
+                    <a href="/faq" class="btn btn-outline-light btn-lg px-4">Возможности</a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <img src="/20260228_2327_Image Generation_simple_compose_01kjjyx2gcece9gwm34ba9yzv3.png" alt="LunenusErp Dashboard"
+                     class="img-fluid rounded-3 animate__animated animate__fadeInRight">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Преимущества -->
+<section class="features-section radius mb-5 py-5 bg-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">Почему выбирают LunenusErp</h2>
+            <p class="lead text-muted">Комплексное решение для вашего бизнеса</p>
+        </div>
+
+        <div class="row g-4">
+            @foreach (var feature in features)
+            {
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm hover-card">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="bi @feature.Icon fs-1 text-primary"></i>
+                            </div>
+                            <h3 class="h4 mb-3">@feature.Title</h3>
+                            <p class="text-muted">@feature.Description</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<!-- Статистика -->
+<section class="stats-section py-5 bg-primary text-white radius mb-5">
+    <div class="container">
+        <div class="row text-center">
+            <div class="col-md-3 col-6 mb-4 mb-md-0">
+                <div class="stat-item">
+                    <div class="display-3 fw-bold">500+</div>
+                    <div class="h6">Компаний доверяют</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4 mb-md-0">
+                <div class="stat-item">
+                    <div class="display-3 fw-bold">24/7</div>
+                    <div class="h6">Поддержка</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="display-3 fw-bold">99.9%</div>
+                    <div class="h6">Аптайм</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="display-3 fw-bold">50+</div>
+                    <div class="h6">Интеграций</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Ключевые модули -->
+<section class="modules-section py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">Основные модули системы</h2>
+            <p class="lead text-muted">Всё необходимое для управления бизнесом</p>
+        </div>
+
+        <div class="row g-4">
+            @foreach (var module in modules)
+            {
+                <div class="col-lg-4 col-md-6">
+                    <div class="module-card p-4 border rounded-3 hover-shadow bg-white h-100">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="module-icon me-3">
+                                <i class="bi @module.Icon fs-2 text-primary"></i>
+                            </div>
+                            <h3 class="h5 mb-0">@module.Title</h3>
+                        </div>
+                        <p class="text-muted mb-3">@module.Description</p>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-primary" role="progressbar"
+                                 style="width: @module.Progress%"></div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+
+
+@code {
+    private List<Feature> features = new()
+    {
+        new Feature { Icon = "bi-lightning-charge", Title = "Быстрое внедрение", Description = "Настройка системы за 3-7 дней под ключ" },
+        new Feature { Icon = "bi-shield-check", Title = "Безопасность данных", Description = "Шифрование и защита всех данных клиентов" },
+        new Feature { Icon = "bi-phone", Title = "Мобильный доступ", Description = "Работайте где угодно с любого устройства" }
+    };
+
+    private List<Module> modules = new()
+    {
+        new Module { Icon = "bi-people", Title = "Управление персоналом", Description = "Полный цикл HR процессов", Progress = 100 },
+        new Module { Icon = "bi-cash-stack", Title = "Финансы", Description = "Бухгалтерия и отчетность", Progress = 100 },
+        new Module { Icon = "bi-box-seam", Title = "Склад", Description = "Учет товаров и запасов", Progress = 85 },
+        new Module { Icon = "bi-cart", Title = "Продажи", Description = "CRM и управление сделками", Progress = 90 },
+        new Module { Icon = "bi-graph-up", Title = "Аналитика", Description = "Отчеты и прогнозы", Progress = 75 },
+        new Module { Icon = "bi-files", Title = "Документооборот", Description = "Электронный документооборот", Progress = 80 }
+    };
+
+    private List<Testimonial> testimonials = new()
+    {
+        new Testimonial
+        {
+            Name = "Иван Петров",
+            Position = "CEO, ТехноСтарт",
+            Avatar = "/avatars/avatar1.jpg",
+            Text = "LunenusErp помог нам автоматизировать все бизнес-процессы. Отличное решение!"
+        },
+        new Testimonial
+        {
+            Name = "Мария Сидорова",
+            Position = "Финансовый директор",
+            Avatar = "/avatars/avatar2.jpg",
+            Text = "Удобный интерфейс, отличная поддержка. Рекомендую!"
+        },
+        new Testimonial
+        {
+            Name = "Алексей Иванов",
+            Position = "IT-директор",
+            Avatar = "/avatars/avatar3.jpg",
+            Text = "Гибкая настройка под любые задачи. Мы довольны выбором."
+        }
+    };
+
+    private class Feature
+    {
+        public string Icon { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+    }
+
+    private class Module
+    {
+        public string Icon { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public int Progress { get; set; }
+    }
+
+    private class Testimonial
+    {
+        public string Name { get; set; }
+        public string Position { get; set; }
+        public string Avatar { get; set; }
+        public string Text { get; set; }
+    }
+}

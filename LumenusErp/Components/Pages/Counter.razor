@@ -1,0 +1,393 @@
+﻿@page "/add-space"
+@using LumenusErp.Components.Account
+@using LumenusErp.Data
+@using Microsoft.AspNetCore.Identity
+@rendermode InteractiveServer
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+@inject AuthenticationStateProvider AuthProvider
+
+<PageTitle>Добавить пространство</PageTitle>
+<AuthorizeView>
+    <Authorized>
+
+
+<h1 class="mb-3">Настройка пространств</h1>
+
+@{
+    if (_newSpace is not null)
+    {
+        <div style="background-color:aliceblue; border-radius: 10px; margin-bottom: 20px; padding: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <input style="flex: 1; margin-bottom: 0; border: 0; background-color: aliceblue; font-size: 32px; font-weight: 700;" @bind="_newSpace.Name" />
+            </div>
+            <h1></h1>
+            <div style=" margin-bottom: 10px;">
+                @{
+                    if (_newSpace.IsSpace)
+                    {
+                        <button @onclick="CheckSpace" class="btn btn-outline-info" style="border-bottom-right-radius: 0;border-top-right-radius: 0; background-color: azure; margin: 0;">Помещение</button>
+                        <button @onclick="CheckMark" class="btn" style="background-color: azure; border-bottom-left-radius: 0;border-top-left-radius: 0; margin: 0;">Прием</button>
+                    }
+                    else
+                    {
+                        <button @onclick="CheckSpace" class="btn" style="border-bottom-right-radius: 0;border-top-right-radius: 0; background-color: azure; margin: 0;">Помещение</button>
+                        <button @onclick="CheckMark" class="btn btn-outline-info" style="background-color: azure; border-bottom-left-radius: 0;border-top-left-radius: 0; margin: 0;">Прием</button>
+                    }
+                }
+            </div>
+            <div style="margin-bottom: 10px;">
+                @{
+                    @if (_newSpace.IsSpace)
+                    {
+                        <div class="container-fluid px-0">
+                            <div class="row g-3">
+                                @foreach (var groupe in _erpGroups)
+                                {
+                                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                        <div class="card shadow-sm h-100">
+                                            <div class="card-body">
+                                                <!-- Название группы -->
+                                                <div class="mb-3">
+                                                    <label class="form-label text-muted small mb-1">Группа</label>
+                                                    <input class="form-control form-control-sm border-0 bg-light"
+                                                           @bind="groupe.Name"
+                                                           placeholder="Название группы" />
+                                                </div>
+
+                                                <!-- Название лота и количество -->
+                                                <div class="row g-2">
+                                                    <div class="col-7">
+                                                        <label class="form-label text-muted small mb-1">Лот</label>
+                                                        <input class="form-control form-control-sm border-0 bg-light"
+                                                               @bind="groupe.NameOfLot"
+                                                               placeholder="Название лота" />
+                                                    </div>
+                                                    <div class="col-5">
+                                                        <label class="form-label text-muted small mb-1">Кол-во</label>
+                                                        <input type="number"
+                                                               class="form-control form-control-sm border-0 bg-light text-center"
+                                                               @bind="groupe.LotCount"
+                                                               placeholder="0" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Кнопка добавления -->
+                            <div class="mt-4">
+                                <button @onclick="AddGroupe" class="btn btn-outline-info">
+                                    <i class="bi bi-plus-circle"></i> Добавить группу
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="container-fluid px-0">
+                            <div class="row g-3">
+                                @foreach (var mark in _erpMarks)
+                                {
+                                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                        <div class="card shadow-sm">
+                                            <div class="card-body">
+                                                <input class="form-control border-0 bg-light text-center"
+                                                       @bind="mark.Name"
+                                                       placeholder="Марка" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+            <button class="btn btn-success" @onclick="AddNewSpace">Сохранить</button>
+            <button class="btn btn-primary" @onclick="ConnectTelegramToggle">
+                <i class="bi bi-telegram"></i>
+                @(_newSpace.IsTelegram ? "Закрыть" : "Подключить Telegram")
+            </button>
+
+            <div class="d-flex gap-2">
+               
+                <div class="telegram-section">
+                    
+                    @if (_newSpace.IsTelegram)
+                    {
+                        <div class="telegram-input-wrapper mt-3 p-3 border rounded bg-light">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-robot text-primary fs-4"></i>
+                                <input class="form-control"
+                                       @bind="_newSpace.Token"
+                                       placeholder="Введите токен бота" />
+                                <button class="btn btn-success" @onclick="SaveTelegramToken">
+                                    <i class="bi bi-check-lg">Сохранить</i>
+                                </button>
+                            </div>
+                            <small class="text-muted d-block mt-2">
+                                <i class="bi bi-info-circle"></i>
+                                Токен выглядит как: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+                            </small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-secondary mb-4" @onclick="ToggleHide">Скрыть</button>
+    }
+    else
+    {
+        <button class="btn btn-success mb-5" @onclick="IncrementSpace">Добавить пространство</button>
+    }
+
+    if (applicationUser?.Spaces is not null)
+    {
+        <h1 class ="mb-2">Мои пространства</h1>
+        <div class="container-fluid px-0" style="margin-bottom: 20px;">
+            @{
+                foreach (var space in applicationUser.Spaces)
+                {
+                    <div class="card shadow-sm mb-4">
+                        <!-- Заголовок карточки space -->
+                        <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #1b6ec2;">
+                            <h4 class="mb-0">@space.Name</h4>
+                            <span class="badge bg-light text-dark">Групп: @space.Groups.Count()</span>
+                        </div>
+
+                        <!-- Тело карточки с группами -->
+                        <div class="card-body">
+                            <div class="row g-3">
+                                @foreach (var group in space.Groups)
+                                {
+                                    <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                        <div class="card h-100 shadow-sm">
+                                            <div class="card-body @(group.IsActive == true ? "bg-success-subtle" : "bg-danger-subtle")">
+                                                <h5 class="card-title text-center mb-3">@group.Name</h5>
+                                                <div class="text-center mb-2">
+                                                    <span class="badge @(group.IsActive == true ? "bg-success" : "bg-danger")">
+                                                        @(group.IsActive == true ? "Свободен" : "Занят")
+                                                    </span>
+                                                </div>
+                                                <p class="card-text text-center">
+                                                    <span class="fw-bold">@group.NameOfLot:</span>
+                                                    <span class="badge bg-secondary">@group.LotCount</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Footer карточки (опционально) -->
+                        @if (space.Groups.Any())
+                        {
+                            <div class="card-footer text-muted">
+                                <small>Всего мест: @space.Groups.Sum(g => g.LotCount)</small>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+
+}
+    </Authorized>
+    <NotAuthorized>
+        <div class="container d-flex align-items-center justify-content-center">
+    <div class="row justify-content-center w-100">
+        <div class="col-12 col-md-10 col-lg-8 col-xl-7">
+            <div class="card shadow border-0">
+                <div class="card-body p-4 p-lg-5">
+
+                            <div class="text-center mb-4">
+                                <i class="bi bi-person-plus display-4 text-primary"></i>
+                                <h1 class="h2 fw-bold mt-3">Доступ ограничен</h1>
+                                <p class="text-muted">Войдите в учетную запись</p>
+                            </div>
+
+                            <!-- Ссылка на вход -->
+                            <div class="text-center border-top pt-4">
+                                <a href="/Account/Login" class="btn btn-outline-primary rounded-pill px-4">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>Войти в систему
+                                </a>
+                            </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+    private ApplicationUser? applicationUser = null;
+    private List<Space> _spaces = new List<Space>();
+    private List<ErpGroup> _erpGroups = new List<ErpGroup>()
+    {
+        new ErpGroup()
+        {
+            Name = "Новая группа",
+            NameOfLot = "Количество мест",
+            LotCount = 3
+        }
+    };
+
+    private List<ErpGroup> _erpMarks = new List<ErpGroup>()
+    {
+        new ErpGroup()
+        {
+            Name = "Новая запись",
+
+        }
+    };
+    private Space? _newSpace = null;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserAsync();
+    }
+
+    private int currentCount = 0;
+
+    private void IncrementSpace()
+    {
+        _newSpace = new Space()
+        {
+            Name = "Новое пространство"
+        };
+    }
+    private async Task AddNewSpace()
+    {
+        if (_newSpace is not null)
+        {
+            _newSpace.Groups = _erpGroups;
+            if (applicationUser != null)
+            {
+                if (applicationUser is { Spaces: not null })
+                {
+
+                }
+                else
+                {
+                    applicationUser.Spaces = new List<Space>(){_newSpace };
+                    var result = await UserManager.UpdateAsync(applicationUser);
+                    var test = result;
+                }
+            }
+
+
+            _newSpace = new Space()
+            {
+                Name = "Новое пространство"
+            };
+            _erpGroups = new List<ErpGroup>()
+            {
+                new ErpGroup()
+                {
+                    Name = "Новая группа",
+                    NameOfLot = "Количество мест",
+                    LotCount = 3
+                }
+            };
+        }
+    }
+    private void CheckMark()
+    {
+        if (_newSpace is not null)
+        {
+            _newSpace.IsMark = true;
+            _newSpace.IsSpace = false;
+        }
+
+    }
+    private void CheckSpace()
+    {
+        if (_newSpace is not null)
+        {
+            _newSpace.IsMark = false;
+            _newSpace.IsSpace = true;
+
+        }
+    }
+
+    private void SaveTelegramToken()
+    {
+        
+    }
+    private void ConnectTelegramToggle()
+    {
+        if(_newSpace != null)
+        {
+            if (!_newSpace.IsTelegram)
+            {
+                _newSpace.IsTelegram = true;
+            }
+            else
+            {
+                _newSpace.IsTelegram = false;
+            }
+
+        }
+    }
+    private void ToggleHide()
+    {
+        _newSpace = null;
+    }
+    private void AddGroupe()
+    {
+        _erpGroups.Add(
+            new ErpGroup()
+            {
+                Name = _erpGroups.Last().Name,
+                NameOfLot = _erpGroups.Last().NameOfLot,
+                LotCount = _erpGroups.Last().LotCount
+            });
+    }
+
+    private bool _isLoading = true;
+    private async Task LoadUserAsync()
+    {
+        try
+        {
+            _isLoading = true;
+
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                applicationUser = await UserManager.GetUserAsync(user);
+
+                if (applicationUser == null)
+                {
+                    RedirectManager.RedirectTo("/Account/Login");
+                }
+
+                if (applicationUser?.Spaces != null)
+                {
+                    _spaces = applicationUser.Spaces.ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Логируем ошибку
+            Console.WriteLine($"Ошибка загрузки пользователя: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+}
