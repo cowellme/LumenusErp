@@ -12,7 +12,10 @@ a, .btn-link {
     border-color: #1861ac;
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+.btn:focus, .btn:active:focus, 
+.btn-link.nav-link:focus, 
+.form-control:focus, 
+.form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
@@ -91,7 +94,7 @@ h1:focus {
 }
 
 .brand-text {
-    color: #38bdf8; /* Светло-голубой акцент */
+    color: #38bdf8;
     font-weight: 700;
 }
 
@@ -104,11 +107,11 @@ h1:focus {
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-    .feature-card:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 10px 30px rgba(56, 189, 248, 0.2);
-        background: rgba(255, 255, 255, 0.1);
-    }
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 30px rgba(56, 189, 248, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+}
 
 .icon-box {
     font-size: 2.5rem;
@@ -130,10 +133,10 @@ h1:focus {
     cursor: pointer;
 }
 
-    .hover-card:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
-    }
+.hover-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+}
 
 .hover-shadow {
     transition: box-shadow 0.3s ease;
@@ -170,10 +173,10 @@ h1:focus {
     transition: all 0.3s ease;
 }
 
-    .module-card:hover {
-        transform: scale(1.02);
-        border-color: #0d6efd !important;
-    }
+.module-card:hover {
+    transform: scale(1.02);
+    border-color: #0d6efd !important;
+}
 
 .module-icon {
     width: 50px;
@@ -188,10 +191,10 @@ h1:focus {
     transition: all 0.3s ease;
 }
 
-    .testimonial-card:hover {
-        transform: scale(1.02);
-        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
-    }
+.testimonial-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+}
 
 @media (max-width: 768px) {
     .display-3 {

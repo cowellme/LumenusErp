@@ -41,10 +41,9 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
     // Для разработки можно использовать:
-    //await dbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
-    //await dbContext.Database.EnsureCreatedAsync();
+    await dbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
+    await dbContext.Database.EnsureCreatedAsync();
 
-    // Или для миграций:
     // await dbContext.Database.MigrateAsync();
 }
 // Configure the HTTP request pipeline.
