@@ -1,0 +1,103 @@
+/* CSS for AosPanel component */
+.card-risk-simple {
+    border: var(--border-width) solid var(--color-accent);
+    padding: var(--space-3);
+    height: 100%;
+    padding: 10px;
+    border: solid 2px black;
+    background: var(--color-bg);
+}
+
+.card-risk-simple__tag {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid;
+    margin-bottom: var(--space-2);
+}
+
+.card-risk-simple__social {
+    font-size: var(--font-size-xs);
+    font-weight: 300;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 var(--space-1) 0;
+}
+
+.card-risk-simple__name {
+    font-weight: 700;
+    margin: 0 0 var(--space-1) 0;
+}
+
+.card-risk-simple__resume {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* 0 */
+.risk-none .card-risk-simple__tag {
+    color: #737373;
+    border-color: #a3a3a3;
+    background: #f5f5f5;
+}
+
+/* 1 */
+.risk-clean {
+    background: #f0fdf4;
+}
+
+    .risk-clean .card-risk-simple__tag {
+        color: #16a34a;
+        border-color: #22c55e;
+        background: #dcfce7;
+    }
+
+/* 2 */
+.risk-low {
+    background: #f7fee7;
+}
+
+    .risk-low .card-risk-simple__tag {
+        color: #65a30d;
+        border-color: #a3e635;
+        background: #ecfccb;
+    }
+
+/* 3 */
+.risk-medium {
+    background: #fefce8;
+}
+
+    .risk-medium .card-risk-simple__tag {
+        color: #a16207;
+        border-color: #facc15;
+        background: #fef08a;
+    }
+
+/* 4 */
+.risk-high {
+    background: #fff7ed;
+}
+
+    .risk-high .card-risk-simple__tag {
+        color: #c2410c;
+        border-color: #f97316;
+        background: #fed7aa;
+    }
+
+/* 5 */
+.risk-critical {
+    background: #fef2f2;
+}
+
+    .risk-critical .card-risk-simple__tag {
+        color: #dc2626;
+        border-color: #ef4444;
+        background: #fecaca;
+    }

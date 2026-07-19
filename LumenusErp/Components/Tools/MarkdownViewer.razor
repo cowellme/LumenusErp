@@ -1,0 +1,14 @@
+﻿@using Markdig
+
+<div class="md-content">
+    @((MarkupString)Html)
+</div>
+
+@code {
+    [Parameter]
+    public string Content { get; set; } = string.Empty;
+
+    private string Html => string.IsNullOrWhiteSpace(Content)
+        ? string.Empty
+        : Markdown.ToHtml(Content);
+}

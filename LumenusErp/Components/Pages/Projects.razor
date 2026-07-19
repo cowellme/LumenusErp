@@ -1,0 +1,313 @@
+﻿@page "/projects"
+@rendermode InteractiveServer
+<PageTitle>Реестр проектов — LunenusUam</PageTitle>
+
+@* ======================================================================== *@
+@*  HERO                                                                   *@
+@* ======================================================================== *@
+<section class="bg-white border-bottom border-dark border-2 py-5">
+    <div class="container">
+        <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">РЕЕСТР</p>
+        <h1 class="display-5 fw-extrabold border-0 p-0 mb-3">Архив проектов</h1>
+        <p class="text-muted" style="max-width: 600px;">
+            Завершённые и текущие работы. От локальных RAG-систем до гибридных AI-платформ
+            для организаций с закрытым контуром.
+        </p>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  TABLE                                                                   *@
+@* ======================================================================== *@
+<section class="bg-white py-4">
+    <div class="container">
+
+        @* ── Table ─────────────────────────────────────────────────── *@
+        <div class="table-responsive border border-dark border-2">
+            <table class="table table-borderless mb-0 align-middle" style="min-width: 800px;">
+                <thead class="border-bottom border-dark">
+                    <tr>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:16%;">Заказчик</th>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:28%;">Проект</th>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:14%;">Направление</th>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:8%;">Год</th>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:12%;">Статус</th>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3 text-center" style="width:5%;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < projects.Count; i++)
+                    {
+                        var p = projects[i];
+                        var isOpen = expandedIndex == i;
+
+                        <tr class="@(isOpen ? "bg-light" : "bg-white")"
+                            style="cursor:pointer;"
+                            @onclick="() => Toggle(i)"
+                            @onkeydown="(e) => HandleRowKey(e, i)"
+                            tabindex="0"
+                            role="button"
+                            aria-expanded="@isOpen.ToString().ToLower()">
+                            <td class="font-monospace small fw-semibold px-3 py-3">@p.Client</td>
+                            <td class="small px-3 py-3 fw-semibold">@p.Title</td>
+                            <td class="font-monospace small fw-semibold px-3 py-3">@p.Scope</td>
+                            <td class="font-monospace small fw-semibold px-3 py-3">@p.Year</td>
+                            <td class="px-3 py-3">
+                                @if (p.Stamp == "В РАБОТЕ")
+                                {
+                                    <span class="badge bg-white text-dark border border-dark border-2 rounded-0 font-monospace fw-bold"
+                                          style="font-size:0.7rem; letter-spacing:0.06em;">
+                                        @p.Stamp
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-dark rounded-0 font-monospace fw-bold"
+                                          style="font-size:0.7rem; letter-spacing:0.06em;">
+                                        @p.Stamp
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-center px-3 py-3">
+                                <a href="@p.Reference" class="font-monospace pe-3 link-dark fw-bold small" style="transition:transform 0.15s; display:inline-block; @(isOpen ? "transform:rotate(45deg)" : "")">Подробнее</a>
+                            </td>
+                        </tr>
+
+                        @if (isOpen)
+                        {
+                            <tr class="bg-light">
+                                <td colspan="7" class="p-0 border-top border-dark border-2">
+                                    <div class="p-4 p-md-5">
+                                        <div class="row g-4">
+                                            <div class="col-lg-8">
+                                                <p class="mb-4 lh-base">@p.Description</p>
+
+                                                @if (p.Details is { Count: > 0 })
+                                                {
+                                                    <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+                                                        @foreach (var d in p.Details)
+                                                        {
+                                                            <li class="small text-muted position-relative ps-3">
+                                                                <span class="position-absolute top-0 start-0 text-muted" style="line-height:1.5;">—</span>
+                                                                @d
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                }
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <div class="ps-lg-3 border-start-lg border-dark border-2 d-flex flex-column gap-4 h-100">
+
+                                                    <div>
+                                                        <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">Технологии</p>
+                                                        <div class="d-flex flex-wrap gap-1">
+                                                            @foreach (var tag in p.TechTags)
+                                                            {
+                                                                <span class="badge bg-white text-dark border border-dark border-2 rounded-0 font-monospace fw-semibold"
+                                                                      style="font-size:0.65rem;">
+                                                                    @tag
+                                                                </span>
+                                                            }
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">Результат</p>
+                                                        <p class="small mb-0 lh-sm">@p.Result</p>
+                                                    </div>
+
+                                                    <a href="@p.Url" class="font-monospace small fw-bold text-dark mt-auto pt-2">
+                                                        Карточка проекта &rarr;
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* ── Footer stats ──────────────────────────────────────────── *@
+        <div class="d-flex flex-wrap gap-2 mt-3 font-monospace small text-muted">
+            <span>Всего записей: <strong class="text-dark">@projects.Count</strong></span>
+            <span class="text-secondary">/</span>
+            <span>Завершено: <strong class="text-dark">@projects.Count(p => p.Stamp == "ЗАВЕРШЕНО")</strong></span>
+            <span class="text-secondary">/</span>
+            <span>В работе: <strong class="text-dark">@projects.Count(p => p.Stamp == "В РАБОТЕ")</strong></span>
+            <span class="text-secondary">/</span>
+            <span>Последнее обновление: <strong class="text-dark">@DateTime.Now.ToString("dd.MM.yyyy")</strong></span>
+        </div>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  CTA                                                                     *@
+@* ======================================================================== *@
+<section class="bg-light border-top border-bottom border-dark border-2 py-5">
+    <div class="container text-center">
+        <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">НОВАЯ ЗАПИСЬ</p>
+        <h2 class="display-6 fw-extrabold border-0 p-0 mb-3">Добавить проект в реестр</h2>
+        <p class="text-muted mx-auto mb-4" style="max-width: 560px;">
+            Спроектируем архитектуру под вашу задачу — с фокусом на безопасность и работу в закрытом контуре.
+        </p>
+        <a href="/calculator" class="btn btn-dark btn-lg rounded-0 text-uppercase fw-semibold px-5 py-3 text-decoration-none">
+            Рассчитать стоимость
+        </a>
+    </div>
+</section>
+
+@code {
+    private int? expandedIndex;
+
+    private void Toggle(int index)
+    {
+        expandedIndex = expandedIndex == index ? null : index;
+    }
+
+    private void HandleRowKey(KeyboardEventArgs e, int index)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            Toggle(index);
+        }
+    }
+
+    private readonly List<RegistryEntry> projects = new()
+    {
+        new()
+        {
+            Reference = "2026-01",
+            Client = "ООО «Главстрой»",
+            Title = "Система мониторинга корпоративных коммуникаций",
+            Scope = "On-Premise LLM",
+            Year = "2026",
+            Stamp = "ЗАВЕРШЕНО",
+            Description = "Разработан MCP-сервер на ASP.NET Core (.NET 9) как связующее звено между корпоративными данными и языковыми моделями. В соответствии с требованиями безопасности всё развёрнуто на локальном оборудовании заказчика: полный цикл от подбора «железа» до рабочего окружения.",
+            Details = new()
+            {
+                "Docker Compose, оркестрация контейнеров, CI/CD-пайплайны.",
+                "Конвейер шифрования персональных данных перед передачей в LLM.",
+                "RAG-система для извлечения и контекстного анализа документов.",
+                "Объём обрабатываемых данных: 500+ страниц переписки и 3–4 часа аудиозаписей ежедневно.",
+            },
+            TechTags = new() { ".NET 9", "ASP.NET Core", "Докер", "RAG", "CI/CD", "LLM" },
+            Result = "Автоматическая сводка в панели администратора и группировка сотрудников по зонам риска (красные, жёлтые, зелёные).",
+            Url = "/projects/glavstroy",
+        },
+        new()
+        {
+            Reference = "2026-02",
+            Client = "ВШГУ РАНХиГС",
+            Title = "Гибридная AI-платформа для документооборота",
+            Scope = "Гибридное развёртывание",
+            Year = "2026",
+            Stamp = "ЗАВЕРШЕНО",
+            Description = "Реализована двухконтурная архитектура. Контур 1 — гибридная обработка: связка Open Web UI → локальная модель (шифрование ПДн) → Open Router (мощные LLM). Контур 2 — интеграционный: Pyrus ↔ REST API (.NET) ↔ AI-конвейер.",
+            Details = new()
+            {
+                "Созданы специализированные модели под каждый бизнес-процесс.",
+                "Автоматическое чтение полей задач Pyrus, передача в AI-конвейер и обновление полей результатами обработки.",
+                "Двойная защита: шифрование моделью + алгоритмическая пост-проверка данных.",
+            },
+            TechTags = new() { "Open Web UI", "Open Router", "REST API .NET", "Pyrus", "Локальные LLM", "Шифрование" },
+            Result = "Полная автоматизация документооборота с двойной защитой персональных данных. Снижение ручного ввода на 70%.",
+            Url = "/projects/ranepa",
+        },
+        new()
+        {
+            Reference = "2026-03",
+            Client = "Аналитическая система",
+            Title = "Мониторинг Telegram и Instagram с GPT и Selenium",
+            Scope = "NLP / OSINT",
+            Year = "2026",
+            Stamp = "ЗАВЕРШЕНО",
+            Description = "Автоматизированный мониторинг Telegram-каналов и Instagram-страниц на предмет контента, нарушающего законодательство РФ. Семантический анализ через GPT-модели, классификация и эскалация подозрительного контента.",
+            Details = new()
+            {
+                "Selenium WebDriver — автоматизированный сбор постов из целевых каналов.",
+                "GPT-модели — семантический анализ контента на предмет нарушений УК РФ.",
+                "Автоматическая классификация и эскалация подозрительного контента по категориям.",
+                "Обширная база знаний: список иноагентов, запрещённая литература, скрытый контекст.",
+            },
+            TechTags = new() { "Selenium", "GPT", "Telegram API", ".NET", "NLP" },
+            Result = "Автоматическое выявление нарушений УК РФ в Telegram и Instagram с классификацией контента.",
+            Url = "/projects/telegram-analysis",
+        },
+        new()
+        {
+            Reference = "2026-04",
+            Client = "Логистическая компания",
+            Title = "RAG-конвейер обработки договоров",
+            Scope = "RAG / Документооборот",
+            Year = "2026",
+            Stamp = "ЗАВЕРШЕНО",
+            Description = "Автоматическое извлечение ключевых условий из 2 000+ договоров. Проверка на соответствие нормативам, выявление коллизий и рисков.",
+            Details = new()
+            {
+                "Построение RAG-конвейера для индексации и поиска по договорам.",
+                "Автоматическая классификация договоров по типам и уровням риска.",
+                "Интеграция с внутренней CRM заказчика через REST API.",
+            },
+            TechTags = new() { "RAG", "PostgreSQL", "REST API", ".NET", "Docker" },
+            Result = "Сокращение времени обработки одного договора с 4 часов до 15 минут. Выявлено 12% договоров с критическими коллизиями.",
+            Url = "/projects/contracts-rag",
+        },
+        new()
+        {
+            Reference = "2026-05",
+            Client = "Медицинский центр",
+            Title = "AI-ассистент врача с локальным LLM",
+            Scope = "On-Premise / Медицина",
+            Year = "2026",
+            Stamp = "ЗАВЕРШЕНО",
+            Description = "On-premise развёртывание медицинской языковой модели. Шифрование карт пациентов, автоматическая генерация заключений.",
+            Details = new()
+            {
+                "Локальное развёртывание LLM на оборудовании медицинского центра.",
+                "Шифрование и маскирование персональных данных пациентов.",
+                "Генерация предварительных врачебных заключений.",
+            },
+            TechTags = new() { "LLM", "Docker", "Шифрование ПДн", "Python", "PostgreSQL" },
+            Result = "Сокращение времени на подготовку заключений на 40%. Полное соответствие требованиям о врачебной тайне.",
+            Url = "/projects/med-ai",
+        },
+        new()
+        {
+            Reference = "2026-01",
+            Client = "Финансовый сектор",
+            Title = "AI-скоринг корпоративных рисков",
+            Scope = "FinTech / Compliance",
+            Year = "2026",
+            Stamp = "В РАБОТЕ",
+            Description = "Анализ отчётности и транзакций через LLM. Выявление аномалий, предиктивная аналитика для compliance-отдела.",
+            Details = new()
+            {
+                "Разработка модели предсказания рисков на исторических данных.",
+                "Интеграция с внутренней системой документооборота.",
+                "Настройка алертов при выявлении аномальных транзакций.",
+            },
+            TechTags = new() { "LLM", ".NET 9", "PostgreSQL", "Docker", "REST API" },
+            Result = "Проект в активной фазе разработки. Пилотный запуск — Q2 2026.",
+            Url = "/projects/risk-scoring",
+        },
+    };
+
+    private sealed record RegistryEntry
+    {
+        public string Reference { get; init; } = "";
+        public string Client { get; init; } = "";
+        public string Title { get; init; } = "";
+        public string Scope { get; init; } = "";
+        public string Year { get; init; } = "";
+        public string Stamp { get; init; } = "";
+        public string Description { get; init; } = "";
+        public List<string> Details { get; init; } = new();
+        public List<string> TechTags { get; init; } = new();
+        public string Result { get; init; } = "";
+        public string Url { get; init; } = "";
+    }
+}

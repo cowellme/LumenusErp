@@ -1,59 +1,50 @@
 ﻿@page "/"
 @rendermode InteractiveServer
-<PageTitle>LunenusErp - Современная ERP система</PageTitle>
+<PageTitle>LunenusUam — Корпоративные AI-системы</PageTitle>
 
-<!-- Hero Section -->
-<section class="hero-section back mb-4 radius p-4 text-white py-4">
-    <div class="container radius mb-4">
-        <div class="row">
-            <div class="col-lg-6 mb-3 mb-lg-2 align-content-lg-center p-5">
-                <h1 class="display-4 fw-bold mb-3">
-                    Lunenus<span class="text-black">Erp</span>
-                </h1>
-                <p class="lead mb-1">
-                    Полное управление бизнес-процессами в<br>единой экосистеме
+@* ======================================================================== *@
+@*  HERO                                                                   *@
+@* ======================================================================== *@
+<section class="bg-white border-bottom border-dark border-2 py-5">
+    <div class="container py-4">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <p class="font-monospace small fw-bold text-muted text-uppercase letter-spacing mb-3">
+                    LLM &middot; RAG &middot; ON-PREMISE
                 </p>
-                <br>
-                <div class="d-flex gap-2">
-                    <a href="/faq" class="btn btn-outline-light btn-lg px-4">Возможности</a>
+                <h1 class="display-4 fw-extrabold lh-1 mb-4 border-0 p-0">
+                    Проектируем безопасные AI-системы для корпоративных данных
+                </h1>
+                <p class="lead text-muted mb-4" style="max-width: 560px;">
+                    Связываем большие языковые модели с инфраструктурой предприятия —
+                    локально, с шифрованием персональных данных, без передачи информации
+                    в публичные облака.
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="#competencies" class="btn btn-dark btn-lg rounded-0 text-uppercase fw-semibold px-4 text-decoration-none">
+                        Компетенции и услуги
+                    </a>
+                    <a href="#problems" class="btn btn-outline-dark btn-lg rounded-0 text-uppercase fw-semibold px-4 text-decoration-none">
+                        С какими задачами приходят
+                    </a>
                 </div>
-            </div>
-            <div class="col-lg-6">
-                <img src="/20260228_2327_Image Generation_simple_compose_01kjjyx2gcece9gwm34ba9yzv3.png" alt="LunenusErp Dashboard"
-                     class="img-fluid rounded-3 animate__animated animate__fadeInRight">
             </div>
         </div>
     </div>
 </section>
 
-<style>
-    .hero-section {
-        min-height: auto !important; /* если был задан min-height */
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-    }
-</style>
-
-<!-- Преимущества -->
-<section class="features-section radius mb-5 py-5 bg-light">
+@* ======================================================================== *@
+@*  STATS                                                                   *@
+@* ======================================================================== *@
+<section class="bg-light border-bottom border-dark border-2 py-4">
     <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="display-5 fw-bold">Почему выбирают LunenusErp</h2>
-            <p class="lead text-muted">Комплексное решение для вашего бизнеса</p>
-        </div>
-
-        <div class="row g-4">
-            @foreach (var feature in features)
+        <div class="row text-center g-0">
+            @foreach (var stat in stats)
             {
-                <div class="col-md-4">
-                    <div class="card h-100 border-0 shadow-sm hover-card">
-                        <div class="card-body text-center p-4">
-                            <div class="feature-icon mb-3">
-                                <i class="bi @feature.Icon fs-1 text-primary"></i>
-                            </div>
-                            <h3 class="h4 mb-3">@feature.Title</h3>
-                            <p class="text-muted">@feature.Description</p>
-                        </div>
+                <div class="col-6 col-md-3 border-end border-dark border-2 @(stat == stats.Last() ? "border-end-0" : "")">
+                    <div class="py-4">
+                        <span class="d-block display-5 fw-extrabold font-monospace mb-2">@stat.Value</span>
+                        <span class="d-block font-monospace small fw-semibold text-muted text-uppercase">@stat.Label</span>
                     </div>
                 </div>
             }
@@ -61,62 +52,23 @@
     </div>
 </section>
 
-<!-- Статистика -->
-<section class="stats-section py-5 bg-primary text-white radius mb-5">
+@* ======================================================================== *@
+@*  COMPETENCIES                                                            *@
+@* ======================================================================== *@
+<section id="competencies" class="bg-white py-5">
     <div class="container">
-        <div class="row text-center">
-            <div class="col-md-3 col-6 mb-4 mb-md-0">
-                <div class="stat-item">
-                    <div class="display-3 fw-bold">500+</div>
-                    <div class="h6">Компаний доверяют</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6 mb-4 mb-md-0">
-                <div class="stat-item">
-                    <div class="display-3 fw-bold">24/7</div>
-                    <div class="h6">Поддержка</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="stat-item">
-                    <div class="display-3 fw-bold">99.9%</div>
-                    <div class="h6">Аптайм</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="stat-item">
-                    <div class="display-3 fw-bold">50+</div>
-                    <div class="h6">Интеграций</div>
-                </div>
-            </div>
+        <div class="mb-5">
+            <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">УСЛУГИ</p>
+            <h2 class="display-6 fw-extrabold mb-2 border-0 p-0">Ключевые компетенции</h2>
+            <p class="text-muted">Backend-разработка, AI-интеграция, информационная безопасность</p>
         </div>
-    </div>
-</section>
-
-<!-- Ключевые модули -->
-<section class="modules-section py-5">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="display-5 fw-bold">Основные модули системы</h2>
-            <p class="lead text-muted">Всё необходимое для управления бизнесом</p>
-        </div>
-
         <div class="row g-4">
-            @foreach (var module in modules)
+            @foreach (var comp in competencies)
             {
-                <div class="col-lg-4 col-md-6">
-                    <div class="module-card p-4 border rounded-3 hover-shadow bg-white h-100">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="module-icon me-3">
-                                <i class="bi @module.Icon fs-2 text-primary"></i>
-                            </div>
-                            <h3 class="h5 mb-0">@module.Title</h3>
-                        </div>
-                        <p class="text-muted mb-3">@module.Description</p>
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar bg-primary" role="progressbar"
-                                 style="width: @module.Progress%"></div>
-                        </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="border border-dark border-2 p-4 h-100 bg-white">
+                        <h3 class="h5 fw-bold mb-3">@comp.Title</h3>
+                        <p class="small text-muted mb-0 lh-base">@comp.Description</p>
                     </div>
                 </div>
             }
@@ -124,71 +76,118 @@
     </div>
 </section>
 
+@* ======================================================================== *@
+@*  TECH STACK                                                              *@
+@* ======================================================================== *@
+<section class="bg-light py-5">
+    <div class="container">
+        <div class="mb-5">
+            <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">ИНСТРУМЕНТЫ</p>
+            <h2 class="display-6 fw-extrabold mb-2 border-0 p-0">Стек технологий</h2>
+            <p class="text-muted">Инструменты, с которыми работаем ежедневно</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (var tech in techStack)
+            {
+                <span class="border border-dark border-2 px-3 py-1 font-monospace small fw-semibold bg-white">@tech.Name</span>
+            }
+        </div>
+    </div>
+</section>
 
+@* ======================================================================== *@
+@*  PROBLEMS                                                                *@
+@* ======================================================================== *@
+<section id="problems" class="bg-white py-5">
+    <div class="container">
+        <div class="mb-5">
+            <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">КЕЙСЫ</p>
+            <h2 class="display-6 fw-extrabold mb-2 border-0 p-0">С какими задачами к нам приходят</h2>
+        </div>
+        <div class="row g-4">
+            @foreach (var problem in problems)
+            {
+                <div class="col-lg-6">
+                    <div class="border border-dark border-2 border-start border-5 p-4 h-100 bg-white">
+                        <p class="mb-3 lh-base">@problem.Text</p>
+                        <p class="font-monospace small fw-bold text-muted text-uppercase mb-0">
+                            — @problem.Label
+                        </p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  CTA                                                                     *@
+@* ======================================================================== *@
+<section class="bg-light border-top border-bottom border-dark border-2 py-5">
+    <div class="container text-center">
+        <h2 class="display-6 fw-extrabold mb-3 border-0 p-0">
+            Готовы обсудить внедрение AI в вашу инфраструктуру?
+        </h2>
+        <p class="text-muted mx-auto mb-4" style="max-width: 560px;">
+            Спроектируем архитектуру, развернём LLM в вашем контуре, подключим к учётным системам.
+            Без компромиссов по безопасности.
+        </p>
+        <a href="/calculator" class="btn btn-dark btn-lg rounded-0 text-uppercase fw-semibold px-5 py-3 text-decoration-none">
+            Рассчитать стоимость проекта
+        </a>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  FOOTER                                                                  *@
+@* ======================================================================== *@
+<footer class="bg-white py-4">
+    <div class="container text-center">
+        <span class="font-monospace fw-bold small">LUNENUS<span class="fw-extrabold text-muted">UAM</span></span>
+        <span class="text-secondary mx-2">/</span>
+        <span class="small text-muted">Корпоративные AI-системы &copy; @DateTime.Now.Year</span>
+    </div>
+</footer>
 
 @code {
-    private List<Feature> features = new()
+    private readonly List<StatItem> stats = new()
     {
-        new Feature { Icon = "bi-lightning-charge", Title = "Быстрое внедрение", Description = "Настройка системы за 3-7 дней под ключ" },
-        new Feature { Icon = "bi-shield-check", Title = "Безопасность данных", Description = "Шифрование и защита всех данных клиентов" },
-        new Feature { Icon = "bi-phone", Title = "Мобильный доступ", Description = "Работайте где угодно с любого устройства" }
+        new("100%", "On‑Premise"),
+        new("24/7", "Мониторинг"),
+        new("0", "Утечек в LLM"),
+        new("50+", "Интеграций"),
     };
 
-    private List<Module> modules = new()
+    private readonly List<Competency> competencies = new()
     {
-        new Module { Icon = "bi-people", Title = "Управление персоналом", Description = "Полный цикл HR процессов", Progress = 100 },
-        new Module { Icon = "bi-cash-stack", Title = "Финансы", Description = "Бухгалтерия и отчетность", Progress = 100 },
-        new Module { Icon = "bi-box-seam", Title = "Склад", Description = "Учет товаров и запасов", Progress = 85 },
-        new Module { Icon = "bi-cart", Title = "Продажи", Description = "CRM и управление сделками", Progress = 90 },
-        new Module { Icon = "bi-graph-up", Title = "Аналитика", Description = "Отчеты и прогнозы", Progress = 75 },
-        new Module { Icon = "bi-files", Title = "Документооборот", Description = "Электронный документооборот", Progress = 80 }
+        new("RAG‑системы", "Конвейеры «поиск → извлечение → генерация» для анализа документов, переписок и аудиозаписей с привязкой к базе знаний предприятия."),
+        new("MCP‑серверы и API‑шлюзы", "Серверная инфраструктура на .NET (REST API), связывающая бизнес‑приложения заказчика с языковыми моделями."),
+        new("Локальное развёртывание LLM", "Полный цикл: от подбора оборудования до Docker-оркестрации и CI/CD. Для организаций с закрытым контуром."),
+        new("Шифрование и защита ПДн", "Автоматическое выявление и маскирование персональных данных до передачи в LLM, пост‑проверка результатов."),
+        new("Гибридные архитектуры", "Экономичная модель: безопасность на своей стороне, сложный интеллект — у облачных провайдеров через Open Router."),
+        new("Интеграция в учётные системы", "Соединение LLM‑конвейеров с Pyrus, CRM, BPM через REST API с автообновлением полей задач."),
+        new("Мониторинг коммуникаций", "Выявление утечек, коррупционных схем, автоматическая группировка персонала по рискам на основе анализа переписок и звонков."),
+        new("Специализированные AI‑модели", "Проверка документов, машинный перевод, генерация служебных записок и сводок под конкретные бизнес‑процессы."),
     };
 
-    private List<Testimonial> testimonials = new()
+    private readonly List<TechItem> techStack = new()
     {
-        new Testimonial
-        {
-            Name = "Иван Петров",
-            Position = "CEO, ТехноСтарт",
-            Avatar = "/avatars/avatar1.jpg",
-            Text = "LunenusErp помог нам автоматизировать все бизнес-процессы. Отличное решение!"
-        },
-        new Testimonial
-        {
-            Name = "Мария Сидорова",
-            Position = "Финансовый директор",
-            Avatar = "/avatars/avatar2.jpg",
-            Text = "Удобный интерфейс, отличная поддержка. Рекомендую!"
-        },
-        new Testimonial
-        {
-            Name = "Алексей Иванов",
-            Position = "IT-директор",
-            Avatar = "/avatars/avatar3.jpg",
-            Text = "Гибкая настройка под любые задачи. Мы довольны выбором."
-        }
+        new("Python"), new(".NET 9"), new("ASP.NET Core"), new("Docker / Compose"),
+        new("REST API"), new("Open Web UI"), new("Open Router"), new("RAG"),
+        new("LLM (локальные)"), new("LLM (облачные)"), new("Pyrus API"),
+        new("PostgreSQL"), new("CI/CD"),
     };
 
-    private class Feature
+    private readonly List<Problem> problems = new()
     {
-        public string Icon { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
-    }
+        new("Утечки данных", "«У нас более 100 сотрудников и большой объём переписок и звонков — необходимо понимать, кто допускает утечку информации, а кто просто неэффективен.»"),
+        new("Закрытый контур", "«Требуется внедрить AI-агента, но корпоративные данные запрещено отправлять в открытые LLM из соображений безопасности.»"),
+        new("Автоматизация", "«Документы должны проверяться, переводиться, а задачи в Pyrus — обновляться автоматически, без участия операторов.»"),
+        new("On‑Premise LLM", "«Необходим сервер для LLM, развёрнутый непосредственно в нашем контуре, с шифрованием всех персональных данных из Bitrix24 перед передачей в облачную модель.»"),
+    };
 
-    private class Module
-    {
-        public string Icon { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public int Progress { get; set; }
-    }
-
-    private class Testimonial
-    {
-        public string Name { get; set; }
-        public string Position { get; set; }
-        public string Avatar { get; set; }
-        public string Text { get; set; }
-    }
+    private sealed record StatItem(string Value, string Label);
+    private sealed record Competency(string Title, string Description);
+    private sealed record TechItem(string Name);
+    private sealed record Problem(string Label, string Text);
 }

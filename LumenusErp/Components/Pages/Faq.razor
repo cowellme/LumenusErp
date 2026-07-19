@@ -1,0 +1,155 @@
+﻿@page "/faq"
+@using LumenusErp.Services
+@using Markdig
+@rendermode InteractiveServer
+<PageTitle>FAQ — LunenusUam</PageTitle>
+
+@* ======================================================================== *@
+@*  HERO                                                                   *@
+@* ======================================================================== *@
+<section class="faq-hero">
+    <div class="container">
+        <p class="faq-hero__tag">СПРАВКА</p>
+        <h1 class="faq-hero__title">Часто задаваемые вопросы</h1>
+        <p class="faq-hero__subtitle">
+            Ответы о системе, развёртывании и безопасности.
+            Если не нашли нужного — задайте вопрос AI-ассистенту.
+        </p>
+        <div class="faq-hero__chips">
+            <span class="faq-chip">Telegram интеграция</span>
+            <span class="faq-chip">Локальное решение</span>
+            <span class="faq-chip">Постоянная поддержка</span>
+        </div>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  SEARCH                                                                  *@
+@* ======================================================================== *@
+<section class="faq-search">
+    <div class="container">
+        <div class="faq-search__row">
+            <div class="faq-search__input-wrap">
+                <span class="faq-search__icon">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="2"/>
+                        <line x1="11.5" y1="11.5" x2="16" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <input type="text"
+                       class="faq-search__input"
+                       placeholder="Напишите ваш вопрос..."
+                       @bind="searchQuery"
+                       @bind:event="oninput"
+                       @onkeydown="HandleKeyDown" />
+                @if (!string.IsNullOrWhiteSpace(searchQuery))
+                {
+                    <button class="faq-search__clear" @onclick="ClearSearch" type="button" title="Очистить">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <line x1="13" y1="1" x2="1" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                }
+                <button class="faq-search__submit" @onclick="AskQuestion" type="button"
+                        disabled="@(string.IsNullOrWhiteSpace(searchQuery) || isThinking)">
+                    СПРОСИТЬ
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  THINKING / RESPONSE                                                     *@
+@* ======================================================================== *@
+<section class="faq-response">
+    <div class="container">
+        @if (isThinking)
+        {
+            <div class="faq-response__thinking">
+                <span class="faq-response__thinking-dot"></span>
+                <span>AI-ассистент анализирует вопрос</span>
+                <span class="faq-response__thinking-ellipsis">...</span>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(response))
+        {
+            <div class="faq-response__card">
+                <div class="faq-response__card-head">
+                    <span>ОТВЕТ AI-АССИСТЕНТА</span>
+                    <button class="faq-response__card-close" @onclick="ClearResponse" title="Закрыть">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <line x1="13" y1="1" x2="1" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="faq-response__card-body">
+                    <MarkdownRenderer Content="@response" />
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  CONTACT                                                                 *@
+@* ======================================================================== *@
+<section class="faq-contact">
+    <div class="container text-center">
+        <p class="faq-contact__tag">ПОДДЕРЖКА</p>
+        <h2 class="faq-contact__title">Остались вопросы?</h2>
+        <p class="faq-contact__subtitle">
+            Свяжитесь напрямую — ответим в течение рабочего дня.
+        </p>
+        <div class="faq-contact__actions">
+            <a href="mailto:info@lumenustech.ru" class="btn-primary" style="text-decoration:none;">
+                info@lumenustech.ru
+            </a>
+            <a href="https://t.me/lumenustech_bot" class="btn-secondary" style="text-decoration:none;">
+                Telegram
+            </a>
+        </div>
+    </div>
+</section>
+
+@code {
+    private string searchQuery = string.Empty;
+    private string response = string.Empty;
+    private bool isThinking;
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery) && !isThinking)
+        {
+            await AskQuestion();
+        }
+    }
+
+    private async Task AskQuestion()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery) || isThinking) return;
+
+        isThinking = true;
+        await InvokeAsync(StateHasChanged);
+
+        var responseRaw = await AiModule.SendQuestionFaqDeepseek(searchQuery);
+        response = string.IsNullOrEmpty(responseRaw)
+            ? "Не удалось сгенерировать ответ. Попробуйте переформулировать вопрос."
+            : responseRaw;
+
+        isThinking = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = string.Empty;
+    }
+
+    private void ClearResponse()
+    {
+        response = string.Empty;
+    }
+}

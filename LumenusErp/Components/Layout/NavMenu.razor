@@ -2,66 +2,116 @@
 
 @inject NavigationManager NavigationManager
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">LumenusErp</a>
+@* ── Desktop nav ───────────────────────────────────────────────────── *@
+<nav class="d-none d-md-flex align-items-center flex-grow-1">
+    @* Left links *@
+    <div class="d-flex align-items-center">
+        <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="" Match="NavLinkMatch.All">
+            Главная
+        </NavLink>
+        <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="projects">
+            Проекты
+        </NavLink>
     </div>
-</div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Главная
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="add-space">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Пространства
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="faq">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> ЧаВо
-            </NavLink>
-        </div>
-
-
+    @* Right auth *@
+    <div class="d-flex align-items-center ms-auto">
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Manage">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
-                        </button>
-                    </form>
-                </div>
+                
+                <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="calculator">
+                    Калькулятор
+                </NavLink>
+
+                <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small d-flex align-items-center gap-2 text-decoration-none" href="Account/Manage">
+                    @context.User.Identity?.Name
+                    <span class="badge bg-dark rounded-0 font-monospace fw-bold" style="font-size:0.6rem; letter-spacing:0.1em;">ONLINE</span>
+                </NavLink>
+
+                <form action="Account/Logout" method="post" class="m-0">
+                    <AntiforgeryToken/>
+                    <input type="hidden" name="ReturnUrl" value="@currentUrl"/>
+                    <button type="submit" class="nav-link px-3 py-2 text-muted small font-monospace text-uppercase border-0 bg-transparent fw-semibold">
+                        Выход
+                    </button>
+                </form>
+                <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="Account/Register">
+                    Регистрация
+                </NavLink>
             </Authorized>
             <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Регистрация
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Login">
-                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Вход
-                    </NavLink>
-                </div>
+                
+                <NavLink class="nav-link px-3 py-2 border-start border-dark border-2 text-dark fw-semibold small text-decoration-none" href="Account/Login">
+                    Вход
+                </NavLink>
             </NotAuthorized>
         </AuthorizeView>
-    </nav>
+    </div>
+</nav>
+
+@* ── Mobile overlay ────────────────────────────────────────────────── *@
+<div class="collapse d-md-none position-fixed top-0 start-0 w-100 h-100 bg-white overflow-auto" style="z-index:1035; padding-top: 56px;" id="mobileNav">
+    <p class="font-monospace small fw-bold text-muted text-uppercase px-4 pt-3 pb-2 mb-3 border-bottom border-dark border-2">
+        Навигация
+    </p>
+
+    <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
+             href="" Match="NavLinkMatch.All"
+             data-bs-toggle="collapse" data-bs-target="#mobileNav">
+        Главная
+    </NavLink>
+    <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
+             href="projects"
+             data-bs-toggle="collapse" data-bs-target="#mobileNav">
+        Проекты
+    </NavLink>
+    <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
+             href="calculator"
+             data-bs-toggle="collapse" data-bs-target="#mobileNav">
+        Калькулятор
+    </NavLink>
+
+    <hr class="border-dark border-2 my-3 mx-4">
+
+    <AuthorizeView>
+        <Authorized>
+            <p class="font-monospace small fw-bold text-muted text-uppercase px-4 pt-2 pb-2 mb-3 border-bottom border-dark border-2">
+                Аккаунт
+            </p>
+            <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
+                     href="Account/Manage"
+                     data-bs-toggle="collapse" data-bs-target="#mobileNav">
+                @context.User.Identity?.Name
+            </NavLink>
+            <form action="Account/Logout" method="post">
+                <AntiforgeryToken />
+                <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                <button type="submit" class="d-block w-100 text-start px-4 py-3 text-muted small font-monospace text-uppercase fw-bold bg-transparent border-0 border-bottom"
+                        data-bs-toggle="collapse" data-bs-target="#mobileNav">
+                    Выход
+                </button>
+            </form>
+        </Authorized>
+        <NotAuthorized>
+            <p class="font-monospace small fw-bold text-muted text-uppercase px-4 pt-2 pb-2 mb-3 border-bottom border-dark border-2">
+                Доступ
+            </p>
+            <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
+                     href="Account/Register"
+                     data-bs-toggle="collapse" data-bs-target="#mobileNav">
+                Регистрация
+            </NavLink>
+            <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
+                     href="Account/Login"
+                     data-bs-toggle="collapse" data-bs-target="#mobileNav">
+                Вход
+            </NavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+
+    <p class="font-monospace small text-muted px-4 pt-4 mt-4 border-top border-dark border-2 fw-semibold">
+        Lunenus<span class="fw-extrabold text-dark">Uam</span>
+    </p>
 </div>
 
 @code {
@@ -84,4 +134,3 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

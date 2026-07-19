@@ -1,0 +1,267 @@
+﻿@page "/calculator"
+@rendermode InteractiveServer
+@using LumenusErp.Services
+@using Newtonsoft.Json
+@using LumenusErp.Components.Tools
+<PageTitle>Расчёт стоимости — LunenusUam</PageTitle>
+
+@* ======================================================================== *@
+@*  HERO                                                                   *@
+@* ======================================================================== *@
+<section class="bg-white border-bottom border-dark border-2 py-5">
+    <div class="container">
+        <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">КАЛЬКУЛЯТОР</p>
+        <h1 class="display-5 fw-extrabold border-0 p-0 mb-3">Рассчитайте стоимость проекта</h1>
+        <p class="text-muted" style="max-width: 580px;">
+            Опишите задачу — AI-ассистент оценит объём работ, стек и примерный бюджет.
+            После расчёта мы свяжемся с вами для уточнения деталей.
+        </p>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  FORM                                                                    *@
+@* ======================================================================== *@
+<section class="bg-white py-4">
+    <div class="container">
+        <div class="border border-dark border-2 p-4 p-md-5">
+
+            @* ── Quick chips ────────────────────────────────────────── *@
+            <div class="d-flex flex-wrap align-items-center gap-2 pb-4 mb-4 border-bottom border-dark border-2">
+                <span class="font-monospace fw-bold text-muted text-uppercase me-1" style="font-size:0.65rem; letter-spacing:0.1em;">ЧАСТЫЕ ЗАДАЧИ:</span>
+                @foreach (var chip in quickChips)
+                {
+                    <button type="button"
+                            class="btn @(selectedChip == chip.Label ? "btn-dark" : "btn-outline-dark") rounded-0 btn-sm fw-semibold"
+                            style="font-size:0.78rem;"
+                            @onclick="() => SelectChip(chip.Label)">
+                        @chip.Label
+                    </button>
+                }
+            </div>
+
+            @* ── Textarea ───────────────────────────────────────────── *@
+            <div class="mb-4">
+                <label class="font-monospace small fw-bold text-muted text-uppercase mb-2" for="project-desc">
+                    ОПИШИТЕ ВАШ ПРОЕКТ
+                </label>
+                <textarea id="project-desc"
+                          class="form-control rounded-0 border-dark border-2"
+                          style="resize:vertical; font-size:0.9rem;"
+                          rows="14"
+                          placeholder="Пример:&#10;&#10;Производственная компания, 200 сотрудников. Нужно анализировать внутреннюю переписку в Telegram и корпоративную почту на предмет утечек коммерческой информации. Данные нельзя отправлять в облако — всё должно быть развёрнуто локально. Бюджет ориентировочно до 2 млн руб., сроки — 2–3 месяца."
+                          @bind="description"
+                          disabled="@isLoading"></textarea>
+                <div class="form-text small mt-1" style="font-size:0.72rem; color:#888;">
+                    Чем подробнее описание — тем точнее оценка. Укажите масштаб, тип данных, требования к безопасности, бюджетные и временные рамки.
+                </div>
+            </div>
+
+            @* ── Contacts ───────────────────────────────────────────── *@
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="font-monospace small fw-bold text-muted text-uppercase mb-2" for="contact-name">
+                        КАК К ВАМ ОБРАЩАТЬСЯ
+                    </label>
+                    <input type="text" id="contact-name"
+                           class="form-control rounded-0 border-dark border-2"
+                           placeholder="Иван Петров"
+                           disabled="@isLoading"
+                           @bind="contactName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="font-monospace small fw-bold text-muted text-uppercase mb-2" for="contact-tg">
+                        TELEGRAM ИЛИ ПОЧТА
+                    </label>
+                    <input type="text" id="contact-tg"
+                           class="form-control rounded-0 border-dark border-2"
+                           placeholder="@@username или email@example.com"
+                           disabled="@isLoading"
+                           @bind="contactContact" />
+                </div>
+            </div>
+
+            @* ── Submit ─────────────────────────────────────────────── *@
+            <button type="button"
+                    class="btn btn-dark btn-lg rounded-0 w-100 fw-bold text-uppercase"
+                    style="letter-spacing:0.06em;"
+                    disabled="@(isLoading || string.IsNullOrWhiteSpace(description))"
+                    @onclick="SubmitAsync">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span>AI АНАЛИЗИРУЕТ ПРОЕКТ</span>
+                }
+                else
+                {
+                    <span>ОТПРАВИТЬ НА ОЦЕНКУ AI</span>
+                }
+            </button>
+        </div>
+
+        @* ── RESULT ────────────────────────────────────────────────── *@
+        @if (result != null)
+        {
+            <div class="border border-dark border-2 mt-4">
+                <div class="bg-dark text-white px-4 py-3 d-flex align-items-center justify-content-between">
+                    <span class="font-monospace small fw-bold text-uppercase" style="letter-spacing:0.08em;">ОЦЕНКА AI-АССИСТЕНТА</span>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => result = null" title="Закрыть" style="font-size:0.7rem;"></button>
+                </div>
+                <div class="p-4 p-md-5">
+                    <div class="row g-3 pb-4 mb-4 border-bottom border-dark border-2">
+                        <div class="col text-center border border-secondary p-3">
+                            <span class="d-block font-monospace small fw-bold text-muted text-uppercase mb-1">БЮДЖЕТ</span>
+                            <span class="fw-bold">@result.EstimatedBudget</span>
+                        </div>
+                        <div class="col text-center border border-secondary p-3">
+                            <span class="d-block font-monospace small fw-bold text-muted text-uppercase mb-1">СРОК</span>
+                            <span class="fw-bold">@result.EstimatedTimeline</span>
+                        </div>
+                        <div class="col text-center border border-secondary p-3">
+                            <span class="d-block font-monospace small fw-bold text-muted text-uppercase mb-1">СТЕК</span>
+                            <span class="fw-bold">@result.RecommendedStack</span>
+                        </div>
+                    </div>
+
+                    <MarkdownViewer Content="@result.Detail" />
+
+                </div>
+            </div>
+        }
+
+        @* ── ERROR ──────────────────────────────────────────────────── *@
+        @if (errorMessage != null)
+        {
+            <div class="alert alert-danger rounded-0 border-2 d-flex align-items-center mt-4 mb-0" role="alert">
+                <span>@errorMessage</span>
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-0 ms-auto fw-bold font-monospace text-uppercase"
+                        style="font-size:0.7rem; letter-spacing:0.06em;"
+                        @onclick="() => errorMessage = null">
+                    ПОВТОРИТЬ
+                </button>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private string description = string.Empty;
+    private string contactName = string.Empty;
+    private string contactContact = string.Empty;
+    private string selectedChip = string.Empty;
+    private bool isLoading;
+    private string? errorMessage;
+    private EstimateResult? result;
+
+    private readonly List<ChipItem> quickChips = new()
+    {
+        new("RAG-система", "Нужна RAG-система для анализа документов"),
+        new("Мониторинг", "Нужен мониторинг переписок и звонков сотрудников"),
+        new("On-Premise LLM", "Нужно развернуть LLM локально"),
+        new("Интеграция с CRM", "Нужна интеграция AI с учётными системами"),
+        new("Шифрование ПДн", "Нужна защита персональных данных в AI-пайплайне"),
+    };
+
+    private void SelectChip(string chip)
+    {
+        if (isLoading) return;
+        selectedChip = chip;
+        var template = quickChips.First(c => c.Label == chip).Template;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            description = template + "\n\n";
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(description)) return;
+        isLoading = true;
+        errorMessage = null;
+        result = null;
+
+        try
+        {
+            result = await EstimateProjectAsync(description, contactName, contactContact);
+            var dd = result;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Не удалось выполнить оценку. Попробуйте позже или свяжитесь напрямую через Telegram.";
+            Console.Error.WriteLine($"[Calculator] Error: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task<EstimateResult?> EstimateProjectAsync(string desc, string name, string contact)
+    {
+        var prompt = desc;
+
+        var responseRaw = await AiModule.SendQuestionFaqDeepseek(prompt);
+
+        if (string.IsNullOrWhiteSpace(responseRaw))
+            throw new InvalidOperationException("Пустой ответ от AI");
+
+        try
+        {
+            var json = ExtractJson(responseRaw);
+            if (json != null)
+            {
+                var structured = JsonConvert.DeserializeObject<EstimateResult>(json);
+                return structured;
+            }
+        }
+        catch
+        {
+            // Fall through to raw markdown
+        }
+
+        return new EstimateResult(
+            Summary: responseRaw,
+            EstimatedBudget: "",
+            EstimatedTimeline: "",
+            RecommendedStack: "",
+            Detail: ""
+        );
+    }
+
+    private static string? ExtractJson(string raw)
+    {
+        var fenceStart = raw.IndexOf("```json", StringComparison.OrdinalIgnoreCase);
+        if (fenceStart >= 0)
+        {
+            fenceStart = raw.IndexOf('\n', fenceStart) + 1;
+            var fenceEnd = raw.IndexOf("```", fenceStart, StringComparison.Ordinal);
+            if (fenceEnd > fenceStart)
+                return raw[fenceStart..fenceEnd].Trim();
+        }
+
+        var braceStart = raw.IndexOf('{');
+        var braceEnd = raw.LastIndexOf('}');
+        if (braceStart >= 0 && braceEnd > braceStart)
+            return raw[braceStart..(braceEnd + 1)];
+
+        return null;
+    }
+
+    private sealed record ChipItem(string Label, string Template);
+
+    private sealed record EstimateResult(
+        string Summary,
+        string EstimatedBudget,
+        string EstimatedTimeline,
+        string RecommendedStack,
+        string Detail
+    );
+
+    private sealed class StructuredEstimate
+    {
+        [JsonProperty("summary")] public string? Summary { get; set; }
+        [JsonProperty("estimated_budget")] public string? EstimatedBudget { get; set; }
+        [JsonProperty("estimated_timeline")] public string? EstimatedTimeline { get; set; }
+        [JsonProperty("recommended_stack")] public string? RecommendedStack { get; set; }
+    }
+}

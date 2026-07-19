@@ -12,12 +12,7 @@ namespace LumenusErp.Data
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<ApplicationUser>()
-                .Property(e => e.Spaces)
-                .HasConversion(
-                    s => JsonSerializer.Serialize(s, (JsonSerializerOptions)null),
-                    s => JsonSerializer.Deserialize<List<Space>>(s, (JsonSerializerOptions)null)
-                );
+            builder.Entity<ApplicationUser>();
         }
     }
 }

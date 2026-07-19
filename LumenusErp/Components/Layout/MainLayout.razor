@@ -1,55 +1,44 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="d-flex flex-column min-vh-100">
+    @* ── HEADER ────────────────────────────────────────────────── *@
+    <header class="bg-white border-bottom border-dark border-2 sticky-top">
+        <div class="container-fluid d-flex align-items-center px-3" style="height: 52px; max-width: 1280px;">
+            @* Brand *@
+            <a href="/" class="font-monospace fw-bold small text-dark text-uppercase text-decoration-none flex-shrink-0 me-4">
+                Lunenus<span class="fw-extrabold text-muted">Uam</span>
+            </a>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="faq" target="_blank">Faq</a>
+            @* Navigation *@
+            <NavMenu />
+
+            @* Right side *@
+            <div class="d-flex align-items-center gap-3 ms-auto flex-shrink-0">
+                <a href="/faq" class="text-dark fw-semibold small text-decoration-none d-none d-md-inline">FAQ</a>
+
+                <span class="font-monospace small fw-semibold text-muted d-none d-md-inline-flex align-items-center gap-1">
+                    <span class="d-inline-block bg-dark" style="width:8px;height:8px;"></span>
+                    ONLINE
+                </span>
+
+                @* Mobile burger *@
+                <button class="d-md-none btn btn-outline-dark rounded-0 border-2 p-1" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#mobileNav"
+                        aria-expanded="false" aria-controls="mobileNav" aria-label="Меню">
+                    <span class="navbar-toggler-icon" style="width:1.2em; height:1.2em;"></span>
+                </button>
+            </div>
         </div>
+    </header>
 
-        <article class="content px-4">
-            @Body
-            <!-- Bootstrap JS Bundle -->
-            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-            <!-- AOS Animation Script -->
-            <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-
-            <!-- Инициализация AOS после загрузки DOM -->
-            <script>
-                window.initAOS = () => {
-                    AOS.init({
-                        duration: 1000, // Длительность анимации
-                        once: true,     // Анимировать только один раз при скролле
-                        offset: 100     // Отступ от низа экрана
-                    });
-                };
-            </script>
-        </article>
+    @* ── CONTENT ───────────────────────────────────────────────── *@
+    <main class="flex-grow-1">
+        @Body
     </main>
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
+<div id="blazor-error-ui" class="position-fixed bottom-0 end-0 m-3 p-3 bg-white border border-danger border-2 font-monospace small text-danger d-none">
     An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    <a href="." class="fw-bold text-dark">Reload</a>
+    <span class="ms-2 text-muted" style="cursor:pointer" onclick="this.parentElement.style.display='none'">✕</span>
 </div>
-
-<script>
-    // Этот скрипт можно добавить в Layout.razor или MainLayout.razor
-    document.addEventListener('DOMContentLoaded', () => {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.remove('opacity-0', 'translate-y-10');
-                    entry.target.classList.add('opacity-100', 'translate-y-0');
-                }
-            });
-        }, { threshold: 0.1 });
-
-        document.querySelectorAll('.reveal-on-scroll').forEach((el) => observer.observe(el));
-    });
-</script>

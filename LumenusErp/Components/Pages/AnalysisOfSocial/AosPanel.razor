@@ -1,0 +1,185 @@
+﻿@page "/aos-panel"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using Shared.Models
+@inject AosDbContext AosDbContext
+@attribute [Authorize(Roles = "Admin, Aos")]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<PageTitle>Панель управления</PageTitle>
+
+<section class="bg-white py-4">
+    <div class="container">
+
+        @* ── Header ────────────────────────────────────────────────── *@
+        <div class="border-bottom border-dark border-2 pb-3 mb-4">
+            <AuthorizeView>
+                <p class="text-muted mb-1">Добро пожаловать, <strong class="text-dark">@context.User.Identity?.Name</strong></p>
+                <textarea @bind="import"></textarea>
+                <button @onclick="ImportBloggers">Импортировать</button>
+            </AuthorizeView>
+            <p class="text-muted mb-0">Всего блогеров: <strong class="text-dark">@bloggers.Count</strong></p>
+        </div>
+        
+        <div>
+            <div class="input-group mb-3">
+                
+                <input type="text"
+                       class="form-control border-dark border-2 rounded-0 border-start-0"
+                       placeholder="Поиск по имени…"
+                       @bind="searchName"
+                       @bind:event="oninput"
+                       @bind:after="OnSearchChanged" />
+            </div> 
+
+            <div class="input-group mb-3">
+            
+                <input type="text"
+                       class="form-control border-dark border-2 rounded-0 border-start-0"
+                       placeholder="Рейтинг 0-5"
+                       type="number"
+                       @bind="filterRate"
+                       @bind:event="oninput"
+                       @bind:after="OnRateChanged" />
+
+            <button class="btn btn-outline-dark border-2 rounded-0 border-start-0"
+                    type="button"
+                    @onclick="ClearAll">
+                ✕
+            </button>
+        </div>
+        </div>
+
+        @* ── Bloggers list ─────────────────────────────────────────── *@
+        @if (bloggers.Any())
+        {
+            <div class="row g-3 mb-4">
+                @foreach (var blogger in bloggers)
+                {
+                    var rateClass = GetRateClass(blogger.Rate);
+
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card-risk-simple @rateClass">
+                            
+                            <p class="card-risk-simple__social">@blogger.Social.Value.ToString()</p>
+                            <p class="card-risk-simple__name"><a href="@blogger.Url">@blogger.Name</a></p>
+                            <p class="card-risk-simple__resume">@(string.IsNullOrEmpty(blogger.Resume) ? "Резюме пока не составленно" : blogger.Resume)</p>
+
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @* ── Add button / form toggle ──────────────────────────────── *@
+        <button type="button"
+                class="btn @(isNewBlogger ? "btn-outline-dark" : "btn-dark") rounded-0 fw-semibold text-uppercase"
+                style="font-size:0.8rem; letter-spacing:0.06em;"
+                @onclick="ToggleNewBlogger">
+            @(isNewBlogger ? "Скрыть" : "Добавить")
+        </button>
+
+        @if (isNewBlogger)
+        {
+            <div class="mt-3">
+                <NewBloggerForm />
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private List<Blogger> bloggers = new List<Blogger>();
+    private bool isNewBlogger;
+    private string import = string.Empty;
+    private string filterRate = "0";
+    private string searchName = "";
+    private string searchSocial = "Все";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        bloggers = await AosDbContext.Bloggers.ToListAsync();
+        var dd = bloggers;
+    }
+
+    private void ToggleNewBlogger()
+    {
+        isNewBlogger = !isNewBlogger;
+        StateHasChanged();
+    }
+
+    private async Task ImportBloggers()
+    {
+        var lb = JsonConvert.DeserializeObject<List<Blogger>>(import);
+        if (lb != null)
+        {
+            await AosDbContext.Bloggers.AddRangeAsync(lb);
+            await AosDbContext.SaveChangesAsync();
+            await LoadData();
+            await InvokeAsync(StateHasChanged);
+        }
+       
+    }
+
+    private static string GetRateClass(int rate) => rate switch
+    {
+        0 => "risk-clean",
+        1 => "risk-clean",
+        2 => "risk-low",
+        3 => "risk-medium",
+        4 => "risk-high",
+        5 => "risk-critical",
+        _ => "risk-none"
+    };
+    
+    private async Task OnSearchChanged()
+    {
+        if (string.IsNullOrWhiteSpace(searchName))
+        {
+            await LoadData();
+        }
+        else
+        {
+            var query = searchName.Trim();
+
+            bloggers = bloggers
+                .Where(b => b.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnRateChanged()
+    {
+        if (string.IsNullOrWhiteSpace(filterRate))
+        {
+            await LoadData();
+        }
+        else
+        {
+            if(int.TryParse(filterRate, out var rate))
+            {
+                bloggers = bloggers
+                    .Where(b => b.Rate == rate)
+                    .ToList();
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+    private async Task ClearAll()
+    {
+        searchName = "";
+        filterRate = "0";
+        await LoadData();
+        await InvokeAsync(StateHasChanged);
+
+    }
+}
