@@ -1,0 +1,157 @@
+﻿@page "/admin/roles"
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using LumenusErp.Data
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+
+<PageTitle>Управление ролями — LunenusUam</PageTitle>
+
+<section class="bg-white border-bottom border-dark border-2 py-5">
+    <div class="container">
+        <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">ADMIN</p>
+        <h1 class="display-5 fw-extrabold border-0 p-0 mb-3">Управление ролями</h1>
+        <p class="text-muted">Всего пользователей: <strong class="text-dark">@users.Count</strong></p>
+    </div>
+</section>
+
+<section class="bg-white py-4">
+    <div class="container">
+
+        @* ── Users table ──────────────────────────────────────────── *@
+        <div class="table-responsive border border-dark border-2">
+            <table class="table table-borderless align-middle mb-0" style="min-width: 700px;">
+                <thead class="border-bottom border-dark border-2">
+                    <tr>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Email</th>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Текущие роли</th>
+                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        <tr class="border-bottom">
+                            <td class="px-3 py-3 small fw-semibold">@user.Email</td>
+                            <td class="px-3 py-3">
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var role in user.Roles)
+                                    {
+                                        <span class="badge bg-dark rounded-0 font-monospace fw-bold"
+                                              style="font-size:0.65rem; letter-spacing:0.06em;">
+                                            @role
+                                            <button type="button"
+                                                    class="btn-close btn-close-white ms-1"
+                                                    style="font-size:0.45rem;"
+                                                    @onclick="() => RemoveRole(user, role)"
+                                                    title="Удалить роль @role"></button>
+                                        </span>
+                                    }
+                                    @if (!user.Roles.Any())
+                                    {
+                                        <span class="text-muted small font-monospace">—</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="px-3 py-3">
+                                <div class="d-flex gap-2">
+                                    <select class="form-select form-select-sm rounded-0 border-dark border-2 font-monospace small"
+                                            style="width:auto; min-width:130px;"
+                                            @bind="selectedRoles[user.Id]">
+                                        <option value="">— Добавить роль —</option>
+                                        @foreach (var availableRole in allRoles)
+                                        {
+                                            @if (!user.Roles.Contains(availableRole))
+                                            {
+                                                <option value="@availableRole">@availableRole</option>
+                                            }
+                                        }
+                                    </select>
+                                    <button type="button"
+                                            class="btn btn-outline-dark btn-sm rounded-0 fw-bold text-uppercase"
+                                            style="font-size:0.65rem; letter-spacing:0.06em;"
+                                            disabled="@(string.IsNullOrEmpty(selectedRoles.GetValueOrDefault(user.Id)))"
+                                            @onclick="() => AddRole(user)">
+                                        +
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+@code {
+    private List<UserRow> users = new();
+    private List<string> allRoles = new();
+    private Dictionary<string, string> selectedRoles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        allRoles = await RoleManager.Roles
+            .Select(r => r.Name!)
+            .OrderBy(r => r)
+            .ToListAsync();
+
+        var appUsers = await UserManager.Users.OrderBy(u => u.Email).ToListAsync();
+
+        users = new List<UserRow>();
+        foreach (var user in appUsers)
+        {
+            var roles = await UserManager.GetRolesAsync(user);
+            users.Add(new UserRow
+            {
+                Id = user.Id,
+                Email = user.Email ?? "",
+                Roles = roles.OrderBy(r => r).ToList()
+            });
+
+            if (!selectedRoles.ContainsKey(user.Id))
+                selectedRoles[user.Id] = "";
+        }
+    }
+
+    private async Task AddRole(UserRow user)
+    {
+        var role = selectedRoles.GetValueOrDefault(user.Id);
+        if (string.IsNullOrEmpty(role)) return;
+
+        var appUser = await UserManager.FindByIdAsync(user.Id);
+        if (appUser == null) return;
+
+        if (!await UserManager.IsInRoleAsync(appUser, role))
+        {
+            await UserManager.AddToRoleAsync(appUser, role);
+        }
+
+        await LoadData();
+    }
+
+    private async Task RemoveRole(UserRow user, string role)
+    {
+        var appUser = await UserManager.FindByIdAsync(user.Id);
+        if (appUser == null) return;
+
+        await UserManager.RemoveFromRoleAsync(appUser, role);
+        await LoadData();
+    }
+
+    private sealed class UserRow
+    {
+        public string Id { get; init; } = "";
+        public string Email { get; init; } = "";
+        public List<string> Roles { get; set; } = new();
+    }
+}

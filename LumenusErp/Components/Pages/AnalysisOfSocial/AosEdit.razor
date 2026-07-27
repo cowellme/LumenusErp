@@ -1,0 +1,191 @@
+﻿@page "/aos-settings"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Shared.Models
+@inject AosDbContext AosDbContext
+@attribute [Authorize(Roles = "Admin, Aos")]
+@rendermode InteractiveServer
+
+<PageTitle>Настройки AOS — LunenusUam</PageTitle>
+
+@* ======================================================================== *@
+@*  HERO                                                                   *@
+@* ======================================================================== *@
+<section class="bg-white border-bottom border-dark border-2 py-5">
+    <div class="container">
+        <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">AOS SETTINGS</p>
+        <h1 class="display-5 fw-extrabold border-0 p-0 mb-3">Настройки системы</h1>
+        <p class="text-muted">Конфигурация промпта и интервала обновления</p>
+    </div>
+</section>
+
+@* ======================================================================== *@
+@*  FORM                                                                    *@
+@* ======================================================================== *@
+<section class="bg-white py-4">
+    <div class="container">
+        @if (_setting != null)
+        {
+            <div class="border border-dark border-2 p-4 p-md-5">
+                @* ── System Prompt ──────────────────────────────────── *@
+                <div class="mb-4">
+                    <label for="system-prompt" class="font-monospace small fw-bold text-muted text-uppercase mb-2 d-block">
+                        Системный промпт
+                    </label>
+                    <textarea id="system-prompt"
+                              class="form-control rounded-0 border-dark border-2 font-monospace small"
+                              style="resize:vertical;"
+                              rows="10"
+                              placeholder="Введите системный промпт для AI..."
+                              @bind="_setting.SystemPrompt"></textarea>
+                    <div class="form-text small mt-1" style="font-size:0.72rem; color:#888;">
+                        Этот промпт используется как базовый контекст при анализе блогеров.
+                    </div>
+                </div>
+
+                @* ── Update Time ────────────────────────────────────── *@
+                <div class="mb-4">
+                    <label for="update-time" class="font-monospace small fw-bold text-muted text-uppercase mb-2 d-block">
+                        Интервал обновления (часы)
+                    </label>
+                    <input type="number"
+                           id="update-time"
+                           class="form-control rounded-0 border-dark border-2"
+                           style="max-width:200px;"
+                           min="1"
+                           placeholder="1"
+                           @bind="_setting.UpdateTime" />
+                    <div class="form-text small mt-1" style="font-size:0.72rem; color:#888;">
+                        Как часто система автоматически сканирует блогеров. Рекомендуется: 4 часа.
+                    </div>
+                </div>
+
+                @* ── Buttons ────────────────────────────────────────── *@
+                <div class="border-top border-dark border-2 pt-4 d-flex justify-content-end gap-2">
+                    <button type="button"
+                            class="btn btn-outline-dark rounded-0 fw-semibold text-uppercase px-4"
+                            style="font-size:0.75rem; letter-spacing:0.06em;"
+                            @onclick="ResetForm">
+                        Сбросить
+                    </button>
+                    <button type="button"
+                            class="btn btn-dark rounded-0 fw-bold text-uppercase px-5"
+                            style="font-size:0.75rem; letter-spacing:0.06em;"
+                            @onclick="SaveSettings">
+                        @(isSaving ? "Сохранение..." : "Сохранить")
+                    </button>
+                </div>
+            </div>
+
+            @* ── Success message ────────────────────────────────────── *@
+            @if (showSuccess)
+            {
+                <div class="alert alert-success rounded-0 border-2 mt-3 font-monospace small fw-bold d-flex align-items-center mb-0" role="alert">
+                    Настройки сохранены.
+                    <button type="button" class="btn-close ms-auto" style="font-size:0.6rem;" @onclick="() => showSuccess = false"></button>
+                </div>
+            }
+
+            @* ── Error message ──────────────────────────────────────── *@
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger rounded-0 border-2 mt-3 font-monospace small d-flex align-items-center mb-0" role="alert">
+                    @errorMessage
+                    <button type="button" class="btn-close ms-auto" style="font-size:0.6rem;" @onclick="() => errorMessage = null"></button>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="border border-dark border-2 p-5 text-center">
+                <p class="text-muted font-monospace small text-uppercase fw-bold mb-3">Настройки не найдены</p>
+                <button type="button"
+                        class="btn btn-dark rounded-0 fw-bold text-uppercase px-5"
+                        style="font-size:0.75rem; letter-spacing:0.06em;"
+                        @onclick="CreateDefaultSettings">
+                    Создать настройки
+                </button>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private Setting? _setting;
+    private Setting? _original;
+    private bool isSaving;
+    private bool showSuccess;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _setting = await AosDbContext.Settings.FirstOrDefaultAsync();
+        if (_setting != null)
+        {
+            _original = new Setting
+            {
+                Id = _setting.Id,
+                SystemPrompt = _setting.SystemPrompt,
+                UpdateTime = _setting.UpdateTime
+            };
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (_setting == null) return;
+
+        isSaving = true;
+        showSuccess = false;
+        errorMessage = null;
+
+        try
+        {
+            await AosDbContext.SaveChangesAsync();
+            showSuccess = true;
+            _original = new Setting
+            {
+                Id = _setting.Id,
+                SystemPrompt = _setting.SystemPrompt,
+                UpdateTime = _setting.UpdateTime
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Ошибка при сохранении: " + ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        if (_original == null || _setting == null) return;
+        _setting.SystemPrompt = _original.SystemPrompt;
+        _setting.UpdateTime = _original.UpdateTime;
+    }
+
+    private async Task CreateDefaultSettings()
+    {
+        _setting = new Setting
+        {
+            SystemPrompt = "",
+            UpdateTime = 4
+        };
+        AosDbContext.Settings.Add(_setting);
+        await AosDbContext.SaveChangesAsync();
+        _original = new Setting
+        {
+            Id = _setting.Id,
+            SystemPrompt = _setting.SystemPrompt,
+            UpdateTime = _setting.UpdateTime
+        };
+    }
+}

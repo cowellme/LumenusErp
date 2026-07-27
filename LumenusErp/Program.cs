@@ -59,11 +59,11 @@ using (var scope = app.Services.CreateScope())
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
     //// Для разработки можно использовать:
-    //await dbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
-    //await dbContext.Database.EnsureCreatedAsync();
+    await dbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
+    await dbContext.Database.EnsureCreatedAsync();
 
-    //await aosDbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
-    //await aosDbContext.Database.EnsureCreatedAsync();
+    await aosDbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
+    await aosDbContext.Database.EnsureCreatedAsync();
 
     // ── Засидировать роли ────────────────────────────────────────────
     var roles = new[] { "Admin", "Manager", "User", "Ghost", "Aos" };

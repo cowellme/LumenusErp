@@ -12,35 +12,43 @@
         <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="projects">
             Проекты
         </NavLink>
-    </div>
-
-    @* Right auth *@
-    <div class="d-flex align-items-center ms-auto">
         <AuthorizeView>
             <Authorized>
-                
+
                 <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="calculator">
                     Калькулятор
                 </NavLink>
 
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    @* Right auth *@
+    <div class="d-flex align-items-center ms-auto">
+        <AuthorizeView Roles="Admin, Aos">
+            
+            <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="aos-panel">
+                Мой проект
+            </NavLink>
+
+        </AuthorizeView>
+        <AuthorizeView>
+            <Authorized>
+
                 <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small d-flex align-items-center gap-2 text-decoration-none" href="Account/Manage">
-                    @context.User.Identity?.Name
-                    <span class="badge bg-dark rounded-0 font-monospace fw-bold" style="font-size:0.6rem; letter-spacing:0.1em;">ONLINE</span>
+                    Аккаунт @* @context.User.Identity?.Name *@
                 </NavLink>
 
                 <form action="Account/Logout" method="post" class="m-0">
                     <AntiforgeryToken/>
                     <input type="hidden" name="ReturnUrl" value="@currentUrl"/>
-                    <button type="submit" class="nav-link px-3 py-2 text-muted small font-monospace text-uppercase border-0 bg-transparent fw-semibold">
+                    <button type="submit" class="nav-link px-3 py-2 text-danger fw-semibold small text-decoration-none">
                         Выход
                     </button>
                 </form>
-                <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="Account/Register">
-                    Регистрация
-                </NavLink>
             </Authorized>
             <NotAuthorized>
-                
+
                 <NavLink class="nav-link px-3 py-2 border-start border-dark border-2 text-dark fw-semibold small text-decoration-none" href="Account/Login">
                     Вход
                 </NavLink>
@@ -49,74 +57,9 @@
     </div>
 </nav>
 
-@* ── Mobile overlay ────────────────────────────────────────────────── *@
-<div class="collapse d-md-none position-fixed top-0 start-0 w-100 h-100 bg-white overflow-auto" style="z-index:1035; padding-top: 56px;" id="mobileNav">
-    <p class="font-monospace small fw-bold text-muted text-uppercase px-4 pt-3 pb-2 mb-3 border-bottom border-dark border-2">
-        Навигация
-    </p>
-
-    <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
-             href="" Match="NavLinkMatch.All"
-             data-bs-toggle="collapse" data-bs-target="#mobileNav">
-        Главная
-    </NavLink>
-    <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
-             href="projects"
-             data-bs-toggle="collapse" data-bs-target="#mobileNav">
-        Проекты
-    </NavLink>
-    <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
-             href="calculator"
-             data-bs-toggle="collapse" data-bs-target="#mobileNav">
-        Калькулятор
-    </NavLink>
-
-    <hr class="border-dark border-2 my-3 mx-4">
-
-    <AuthorizeView>
-        <Authorized>
-            <p class="font-monospace small fw-bold text-muted text-uppercase px-4 pt-2 pb-2 mb-3 border-bottom border-dark border-2">
-                Аккаунт
-            </p>
-            <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
-                     href="Account/Manage"
-                     data-bs-toggle="collapse" data-bs-target="#mobileNav">
-                @context.User.Identity?.Name
-            </NavLink>
-            <form action="Account/Logout" method="post">
-                <AntiforgeryToken />
-                <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                <button type="submit" class="d-block w-100 text-start px-4 py-3 text-muted small font-monospace text-uppercase fw-bold bg-transparent border-0 border-bottom"
-                        data-bs-toggle="collapse" data-bs-target="#mobileNav">
-                    Выход
-                </button>
-            </form>
-        </Authorized>
-        <NotAuthorized>
-            <p class="font-monospace small fw-bold text-muted text-uppercase px-4 pt-2 pb-2 mb-3 border-bottom border-dark border-2">
-                Доступ
-            </p>
-            <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
-                     href="Account/Register"
-                     data-bs-toggle="collapse" data-bs-target="#mobileNav">
-                Регистрация
-            </NavLink>
-            <NavLink class="d-block px-4 py-3 text-dark fw-semibold border-bottom text-decoration-none"
-                     href="Account/Login"
-                     data-bs-toggle="collapse" data-bs-target="#mobileNav">
-                Вход
-            </NavLink>
-        </NotAuthorized>
-    </AuthorizeView>
-
-    <p class="font-monospace small text-muted px-4 pt-4 mt-4 border-top border-dark border-2 fw-semibold">
-        Lunenus<span class="fw-extrabold text-dark">Uam</span>
-    </p>
-</div>
 
 @code {
     private string? currentUrl;
-
     protected override void OnInitialized()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
@@ -133,4 +76,6 @@
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
+
+
 }

@@ -1,0 +1,145 @@
+﻿@implements IDisposable
+
+@inject NavigationManager NavigationManager
+
+
+<button id="anchor" popovertarget="box">
+    <svg width="30" height="30" viewBox="0 0 22 22" fill="none">
+        <line x1="3" y1="5" x2="19" y2="5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="3" y1="11" x2="19" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="3" y1="17" x2="19" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+</button>
+
+
+
+
+
+<div id="box" class="menu" popover>
+    <AuthorizeView Roles="Aos">
+        <label class="menu-label">Личное</label>
+        <div class="mobile-link-box">
+            <NavLink class="mobile-link" href="aos-panel">
+                Мой проект
+            </NavLink>
+        </div>
+    </AuthorizeView>
+    <AuthorizeView>
+        <Authorized>
+            <label class="menu-label">Общее</label>
+            <div class="mobile-link-box">
+                <NavLink class="mobile-link" href="">
+                    Главная
+                </NavLink>
+            </div>
+            <div class="mobile-link-box">
+                <NavLink class="mobile-link" href="calculator">
+                    Калькулятор
+                </NavLink>
+            </div>
+            <div class="mobile-link-box">
+                <NavLink class="mobile-link" href="projects">
+                    Проекты
+                </NavLink>
+            </div>
+            <label class="menu-label">Управление</label>
+            <div class="mobile-link-box">
+                <NavLink class="mobile-link" href="Account/Manage">
+                    Аккаунт @* @context.User.Identity?.Name *@
+                </NavLink>
+            </div>
+            
+            <div class="mobile-link-box">
+                <form action="Account/Logout" method="post" class="m-0">
+                    <AntiforgeryToken/>
+                    <input type="hidden" name="ReturnUrl" value="@currentUrl"/>
+                    <button type="submit" class="logout">
+                        Выход
+                    </button>
+                </form>
+            </div>
+
+
+        </Authorized>
+        <NotAuthorized>
+            <div class="mobile-link-box">
+                <NavLink class="mobile-link" href="">
+                    Главная
+                </NavLink>
+            </div>
+            <div class="mobile-link-box">
+                <NavLink class="mobile-link" href="Account/Login">
+                    Вход
+                </NavLink>
+            </div>
+
+        </NotAuthorized>
+    </AuthorizeView>
+
+</div>
+
+
+<style>
+    .menu-icon {
+        width: 40px !important;
+        height: 40px !important;
+    }
+
+    .mobile-link {
+        color: black;
+        text-decoration: none;
+        font-size: 20px;
+    }
+
+    #box {
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s allow-discrete;
+        position-anchor: --anchor;
+        top: calc(anchor(bottom) + 10px); 
+        left: calc(anchor(left) - 195px);
+        margin: 0;
+    }
+
+        #box:popover-open {
+            opacity: 1;
+            transform: translateY(0px);
+        }
+
+    @@starting-style {
+        #box:popover-open {
+            opacity 0;
+            transform: translateY(-10px);
+        }
+    }
+
+    #anchor {
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        background-color: transparent;
+        anchor-name: --anchor;
+    }
+</style>
+@code {
+    private string? currentUrl;
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+
+}

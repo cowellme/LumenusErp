@@ -12,80 +12,118 @@
 <section class="bg-white py-4">
     <div class="container">
 
-        @* ── Header ────────────────────────────────────────────────── *@
-        <div class="border-bottom border-dark border-2 pb-3 mb-4">
-            <AuthorizeView>
-                <p class="text-muted mb-1">Добро пожаловать, <strong class="text-dark">@context.User.Identity?.Name</strong></p>
-                <textarea @bind="import"></textarea>
-                <button @onclick="ImportBloggers">Импортировать</button>
-            </AuthorizeView>
-            <p class="text-muted mb-0">Всего блогеров: <strong class="text-dark">@bloggers.Count</strong></p>
-        </div>
-        
-        <div>
-            <div class="input-group mb-3">
-                
-                <input type="text"
-                       class="form-control border-dark border-2 rounded-0 border-start-0"
-                       placeholder="Поиск по имени…"
-                       @bind="searchName"
-                       @bind:event="oninput"
-                       @bind:after="OnSearchChanged" />
-            </div> 
-
-            <div class="input-group mb-3">
-            
-                <input type="text"
-                       class="form-control border-dark border-2 rounded-0 border-start-0"
-                       placeholder="Рейтинг 0-5"
-                       type="number"
-                       @bind="filterRate"
-                       @bind:event="oninput"
-                       @bind:after="OnRateChanged" />
-
-            <button class="btn btn-outline-dark border-2 rounded-0 border-start-0"
-                    type="button"
-                    @onclick="ClearAll">
-                ✕
-            </button>
-        </div>
-        </div>
-
-        @* ── Bloggers list ─────────────────────────────────────────── *@
-        @if (bloggers.Any())
-        {
-            <div class="row g-3 mb-4">
-                @foreach (var blogger in bloggers)
-                {
-                    var rateClass = GetRateClass(blogger.Rate);
-
-                    <div class="col-md-6 col-lg-4">
-                        <div class="card-risk-simple @rateClass">
-                            
-                            <p class="card-risk-simple__social">@blogger.Social.Value.ToString()</p>
-                            <p class="card-risk-simple__name"><a href="@blogger.Url">@blogger.Name</a></p>
-                            <p class="card-risk-simple__resume">@(string.IsNullOrEmpty(blogger.Resume) ? "Резюме пока не составленно" : blogger.Resume)</p>
-
+        @* ── Top bar: Import + Add + Count ─────────────────────────── *@
+        <div class="d-flex flex-wrap align-items-end gap-3 mb-4 pb-4 border-bottom border-dark border-2">
+            <div class="flex-grow-1">
+                <div class="d-flex gap-2">
+                    <AuthorizeView Roles="Admin, Aos">
+                        <div class="flex-grow-1">
+                            <label class="font-monospace small fw-bold text-muted text-uppercase mb-2 d-block">Импорт (JSON)</label>
+                            <div class="d-flex gap-2">
+                                <textarea class="form-control rounded-1 border-dark border-2 font-monospace small"
+                                          style="resize:vertical;"
+                                          rows="2"
+                                          placeholder='[{"Name":"...","Url":"...","Social":0}]'
+                                          @bind="import"></textarea>
+                                <button type="button"
+                                        class="btn btn-dark rounded-1 fw-bold text-uppercase px-4 flex-shrink-0"
+                                        style="font-size:0.75rem; letter-spacing:0.08em;"
+                                        @onclick="ImportBloggers">
+                                    Импорт
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                }
+                    </AuthorizeView>
+                </div>
+                
+                <div class="flex-shrink-0">
+                    <button type="button"
+                            class="btn @(isNewBlogger ? "btn-outline-dark" : "btn-dark") rounded-1 fw-bold text-uppercase px-4"
+                            style="font-size:0.75rem; letter-spacing:0.08em; white-space:nowrap;"
+                            @onclick="ToggleNewBlogger">
+                        @(isNewBlogger ? "Скрыть" : "Добавить")
+                    </button>
+                </div>
             </div>
-        }
+            
+        </div>
 
-        @* ── Add button / form toggle ──────────────────────────────── *@
-        <button type="button"
-                class="btn @(isNewBlogger ? "btn-outline-dark" : "btn-dark") rounded-0 fw-semibold text-uppercase"
-                style="font-size:0.8rem; letter-spacing:0.06em;"
-                @onclick="ToggleNewBlogger">
-            @(isNewBlogger ? "Скрыть" : "Добавить")
-        </button>
-
+        @* ── New blogger form ──────────────────────────────────────── *@
         @if (isNewBlogger)
         {
-            <div class="mt-3">
+            <div class="mb-4">
                 <NewBloggerForm />
             </div>
         }
+        else
+        {
+            <p class="text-muted mt-2 mb-2">Всего блогеров: <strong class="text-dark">@bloggers.Count</strong></p>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="font-monospace small fw-bold text-muted text-uppercase mb-2">Поиск по имени</label>
+                    <input type="text"
+                           class="form-control rounded-1 border-dark border-2"
+                           placeholder="Введите имя..."
+                           @bind="searchName"
+                           @bind:event="oninput"
+                           @bind:after="OnSearchChanged" />
+                </div>
+                <div class="col-md-6">
+                    <label class="font-monospace small fw-bold text-muted text-uppercase mb-2">Рейтинг (0–5)</label>
+                    <div class="input-group">
+                        <input class="form-control rounded-1 border-dark border-2"
+                               placeholder="0–5"
+                               type="number"
+                               min="0" max="5"
+                               @bind="filterRate"
+                               @bind:event="oninput"
+                               @bind:after="OnRateChanged" />
+                        <button class="btn btn-outline-dark rounded-1 border-2 w-50 fw-bold ms-3"
+                                type="button"
+                                @onclick="ClearAll">
+                            Сбросить фильтры
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @* ── Bloggers grid ──────────────────────────────────────────── *@
+            @if (bloggers.Any())
+            {
+                <div class="row g-3">
+                    @foreach (var blogger in bloggers)
+                    {
+                        var rateClass = GetRateClass(blogger.Rate);
+
+                        <div class="col-md-6 col-lg-4">
+                            <div class="border border-2 @rateClass p-3 h-100">
+                                <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">
+                                    @blogger.Social.Value.ToString()
+                                </p>
+                                <p class="fw-bold mb-1">
+                                    <a href="@blogger.Url" class="text-dark text-decoration-none" target="_blank">
+                                        @blogger.Name
+                                    </a>
+                                </p>
+                                <p class="text-muted small mb-0" style="line-height:1.5;">
+                                    Обновленно: @blogger.UpdateAt.ToString("g")
+                                </p>
+                                <p class="text-muted small mb-0" style="line-height:1.5;">
+                                    @(string.IsNullOrEmpty(blogger.Resume) ? "Резюме пока не составлено" : blogger.Resume)
+                                </p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="border border-dark border-2 p-5 text-center">
+                    <p class="text-muted font-monospace small text-uppercase fw-bold mb-0">Блогеры не найдены</p>
+                </div>
+            }
+        }
+        
     </div>
 </section>
 

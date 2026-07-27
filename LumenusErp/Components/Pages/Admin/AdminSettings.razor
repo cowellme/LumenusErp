@@ -1,0 +1,18 @@
+﻿@using Microsoft.EntityFrameworkCore
+<h3>AdminSettings</h3>
+
+@inject AosDbContext AosDbContext
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var settings = await AosDbContext.Settings.FirstOrDefaultAsync();
+
+    }
+
+}

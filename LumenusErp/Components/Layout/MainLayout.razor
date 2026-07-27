@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using LumenusErp.Components.Tools
+@inherits LayoutComponentBase
 
 <div class="d-flex flex-column min-vh-100">
     @* ── HEADER ────────────────────────────────────────────────── *@
@@ -9,24 +10,10 @@
                 Lunenus<span class="fw-extrabold text-muted">Uam</span>
             </a>
 
-            @* Navigation *@
+            
             <NavMenu />
-
-            @* Right side *@
-            <div class="d-flex align-items-center gap-3 ms-auto flex-shrink-0">
-                <a href="/faq" class="text-dark fw-semibold small text-decoration-none d-none d-md-inline">FAQ</a>
-
-                <span class="font-monospace small fw-semibold text-muted d-none d-md-inline-flex align-items-center gap-1">
-                    <span class="d-inline-block bg-dark" style="width:8px;height:8px;"></span>
-                    ONLINE
-                </span>
-
-                @* Mobile burger *@
-                <button class="d-md-none btn btn-outline-dark rounded-0 border-2 p-1" type="button"
-                        data-bs-toggle="collapse" data-bs-target="#mobileNav"
-                        aria-expanded="false" aria-controls="mobileNav" aria-label="Меню">
-                    <span class="navbar-toggler-icon" style="width:1.2em; height:1.2em;"></span>
-                </button>
+            <div class="mobile-menu">
+                <MobileMenu/>
             </div>
         </div>
     </header>
@@ -42,3 +29,4 @@
     <a href="." class="fw-bold text-dark">Reload</a>
     <span class="ms-2 text-muted" style="cursor:pointer" onclick="this.parentElement.style.display='none'">✕</span>
 </div>
+
