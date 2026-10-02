@@ -27,8 +27,10 @@ LumenusErp/                     # проект (LumenusErp.csproj)
   SiteInfo.cs                   # BaseUrl (https://lumenustech.ru), e-mail, Telegram — единое место
   wwwroot/                      # llms.txt, llms-full.txt, robots.txt, sitemap.xml
   Controllers/LumenusController.cs
+  Controllers/TasksController.cs, ApiTokenAttribute.cs   # api/tasks + Bearer-фильтр
   Data/
     ApplicationDbContext.cs, ApplicationUser.cs
+    TaskItem.cs                 # задачи api/tasks (таблица TaskItems)
     AosDbContext.cs
     Aos/                        # модели Blogger, Setting, TUser, Social (namespace Shared.Models)
     Migrations/App, Migrations/Aos
@@ -56,6 +58,23 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 - Секреты только из конфигурации/переменных окружения, никогда не в коде.
   `MySec.Configure` и `AiModule.Configure` вызываются в `Program.cs` после `Build()`.
   Пустой `Api:Token` = API закрыт; пустой ключ LLM = метод возвращает сообщение без вызова API.
+
+## API задач (`api/tasks`)
+
+Задачи от внешнего сервиса myasi (распознавание речи): он создаёт, читает, отмечает выполненными и удаляет их по
+docker-сети (`http://app:8080`). Контракт зафиксирован на стороне myasi — имена полей, коды и пути не менять.
+Модель — `Data/TaskItem.cs` (таблица `TaskItems`, `ApplicationDbContext`), контроллер — `Controllers/TasksController.cs`.
+
+- Авторизация: `Authorization: Bearer <Api:Token>`, фильтр `ApiTokenAttribute` (через `MySec.IsValidToken`).
+  Нет/неверный токен или пустой `Api:Token` — **401** (не 400: myasi считает 400 окончательным отказом и теряет задачу).
+  Фильтр срабатывает раньше валидации тела; редиректа на логин нет (`[Authorize]` не используется).
+- `POST /api/tasks` (`title`, `source` обязательны; `sourceText`, `externalId`, `createdAt` нет) → 201 + `Location`;
+  `GET /api/tasks?source=&status=open|done`; `GET|PATCH|DELETE /api/tasks/{id}` (PATCH: `{"status":"open|done"}`).
+  DELETE мягкий (`DeletedAt`) → 204; удалённая задача для GET/PATCH/DELETE = 404 и в списках не видна.
+- Идемпотентность POST (вместо 201 возвращается 200 и существующая задача): та же пара (`source`, `externalId`),
+  **включая мягко удалённую** (не воскрешается); либо неудалённая открытая задача того же `source` с тем же названием
+  без учёта регистра и крайних пробелов (`TitleNormalized`). Гонка по уникальному индексу (23505) разруливается перечитыванием.
+- Время — UTC с суффиксом `Z` (при отдаче `DateTime.SpecifyKind(..., Utc)` из-за legacy timestamp); `createdAt` с офсетом приводится к UTC.
 
 ## Конфигурация
 
