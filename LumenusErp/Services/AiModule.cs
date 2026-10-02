@@ -17,6 +17,11 @@ namespace LumenusErp.Services
             return string.IsNullOrWhiteSpace(value) ? null : value;
         }
 
+        // Модель по умолчанию, если Ai:OpenRouterModel не задан
+        private const string DefaultOpenRouterModel = "anthropic/claude-sonnet-5.5";
+
+        private static string GetOpenRouterModel() => GetKey("Ai:OpenRouterModel") ?? DefaultOpenRouterModel;
+
         private static string systemFaq = @"# ROLE
 
                                             Ты — технический проджект-менеджер и архитектор в IT-компании. Твоя задача — оценивать запросы клиентов на разработку и выдавать структурированную смету. Ты выступаешь как личный деловой ассистент: говоришь прямо, без воды и украшательств.
@@ -145,7 +150,7 @@ namespace LumenusErp.Services
 
 
 
-                var model = "";
+                var model = GetOpenRouterModel();
                 var apiKey = GetKey("Ai:OpenRouterApiKey");
                 if (apiKey == null) return "Не задан ключ Ai:OpenRouterApiKey";
                 var client = new OpenRouterClient(apiKey);
@@ -156,8 +161,27 @@ namespace LumenusErp.Services
             }
             catch (Exception ex)
             {
-                return ex.Message;
+                // Детали — в лог контейнера, посетителю FAQ показывается общее сообщение страницы
+                Console.Error.WriteLine($"[FAQ] OpenRouter error: {ex.Message}");
+                return null;
             }
+        }
+
+        /// <summary>
+        /// Оценка проекта через OpenRouter. Возвращает сырой текст ответа модели (ожидается JSON из systemFaq).
+        /// Бросает <see cref="AiNotConfiguredException"/>, если нет ключа, и обычные исключения при сбое вызова.
+        /// </summary>
+        public static async Task<string> EstimateProjectAsync(string prompt)
+        {
+            var apiKey = GetKey("Ai:OpenRouterApiKey")
+                ?? throw new AiNotConfiguredException("Не задан ключ Ai:OpenRouterApiKey");
+            var client = new OpenRouterClient(apiKey);
+            var response = await client.SendChatCompletionAsync(GetOpenRouterModel(), prompt, systemFaq);
+            var parsed = JsonConvert.DeserializeObject<AiResponse>(response);
+            var content = parsed?.Choices?.FirstOrDefault()?.Message?.Content;
+            if (string.IsNullOrWhiteSpace(content))
+                throw new InvalidOperationException("Пустой ответ от OpenRouter");
+            return content;
         }
 
         public static async Task<string> SendQuestionFaqDeepseek(string searchQuery)
@@ -209,4 +233,10 @@ namespace LumenusErp.Services
             }
         }
     }
+}
+
+namespace LumenusErp.Services
+{
+    /// <summary>Не задан ключ или настройка ИИ-провайдера.</summary>
+    public class AiNotConfiguredException(string message) : Exception(message);
 }

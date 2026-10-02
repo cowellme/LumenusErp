@@ -61,6 +61,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 | `DataProtection:KeysPath` | каталог ключей Data Protection (куки переживают рестарт) |
 | `Api:Token` | Bearer-токен для `api/lumenus` |
 | `Ai:OpenRouterApiKey`, `Ai:DeepSeekApiKey` | ключи LLM |
+| `Ai:OpenRouterModel` | модель OpenRouter для калькулятора и FAQ (пусто = `anthropic/claude-sonnet-5.5`) |
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |
 | `DisableHttpsRedirection` | `true` за reverse proxy, где TLS снимает nginx |
 

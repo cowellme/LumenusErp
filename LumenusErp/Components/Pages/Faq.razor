@@ -88,7 +88,7 @@
                     </button>
                 </div>
                 <div class="faq-response__card-body">
-                    <MarkdownRenderer Content="@response" />
+                    <MarkdownViewer Content="@response" Safe="true" />
                 </div>
             </div>
         }
@@ -140,7 +140,7 @@
         isThinking = true;
         await InvokeAsync(StateHasChanged);
 
-        var responseRaw = await AiModule.SendQuestionFaqDeepseek(searchQuery);
+        var responseRaw = await AiModule.SendQuestionFaq(searchQuery);
         response = string.IsNullOrEmpty(responseRaw)
             ? "Не удалось сгенерировать ответ. Попробуйте переформулировать вопрос."
             : responseRaw;

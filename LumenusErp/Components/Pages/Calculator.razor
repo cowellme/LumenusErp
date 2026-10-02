@@ -3,6 +3,7 @@
 @using LumenusErp.Services
 @using Newtonsoft.Json
 @using LumenusErp.Components.Tools
+@inject ILogger<Calculator> Logger
 <PageTitle>Расчёт стоимости — LumenusTech</PageTitle>
 
 
@@ -33,6 +34,7 @@
                     @* ── Quick chips ────────────────────────────────────────── *@
                     <div class="d-flex flex-wrap align-items-center gap-2 pb-4 mb-4 border-bottom">
                         <span class="field-label mb-0 me-1">ЧАСТЫЕ ЗАДАЧИ:</span>
+                        <span class="small text-muted me-1" style="font-size:0.72rem;">необязательно</span>
                         @foreach (var chip in quickChips)
                         {
                             <button type="button"
@@ -55,6 +57,7 @@
                                   rows="14"
                                   placeholder="Пример:&#10;&#10;Производственная компания, 200 сотрудников. Нужно анализировать внутреннюю переписку в Telegram и корпоративную почту на предмет утечек коммерческой информации. Данные нельзя отправлять в облако — всё должно быть развёрнуто локально. Бюджет ориентировочно до 2 млн руб., сроки — 2–3 месяца."
                                   @bind="description"
+                                  @bind:event="oninput"
                                   disabled="@isLoading"></textarea>
                         <div class="form-text small mt-1" style="font-size:0.72rem; color:#888;">
                             Чем подробнее описание — тем точнее оценка. Укажите масштаб, тип данных, требования к безопасности, бюджетные и временные рамки.
@@ -103,30 +106,42 @@
                 </div>
 
                 @* ── RESULT ────────────────────────────────────────────────── *@
-                @if (result != null)
+                @if (result != null || rawResult != null)
                 {
                     <div class="card-x form-card p-0 mt-4 overflow-hidden">
                         <div class="bg-dark text-white px-4 py-3 d-flex align-items-center justify-content-between">
                             <span class="font-monospace small fw-bold text-uppercase" style="letter-spacing:0.08em;">ОЦЕНКА AI-АССИСТЕНТА</span>
-                            <button type="button" class="btn-close btn-close-white" @onclick="() => result = null" title="Закрыть" style="font-size:0.7rem;"></button>
+                            <button type="button" class="btn-close btn-close-white" @onclick="() => { result = null; rawResult = null; }" title="Закрыть" style="font-size:0.7rem;"></button>
                         </div>
                         <div class="p-4 p-md-5">
-                            <div class="row g-3 pb-4 mb-4 border-bottom">
-                                <div class="col text-center border rounded-3 p-3">
-                                    <span class="d-block eyebrow mb-1">БЮДЖЕТ</span>
-                                    <span class="fw-bold">@result.EstimatedBudget</span>
-                                </div>
-                                <div class="col text-center border rounded-3 p-3">
-                                    <span class="d-block eyebrow mb-1">СРОК</span>
-                                    <span class="fw-bold">@result.EstimatedTimeline</span>
-                                </div>
-                                <div class="col text-center border rounded-3 p-3">
-                                    <span class="d-block eyebrow mb-1">СТЕК</span>
-                                    <span class="fw-bold">@result.RecommendedStack</span>
-                                </div>
-                            </div>
+                            @if (result != null)
+                            {
+                                @if (!string.IsNullOrWhiteSpace(result.Summary))
+                                {
+                                    <p class="mb-4">@result.Summary</p>
+                                }
 
-                            <MarkdownViewer Content="@result.Detail" />
+                                <div class="row g-3 pb-4 mb-4 border-bottom">
+                                    <div class="col text-center border rounded-3 p-3">
+                                        <span class="d-block eyebrow mb-1">БЮДЖЕТ</span>
+                                        <span class="fw-bold">@result.EstimatedBudget</span>
+                                    </div>
+                                    <div class="col text-center border rounded-3 p-3">
+                                        <span class="d-block eyebrow mb-1">СРОК</span>
+                                        <span class="fw-bold">@result.EstimatedTimeline</span>
+                                    </div>
+                                    <div class="col text-center border rounded-3 p-3">
+                                        <span class="d-block eyebrow mb-1">СТЕК</span>
+                                        <span class="fw-bold">@result.RecommendedStack</span>
+                                    </div>
+                                </div>
+
+                                <MarkdownViewer Content="@result.Detail" />
+                            }
+                            else
+                            {
+                                <MarkdownViewer Content="@rawResult" />
+                            }
 
                         </div>
                     </div>
@@ -171,6 +186,7 @@
     private bool isLoading;
     private string? errorMessage;
     private EstimateResult? result;
+    private string? rawResult;
 
     private readonly List<ChipItem> quickChips = new()
     {
@@ -184,12 +200,8 @@
     private void SelectChip(string chip)
     {
         if (isLoading) return;
-        selectedChip = chip;
-        var template = quickChips.First(c => c.Label == chip).Template;
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            description = template + "\n\n";
-        }
+        // Повторный клик снимает тему; текст пользователя не трогаем
+        selectedChip = selectedChip == chip ? string.Empty : chip;
     }
 
     private async Task SubmitAsync()
@@ -198,16 +210,29 @@
         isLoading = true;
         errorMessage = null;
         result = null;
+        rawResult = null;
 
         try
         {
-            result = await EstimateProjectAsync(description, contactName, contactContact);
-            var dd = result;
+            var prompt = string.IsNullOrEmpty(selectedChip)
+                ? description
+                : $"Тема: {selectedChip}\n\n{description}";
+
+            var responseRaw = await AiModule.EstimateProjectAsync(prompt);
+
+            result = ParseEstimate(responseRaw);
+            if (result == null)
+                rawResult = responseRaw;
+        }
+        catch (AiNotConfiguredException ex)
+        {
+            Logger.LogError(ex, "[Calculator] AI is not configured");
+            errorMessage = "Сервис оценки временно недоступен. Свяжитесь с нами напрямую через Telegram.";
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "[Calculator] Estimate failed");
             errorMessage = "Не удалось выполнить оценку. Попробуйте позже или свяжитесь напрямую через Telegram.";
-            Console.Error.WriteLine($"[Calculator] Error: {ex}");
         }
         finally
         {
@@ -215,36 +240,24 @@
         }
     }
 
-    private async Task<EstimateResult?> EstimateProjectAsync(string desc, string name, string contact)
+    private static EstimateResult? ParseEstimate(string raw)
     {
-        var prompt = desc;
-
-        var responseRaw = await AiModule.SendQuestionFaqDeepseek(prompt);
-
-        if (string.IsNullOrWhiteSpace(responseRaw))
-            throw new InvalidOperationException("Пустой ответ от AI");
-
         try
         {
-            var json = ExtractJson(responseRaw);
+            var json = ExtractJson(raw);
             if (json != null)
             {
                 var structured = JsonConvert.DeserializeObject<EstimateResult>(json);
-                return structured;
+                if (structured != null && !string.IsNullOrWhiteSpace(structured.Detail ?? structured.Summary))
+                    return structured;
             }
         }
-        catch
+        catch (JsonException)
         {
-            // Fall through to raw markdown
+            // Не JSON: покажем сырой текст
         }
 
-        return new EstimateResult(
-            Summary: responseRaw,
-            EstimatedBudget: "",
-            EstimatedTimeline: "",
-            RecommendedStack: "",
-            Detail: ""
-        );
+        return null;
     }
 
     private static string? ExtractJson(string raw)

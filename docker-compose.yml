@@ -32,6 +32,7 @@ services:
       DisableHttpsRedirection: "true"
       Api__Token: ${API_TOKEN:-}
       Ai__OpenRouterApiKey: ${OPENROUTER_API_KEY:-}
+      Ai__OpenRouterModel: ${OPENROUTER_MODEL:-}
       Ai__DeepSeekApiKey: ${DEEPSEEK_API_KEY:-}
       Ai__Yandex__AccessKeyId: ${YANDEX_ACCESS_KEY_ID:-}
       Ai__Yandex__SecretAccessKey: ${YANDEX_SECRET_ACCESS_KEY:-}

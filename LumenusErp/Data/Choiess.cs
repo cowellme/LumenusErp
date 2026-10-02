@@ -103,7 +103,7 @@ namespace Analyze
         public long TotalTokens { get; set; }
 
         [JsonProperty("cost")]
-        public long Cost { get; set; }
+        public decimal Cost { get; set; }
 
         [JsonProperty("is_byok")]
         public bool IsByok { get; set; }
@@ -133,13 +133,13 @@ namespace Analyze
     public partial class CostDetails
     {
         [JsonProperty("upstream_inference_cost")]
-        public long UpstreamInferenceCost { get; set; }
+        public decimal UpstreamInferenceCost { get; set; }
 
         [JsonProperty("upstream_inference_prompt_cost")]
-        public long UpstreamInferencePromptCost { get; set; }
+        public decimal UpstreamInferencePromptCost { get; set; }
 
         [JsonProperty("upstream_inference_completions_cost")]
-        public long UpstreamInferenceCompletionsCost { get; set; }
+        public decimal UpstreamInferenceCompletionsCost { get; set; }
     }
 
     public partial class PromptTokensDetails
