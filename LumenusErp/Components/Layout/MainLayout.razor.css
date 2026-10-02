@@ -11,8 +11,8 @@
 @media (max-width: 768px) {
     .mobile-menu {
         visibility: visible;
-        right: 6px;
-        top: 6px;
+        right: 9px;
+        top: 9px;
         width: 42px;
         height: 42px;
     }

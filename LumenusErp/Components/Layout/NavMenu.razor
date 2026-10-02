@@ -6,16 +6,16 @@
 <nav class="d-none d-md-flex align-items-center flex-grow-1">
     @* Left links *@
     <div class="d-flex align-items-center">
-        <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="" Match="NavLinkMatch.All">
+        <NavLink class="nav-link-x" href="" Match="NavLinkMatch.All">
             Главная
         </NavLink>
-        <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="projects">
+        <NavLink class="nav-link-x" href="projects">
             Проекты
         </NavLink>
         <AuthorizeView>
             <Authorized>
 
-                <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="calculator">
+                <NavLink class="nav-link-x" href="calculator">
                     Калькулятор
                 </NavLink>
 
@@ -27,7 +27,7 @@
     <div class="d-flex align-items-center ms-auto">
         <AuthorizeView Roles="Admin, Aos">
             
-            <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small text-decoration-none" href="aos-panel">
+            <NavLink class="nav-link-x" href="aos-panel">
                 Мой проект
             </NavLink>
 
@@ -35,21 +35,21 @@
         <AuthorizeView>
             <Authorized>
 
-                <NavLink class="nav-link px-3 py-2 text-dark fw-semibold small d-flex align-items-center gap-2 text-decoration-none" href="Account/Manage">
+                <NavLink class="nav-link-x" href="Account/Manage">
                     Аккаунт @* @context.User.Identity?.Name *@
                 </NavLink>
 
                 <form action="Account/Logout" method="post" class="m-0">
                     <AntiforgeryToken/>
                     <input type="hidden" name="ReturnUrl" value="@currentUrl"/>
-                    <button type="submit" class="nav-link px-3 py-2 text-danger fw-semibold small text-decoration-none">
+                    <button type="submit" class="nav-link-x nav-link-x--danger">
                         Выход
                     </button>
                 </form>
             </Authorized>
             <NotAuthorized>
 
-                <NavLink class="nav-link px-3 py-2 border-start border-dark border-2 text-dark fw-semibold small text-decoration-none" href="Account/Login">
+                <NavLink class="nav-link-x nav-link-x--cta" href="Account/Login">
                     Вход
                 </NavLink>
             </NotAuthorized>

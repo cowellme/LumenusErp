@@ -3,7 +3,7 @@
 @using LumenusErp.Services
 @using Newtonsoft.Json
 @using LumenusErp.Components.Tools
-<PageTitle>Расчёт стоимости — LunenusUam</PageTitle>
+<PageTitle>Расчёт стоимости — LumenusTech</PageTitle>
 
 
 <AuthorizeView>
@@ -12,11 +12,11 @@
         @* ======================================================================== *@
         @*  HERO                                                                   *@
         @* ======================================================================== *@
-        <section class="bg-white border-bottom border-dark border-2 py-5">
+        <section class="hero hero--sm">
             <div class="container">
-                <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">КАЛЬКУЛЯТОР</p>
-                <h1 class="display-5 fw-extrabold border-0 p-0 mb-3">Рассчитайте стоимость проекта</h1>
-                <p class="text-muted" style="max-width: 580px;">
+                <p class="eyebrow">КАЛЬКУЛЯТОР</p>
+                <h1 class="hero__title mb-3">Рассчитайте стоимость проекта</h1>
+                <p class="hero__lead mb-0">
                     Опишите задачу — AI-ассистент оценит объём работ, стек и примерный бюджет.
                     После расчёта мы свяжемся с вами для уточнения деталей.
                 </p>
@@ -26,17 +26,17 @@
         @* ======================================================================== *@
         @*  FORM                                                                    *@
         @* ======================================================================== *@
-        <section class="bg-white py-4">
+        <section class="section section--tight">
             <div class="container">
-                <div class="border border-dark border-2 p-4 p-md-5">
+                <div class="card-x form-card">
 
                     @* ── Quick chips ────────────────────────────────────────── *@
-                    <div class="d-flex flex-wrap align-items-center gap-2 pb-4 mb-4 border-bottom border-dark border-2">
-                        <span class="font-monospace fw-bold text-muted text-uppercase me-1" style="font-size:0.65rem; letter-spacing:0.1em;">ЧАСТЫЕ ЗАДАЧИ:</span>
+                    <div class="d-flex flex-wrap align-items-center gap-2 pb-4 mb-4 border-bottom">
+                        <span class="field-label mb-0 me-1">ЧАСТЫЕ ЗАДАЧИ:</span>
                         @foreach (var chip in quickChips)
                         {
                             <button type="button"
-                                    class="btn @(selectedChip == chip.Label ? "btn-dark" : "btn-outline-dark") rounded-0 btn-sm fw-semibold"
+                                    class="btn @(selectedChip == chip.Label ? "btn-dark" : "btn-outline-dark") rounded-pill btn-sm fw-semibold"
                                     style="font-size:0.78rem;"
                                     @onclick="() => SelectChip(chip.Label)">
                                 @chip.Label
@@ -46,11 +46,11 @@
 
                     @* ── Textarea ───────────────────────────────────────────── *@
                     <div class="mb-4">
-                        <label class="font-monospace small fw-bold text-muted text-uppercase mb-2" for="project-desc">
+                        <label class="field-label" for="project-desc">
                             ОПИШИТЕ ВАШ ПРОЕКТ
                         </label>
                         <textarea id="project-desc"
-                                  class="form-control rounded-0 border-dark border-2"
+                                  class="form-control"
                                   style="resize:vertical; font-size:0.9rem;"
                                   rows="14"
                                   placeholder="Пример:&#10;&#10;Производственная компания, 200 сотрудников. Нужно анализировать внутреннюю переписку в Telegram и корпоративную почту на предмет утечек коммерческой информации. Данные нельзя отправлять в облако — всё должно быть развёрнуто локально. Бюджет ориентировочно до 2 млн руб., сроки — 2–3 месяца."
@@ -64,21 +64,21 @@
                     @* ── Contacts ───────────────────────────────────────────── *@
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="font-monospace small fw-bold text-muted text-uppercase mb-2" for="contact-name">
+                            <label class="field-label" for="contact-name">
                                 КАК К ВАМ ОБРАЩАТЬСЯ
                             </label>
                             <input type="text" id="contact-name"
-                                   class="form-control rounded-0 border-dark border-2"
+                                   class="form-control"
                                    placeholder="Иван Петров"
                                    disabled="@isLoading"
                                    @bind="contactName" />
                         </div>
                         <div class="col-md-6">
-                            <label class="font-monospace small fw-bold text-muted text-uppercase mb-2" for="contact-tg">
+                            <label class="field-label" for="contact-tg">
                                 TELEGRAM ИЛИ ПОЧТА
                             </label>
                             <input type="text" id="contact-tg"
-                                   class="form-control rounded-0 border-dark border-2"
+                                   class="form-control"
                                    placeholder="@@username или email@example.com"
                                    disabled="@isLoading"
                                    @bind="contactContact" />
@@ -87,8 +87,7 @@
 
                     @* ── Submit ─────────────────────────────────────────────── *@
                     <button type="button"
-                            class="btn btn-dark btn-lg rounded-0 w-100 fw-bold text-uppercase"
-                            style="letter-spacing:0.06em;"
+                            class="btn btn-dark btn-lg w-100"
                             disabled="@(isLoading || string.IsNullOrWhiteSpace(description))"
                             @onclick="SubmitAsync">
                         @if (isLoading)
@@ -106,23 +105,23 @@
                 @* ── RESULT ────────────────────────────────────────────────── *@
                 @if (result != null)
                 {
-                    <div class="border border-dark border-2 mt-4">
+                    <div class="card-x form-card p-0 mt-4 overflow-hidden">
                         <div class="bg-dark text-white px-4 py-3 d-flex align-items-center justify-content-between">
                             <span class="font-monospace small fw-bold text-uppercase" style="letter-spacing:0.08em;">ОЦЕНКА AI-АССИСТЕНТА</span>
                             <button type="button" class="btn-close btn-close-white" @onclick="() => result = null" title="Закрыть" style="font-size:0.7rem;"></button>
                         </div>
                         <div class="p-4 p-md-5">
-                            <div class="row g-3 pb-4 mb-4 border-bottom border-dark border-2">
-                                <div class="col text-center border border-secondary p-3">
-                                    <span class="d-block font-monospace small fw-bold text-muted text-uppercase mb-1">БЮДЖЕТ</span>
+                            <div class="row g-3 pb-4 mb-4 border-bottom">
+                                <div class="col text-center border rounded-3 p-3">
+                                    <span class="d-block eyebrow mb-1">БЮДЖЕТ</span>
                                     <span class="fw-bold">@result.EstimatedBudget</span>
                                 </div>
-                                <div class="col text-center border border-secondary p-3">
-                                    <span class="d-block font-monospace small fw-bold text-muted text-uppercase mb-1">СРОК</span>
+                                <div class="col text-center border rounded-3 p-3">
+                                    <span class="d-block eyebrow mb-1">СРОК</span>
                                     <span class="fw-bold">@result.EstimatedTimeline</span>
                                 </div>
-                                <div class="col text-center border border-secondary p-3">
-                                    <span class="d-block font-monospace small fw-bold text-muted text-uppercase mb-1">СТЕК</span>
+                                <div class="col text-center border rounded-3 p-3">
+                                    <span class="d-block eyebrow mb-1">СТЕК</span>
                                     <span class="fw-bold">@result.RecommendedStack</span>
                                 </div>
                             </div>
@@ -136,7 +135,7 @@
                 @* ── ERROR ──────────────────────────────────────────────────── *@
                 @if (errorMessage != null)
                 {
-                    <div class="alert alert-danger rounded-0 border-2 d-flex align-items-center mt-4 mb-0" role="alert">
+                    <div class="alert alert-danger d-flex align-items-center mt-4 mb-0" role="alert">
                         <span>@errorMessage</span>
                         <button type="button" class="btn btn-outline-danger btn-sm rounded-0 ms-auto fw-bold font-monospace text-uppercase"
                                 style="font-size:0.7rem; letter-spacing:0.06em;"
@@ -149,12 +148,12 @@
         </section>
     </Authorized>
     <NotAuthorized>
-        <section class="bg-white border-bottom border-dark border-2 py-5">
+        <section class="hero hero--sm">
             <div class="container">
                 <p class="text-muted" style="max-width: 580px;">
                     Пожалуйста войдите в систему!
                 </p>
-                <NavLink class="nav-link px-3 py-2 border-start border-dark border-2 text-dark fw-semibold small text-decoration-none" href="Account/Login">
+                <NavLink class="btn btn-dark" href="Account/Login">
                     Вход
                 </NavLink>
             </div>

@@ -3,11 +3,11 @@
 
 <div class="d-flex flex-column min-vh-100">
     @* ── HEADER ────────────────────────────────────────────────── *@
-    <header class="bg-white border-bottom border-dark border-2 sticky-top">
-        <div class="container-fluid d-flex align-items-center px-3" style="height: 52px; max-width: 1280px;">
+    <header class="site-header">
+        <div class="container-fluid d-flex align-items-center px-3 site-header__inner">
             @* Brand *@
-            <a href="/" class="font-monospace fw-bold small text-dark text-uppercase text-decoration-none flex-shrink-0 me-4">
-                Lunenus<span class="fw-extrabold text-muted">Uam</span>
+            <a href="/" class="brand flex-shrink-0 me-4">
+                Lumenus<span>Tech</span>
             </a>
 
             
@@ -22,6 +22,32 @@
     <main class="flex-grow-1">
         @Body
     </main>
+
+    @* ── FOOTER ────────────────────────────────────────────────── *@
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <div>
+                <a href="/" class="brand">Lumenus<span>Tech</span></a>
+                <p class="site-footer__tag">Корпоративные AI-системы</p>
+            </div>
+            <nav aria-label="Навигация в подвале">
+                <p class="site-footer__title">Разделы</p>
+                <ul class="site-footer__list">
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/projects">Проекты</a></li>
+                    <li><a href="/faq">FAQ</a></li>
+                </ul>
+            </nav>
+            <div>
+                <p class="site-footer__title">Контакты</p>
+                <ul class="site-footer__list">
+                    <li><a href="mailto:info@lumenustech.ru">info@lumenustech.ru</a></li>
+                    <li><a href="https://t.me/lumenustech_bot" target="_blank" rel="noopener">Telegram</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="site-footer__bottom">&copy; @DateTime.Now.Year LumenusTech</div>
+    </footer>
 </div>
 
 <div id="blazor-error-ui" class="position-fixed bottom-0 end-0 m-3 p-3 bg-white border border-danger border-2 font-monospace small text-danger d-none">

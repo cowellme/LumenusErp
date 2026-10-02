@@ -1,15 +1,15 @@
 ﻿@page "/projects"
 @rendermode InteractiveServer
-<PageTitle>Реестр проектов — LunenusUam</PageTitle>
+<PageTitle>Реестр проектов — LumenusTech</PageTitle>
 
 @* ======================================================================== *@
 @*  HERO                                                                   *@
 @* ======================================================================== *@
-<section class="bg-white border-bottom border-dark border-2 py-5">
+<section class="hero hero--sm">
     <div class="container">
-        <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">РЕЕСТР</p>
-        <h1 class="display-5 fw-extrabold border-0 p-0 mb-3">Архив проектов</h1>
-        <p class="text-muted" style="max-width: 600px;">
+        <p class="eyebrow">РЕЕСТР</p>
+        <h1 class="hero__title mb-3">Архив проектов</h1>
+        <p class="hero__lead mb-0" style="max-width: 600px;">
             Завершённые и текущие работы. От локальных RAG-систем до гибридных AI-платформ
             для организаций с закрытым контуром.
         </p>
@@ -19,13 +19,13 @@
 @* ======================================================================== *@
 @*  TABLE                                                                   *@
 @* ======================================================================== *@
-<section class="bg-white py-4">
+<section class="section section--tight">
     <div class="container">
 
         @* ── Table ─────────────────────────────────────────────────── *@
-        <div class="table-responsive border border-dark border-2">
+        <div class="table-responsive table-card">
             <table class="table table-borderless mb-0 align-middle" style="min-width: 800px;">
-                <thead class="border-bottom border-dark">
+                <thead>
                     <tr>
                         <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:16%;">Заказчик</th>
                         <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:28%;">Проект</th>
@@ -41,7 +41,7 @@
                         var p = projects[i];
                         var isOpen = expandedIndex == i;
 
-                        <tr class="@(isOpen ? "bg-light" : "bg-white")"
+                        <tr class="@(isOpen ? "row-open" : "")"
                             style="cursor:pointer;"
                             @onclick="() => Toggle(i)"
                             @onkeydown="(e) => HandleRowKey(e, i)"
@@ -55,15 +55,13 @@
                             <td class="px-3 py-3">
                                 @if (p.Stamp == "В РАБОТЕ")
                                 {
-                                    <span class="badge bg-white text-dark border border-dark border-2 rounded-0 font-monospace fw-bold"
-                                          style="font-size:0.7rem; letter-spacing:0.06em;">
+                                    <span class="pill pill--outline">
                                         @p.Stamp
                                     </span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-dark rounded-0 font-monospace fw-bold"
-                                          style="font-size:0.7rem; letter-spacing:0.06em;">
+                                    <span class="pill pill--solid">
                                         @p.Stamp
                                     </span>
                                 }
@@ -75,8 +73,8 @@
 
                         @if (isOpen)
                         {
-                            <tr class="bg-light">
-                                <td colspan="7" class="p-0 border-top border-dark border-2">
+                            <tr class="row-open">
+                                <td colspan="7" class="p-0">
                                     <div class="p-4 p-md-5">
                                         <div class="row g-4">
                                             <div class="col-lg-8">
@@ -96,15 +94,14 @@
                                                 }
                                             </div>
                                             <div class="col-lg-4">
-                                                <div class="ps-lg-3 border-start-lg border-dark border-2 d-flex flex-column gap-4 h-100">
+                                                <div class="ps-lg-4 detail-side d-flex flex-column gap-4 h-100">
 
                                                     <div>
-                                                        <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">Технологии</p>
+                                                        <p class="eyebrow mb-2">Технологии</p>
                                                         <div class="d-flex flex-wrap gap-1">
                                                             @foreach (var tag in p.TechTags)
                                                             {
-                                                                <span class="badge bg-white text-dark border border-dark border-2 rounded-0 font-monospace fw-semibold"
-                                                                      style="font-size:0.65rem;">
+                                                                <span class="pill pill--tag">
                                                                     @tag
                                                                 </span>
                                                             }
@@ -112,7 +109,7 @@
                                                     </div>
 
                                                     <div>
-                                                        <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">Результат</p>
+                                                        <p class="eyebrow mb-2">Результат</p>
                                                         <p class="small mb-0 lh-sm">@p.Result</p>
                                                     </div>
 
@@ -147,14 +144,14 @@
 @* ======================================================================== *@
 @*  CTA                                                                     *@
 @* ======================================================================== *@
-<section class="bg-light border-top border-bottom border-dark border-2 py-5">
+<section class="section section--alt">
     <div class="container text-center">
-        <p class="font-monospace small fw-bold text-muted text-uppercase mb-3">НОВАЯ ЗАПИСЬ</p>
-        <h2 class="display-6 fw-extrabold border-0 p-0 mb-3">Добавить проект в реестр</h2>
+        <p class="eyebrow">НОВАЯ ЗАПИСЬ</p>
+        <h2 class="section-title mb-3">Добавить проект в реестр</h2>
         <p class="text-muted mx-auto mb-4" style="max-width: 560px;">
             Спроектируем архитектуру под вашу задачу — с фокусом на безопасность и работу в закрытом контуре.
         </p>
-        <a href="/calculator" class="btn btn-dark btn-lg rounded-0 text-uppercase fw-semibold px-5 py-3 text-decoration-none">
+        <a href="/calculator" class="btn btn-dark btn-lg px-5">
             Рассчитать стоимость
         </a>
     </div>

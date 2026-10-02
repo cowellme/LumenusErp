@@ -1,35 +1,41 @@
 /* CSS for MobileMenu component */
 .menu {
-    border: solid 1px black;
-    
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    background: #ffffff;
+    padding: 0.5rem 0.25rem 0.75rem;
     width: 237px;
 }
+
 .mobile-link-box {
-    border-bottom: solid 1px black;
-    margin: 10px;
-    padding-left: 5px;
-    padding-bottom: 5px;
+    border-bottom: 1px solid var(--c-line);
+    margin: 0 10px;
+    padding: 0.5rem 5px;
 }
-.mobile-link-box {
-    border-bottom: solid 1px black;
-    margin: 10px;
-    padding-left: 5px;
-}
+
+    .mobile-link-box:last-child {
+        border-bottom: 0;
+    }
+
 .logout {
     border: 0;
     background-color: transparent;
     margin: 0;
     padding: 0;
     font-size: 20px;
-    color: darkred;
+    color: var(--c-danger);
     font-weight: 600;
 }
-.menu-label{
-    position: relative;
-    left: 50%;
-    transform:translate(-50%,0);
-    margin-top:15px;
-    color: #808080;
-    font-size:18px;
-    font-weight:700;
+
+.menu-label {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    color: var(--c-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }

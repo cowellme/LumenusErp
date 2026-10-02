@@ -2,13 +2,27 @@
    HERO
    ========================================================================== */
 .faq-hero {
-    background: #ffffff;
-    padding: 4rem 0 3rem;
-    border-bottom: 2px solid #000000;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: clamp(2.5rem, 6vw, 4rem) 0 clamp(2rem, 4vw, 3rem);
+    background: radial-gradient(60rem 30rem at 85% -10%, #ececec 0%, rgba(236, 236, 236, 0) 60%), #ffffff;
+    border-bottom: 1px solid var(--c-line);
 }
 
+    .faq-hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 1px, transparent 1.2px);
+        background-size: 22px 22px;
+        -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
+        mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
+    }
+
 .faq-hero__tag {
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
@@ -17,9 +31,11 @@
 }
 
 .faq-hero__title {
-    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-size: clamp(1.9rem, 4vw, 2.9rem);
     font-weight: 800;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    text-wrap: balance;
     margin-bottom: 0.75rem;
     color: #000000;
     border: none;
@@ -42,14 +58,14 @@
 
 .faq-chip {
     display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border: 2px solid #000000;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    color: #000000;
-    background: #ffffff;
+    color: var(--c-text);
+    background: var(--c-surface-alt);
 }
 
 /* ==========================================================================
@@ -58,7 +74,7 @@
 .faq-search {
     background: #f5f5f5;
     padding: 2.5rem 0;
-    border-bottom: 2px solid #000000;
+    border-bottom: 1px solid var(--c-line);
 }
 
 .faq-search__row {
@@ -69,13 +85,17 @@
 .faq-search__input-wrap {
     display: flex;
     align-items: center;
-    border: 2px solid #000000;
+    border: 1px solid var(--c-line-strong);
+    border-radius: var(--radius-lg);
     background: #ffffff;
+    padding: 0.3rem;
+    box-shadow: var(--shadow-sm);
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 
     .faq-search__input-wrap:focus-within {
-        outline: 2px solid #000000;
-        outline-offset: 2px;
+        border-color: #000000;
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.12), var(--shadow-md);
     }
 
 .faq-search__icon {
@@ -91,7 +111,7 @@
     border: none;
     background: transparent;
     padding: 0.85rem 0.5rem;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans);
     font-size: 1rem;
     color: #000000;
     outline: none;
@@ -99,8 +119,8 @@
 }
 
     .faq-search__input::placeholder {
-        color: #888888;
-        font-family: 'JetBrains Mono', monospace;
+        color: #767676;
+        font-family: var(--font-mono);
         font-size: 0.85rem;
     }
 
@@ -111,8 +131,9 @@
     width: 40px;
     height: 40px;
     border: none;
+    border-radius: var(--radius-pill);
     background: transparent;
-    color: #888888;
+    color: #767676;
     cursor: pointer;
     flex-shrink: 0;
 }
@@ -123,34 +144,33 @@
 
 /* ── SUBMIT BUTTON — guaranteed visible ─────────────────────────────── */
 .faq-search__submit {
-    padding: 0.85rem 2rem;
+    padding: 0.7rem 1.6rem;
     border: none;
-    border-left: 2px solid #000000;
+    border-radius: var(--radius-md);
     background: #000000;
     color: #ffffff;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     cursor: pointer;
     white-space: nowrap;
+    transition: background-color var(--t-fast), transform var(--t-fast);
 }
 
     .faq-search__submit:hover:not(:disabled) {
-        background: #ffffff;
-        color: #000000;
+        background: #262626;
     }
 
     .faq-search__submit:active:not(:disabled) {
         background: #000000;
-        color: #ffffff;
+        transform: scale(0.98);
     }
 
     .faq-search__submit:disabled {
-        background: #cccccc;
-        color: #888888;
+        background: #e5e5e5;
+        color: #767676;
         cursor: not-allowed;
-        border-left-color: #cccccc;
     }
 
 /* ==========================================================================
@@ -158,7 +178,7 @@
    ========================================================================== */
 .faq-response {
     background: #ffffff;
-    padding-bottom: 2rem;
+    padding: 0;
 }
 
 /* ── Thinking ───────────────────────────────────────────────────────── */
@@ -167,17 +187,20 @@
     align-items: center;
     gap: 0.75rem;
     padding: 1.5rem 2rem;
-    border: 2px solid #000000;
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
     background: #f5f5f5;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.875rem;
     color: #555555;
     max-width: 700px;
+    margin: 2rem 0;
 }
 
 .faq-response__thinking-dot {
     width: 10px;
     height: 10px;
+    border-radius: 50%;
     background: #000000;
     animation: think-blink 1s step-end infinite;
     flex-shrink: 0;
@@ -195,9 +218,13 @@
 
 /* ── Response card ──────────────────────────────────────────────────── */
 .faq-response__card {
-    border: 2px solid #000000;
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
     background: #ffffff;
     max-width: 800px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin: 2rem 0;
 }
 
 .faq-response__card-head {
@@ -207,7 +234,7 @@
     padding: 0.75rem 1.5rem;
     background: #000000;
     color: #ffffff;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -219,7 +246,8 @@
     justify-content: center;
     width: 28px;
     height: 28px;
-    border: 2px solid #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius-sm);
     background: transparent;
     color: #ffffff;
     cursor: pointer;
@@ -246,7 +274,7 @@
     .md-content h2 {
         font-size: 1.2rem;
         font-weight: 700;
-        border-bottom: 2px solid #000000;
+        border-bottom: 1px solid var(--c-line);
         padding-bottom: 0.5rem;
         margin: 1.5rem 0 0.75rem;
     }
@@ -275,18 +303,20 @@
         }
 
     .md-content code {
-        font-family: 'JetBrains Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.85rem;
         background: #f5f5f5;
-        border: 1px solid #cccccc;
-        padding: 1px 5px;
+        border: 1px solid var(--c-line);
+        border-radius: 6px;
+        padding: 1px 6px;
     }
 
     .md-content pre {
-        font-family: 'JetBrains Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.85rem;
         background: #f5f5f5;
-        border: 2px solid #000000;
+        border: 1px solid var(--c-line);
+        border-radius: var(--radius-md);
         padding: 1rem;
         overflow-x: auto;
         margin: 0 0 1rem;
@@ -303,7 +333,7 @@
     }
 
     .md-content blockquote {
-        border-left: 4px solid #000000;
+        border-left: 3px solid #000000;
         margin: 0 0 1rem;
         padding: 0.5rem 1rem;
         color: #555555;
@@ -322,21 +352,21 @@
 
     .md-content hr {
         border: none;
-        border-top: 2px solid #000000;
+        border-top: 1px solid var(--c-line);
         margin: 1.5rem 0;
     }
 
     .md-content table {
         width: 100%;
         border-collapse: collapse;
-        border: 2px solid #000000;
+        border: 1px solid var(--c-line);
         margin: 0 0 1rem;
     }
 
     .md-content th {
         background: #000000;
         color: #ffffff;
-        font-family: 'JetBrains Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 0.75rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -357,13 +387,12 @@
    ========================================================================== */
 .faq-contact {
     background: #f5f5f5;
-    border-top: 2px solid #000000;
-    border-bottom: 2px solid #000000;
-    padding: 4rem 0;
+    border-top: 1px solid var(--c-line);
+    padding: var(--space-section) 0;
 }
 
 .faq-contact__tag {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
@@ -374,6 +403,7 @@
 .faq-contact__title {
     font-size: clamp(1.4rem, 3vw, 2rem);
     font-weight: 800;
+    letter-spacing: -0.03em;
     color: #000000;
     margin-bottom: 0.75rem;
     border: none;

@@ -1,30 +1,30 @@
 ﻿@page "/"
 @rendermode InteractiveServer
-<PageTitle>LunenusUam — Корпоративные AI-системы</PageTitle>
+<PageTitle>LumenusTech — Корпоративные AI-системы</PageTitle>
 
 @* ======================================================================== *@
 @*  HERO                                                                   *@
 @* ======================================================================== *@
-<section class="bg-white border-bottom border-dark border-2 py-5">
-    <div class="container py-4">
+<section class="hero">
+    <div class="container">
         <div class="row align-items-center">
-            <div class="col-lg-8">
-                <p class="font-monospace small fw-bold text-muted text-uppercase letter-spacing mb-3">
+            <div class="col-lg-9 col-xl-8">
+                <p class="eyebrow">
                     LLM &middot; RAG &middot; ON-PREMISE
                 </p>
-                <h1 class="display-4 fw-extrabold lh-1 mb-4 border-0 p-0">
+                <h1 class="hero__title">
                     Проектируем безопасные AI-системы для корпоративных данных
                 </h1>
-                <p class="lead text-muted mb-4" style="max-width: 560px;">
+                <p class="hero__lead">
                     Связываем большие языковые модели с инфраструктурой предприятия —
                     локально, с шифрованием персональных данных, без передачи информации
                     в публичные облака.
                 </p>
-                <div class="d-flex flex-wrap gap-3">
-                    <a href="#competencies" class="btn btn-dark btn-lg rounded-0 text-uppercase fw-semibold px-4 text-decoration-none">
+                <div class="hero__actions">
+                    <a href="#competencies" class="btn btn-dark btn-lg">
                         Компетенции и услуги
                     </a>
-                    <a href="#problems" class="btn btn-outline-dark btn-lg rounded-0 text-uppercase fw-semibold px-4 text-decoration-none">
+                    <a href="#problems" class="btn btn-outline-dark btn-lg">
                         С какими задачами приходят
                     </a>
                 </div>
@@ -36,16 +36,14 @@
 @* ======================================================================== *@
 @*  STATS                                                                   *@
 @* ======================================================================== *@
-<section class="bg-light border-bottom border-dark border-2 py-4">
+<section class="section section--tight">
     <div class="container">
-        <div class="row text-center g-0">
+        <div class="stats">
             @foreach (var stat in stats)
             {
-                <div class="col-6 col-md-3 border-end border-dark border-2 @(stat == stats.Last() ? "border-end-0" : "")">
-                    <div class="py-4">
-                        <span class="d-block display-5 fw-extrabold font-monospace mb-2">@stat.Value</span>
-                        <span class="d-block font-monospace small fw-semibold text-muted text-uppercase">@stat.Label</span>
-                    </div>
+                <div class="stat">
+                    <span class="stat__value">@stat.Value</span>
+                    <span class="stat__label">@stat.Label</span>
                 </div>
             }
         </div>
@@ -55,19 +53,19 @@
 @* ======================================================================== *@
 @*  COMPETENCIES                                                            *@
 @* ======================================================================== *@
-<section id="competencies" class="bg-white py-5">
+<section id="competencies" class="section">
     <div class="container">
-        <div class="mb-5">
-            <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">УСЛУГИ</p>
-            <h2 class="display-6 fw-extrabold mb-2 border-0 p-0">Ключевые компетенции</h2>
-            <p class="text-muted">Backend-разработка, AI-интеграция, информационная безопасность</p>
+        <div class="section-head">
+            <p class="eyebrow">УСЛУГИ</p>
+            <h2 class="section-title">Ключевые компетенции</h2>
+            <p class="text-muted mb-0">Backend-разработка, AI-интеграция, информационная безопасность</p>
         </div>
         <div class="row g-4">
             @foreach (var comp in competencies)
             {
                 <div class="col-lg-3 col-md-6">
-                    <div class="border border-dark border-2 p-4 h-100 bg-white">
-                        <h3 class="h5 fw-bold mb-3">@comp.Title</h3>
+                    <div class="card-x p-4 h-100">
+                        <h3 class="card-x__title">@comp.Title</h3>
                         <p class="small text-muted mb-0 lh-base">@comp.Description</p>
                     </div>
                 </div>
@@ -79,17 +77,17 @@
 @* ======================================================================== *@
 @*  TECH STACK                                                              *@
 @* ======================================================================== *@
-<section class="bg-light py-5">
+<section class="section section--alt">
     <div class="container">
-        <div class="mb-5">
-            <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">ИНСТРУМЕНТЫ</p>
-            <h2 class="display-6 fw-extrabold mb-2 border-0 p-0">Стек технологий</h2>
-            <p class="text-muted">Инструменты, с которыми работаем ежедневно</p>
+        <div class="section-head">
+            <p class="eyebrow">ИНСТРУМЕНТЫ</p>
+            <h2 class="section-title">Стек технологий</h2>
+            <p class="text-muted mb-0">Инструменты, с которыми работаем ежедневно</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
             @foreach (var tech in techStack)
             {
-                <span class="border border-dark border-2 px-3 py-1 font-monospace small fw-semibold bg-white">@tech.Name</span>
+                <span class="chip">@tech.Name</span>
             }
         </div>
     </div>
@@ -98,19 +96,19 @@
 @* ======================================================================== *@
 @*  PROBLEMS                                                                *@
 @* ======================================================================== *@
-<section id="problems" class="bg-white py-5">
+<section id="problems" class="section">
     <div class="container">
-        <div class="mb-5">
-            <p class="font-monospace small fw-bold text-muted text-uppercase mb-2">КЕЙСЫ</p>
-            <h2 class="display-6 fw-extrabold mb-2 border-0 p-0">С какими задачами к нам приходят</h2>
+        <div class="section-head">
+            <p class="eyebrow">КЕЙСЫ</p>
+            <h2 class="section-title">С какими задачами к нам приходят</h2>
         </div>
         <div class="row g-4">
             @foreach (var problem in problems)
             {
                 <div class="col-lg-6">
-                    <div class="border border-dark border-2 border-start border-5 p-4 h-100 bg-white">
+                    <div class="card-x card-x--quote p-4 h-100">
                         <p class="mb-3 lh-base">@problem.Text</p>
-                        <p class="font-monospace small fw-bold text-muted text-uppercase mb-0">
+                        <p class="eyebrow mb-0">
                             — @problem.Label
                         </p>
                     </div>
@@ -123,31 +121,20 @@
 @* ======================================================================== *@
 @*  CTA                                                                     *@
 @* ======================================================================== *@
-<section class="bg-light border-top border-bottom border-dark border-2 py-5">
+<section class="section section--alt">
     <div class="container text-center">
-        <h2 class="display-6 fw-extrabold mb-3 border-0 p-0">
+        <h2 class="section-title mb-3">
             Готовы обсудить внедрение AI в вашу инфраструктуру?
         </h2>
         <p class="text-muted mx-auto mb-4" style="max-width: 560px;">
             Спроектируем архитектуру, развернём LLM в вашем контуре, подключим к учётным системам.
             Без компромиссов по безопасности.
         </p>
-        <a href="/calculator" class="btn btn-dark btn-lg rounded-0 text-uppercase fw-semibold px-5 py-3 text-decoration-none">
+        <a href="/calculator" class="btn btn-dark btn-lg px-5">
             Рассчитать стоимость проекта
         </a>
     </div>
 </section>
-
-@* ======================================================================== *@
-@*  FOOTER                                                                  *@
-@* ======================================================================== *@
-<footer class="bg-white py-4">
-    <div class="container text-center">
-        <span class="font-monospace fw-bold small">LUNENUS<span class="fw-extrabold text-muted">UAM</span></span>
-        <span class="text-secondary mx-2">/</span>
-        <span class="small text-muted">Корпоративные AI-системы &copy; @DateTime.Now.Year</span>
-    </div>
-</footer>
 
 @code {
     private readonly List<StatItem> stats = new()

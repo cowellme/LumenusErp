@@ -86,10 +86,15 @@
     }
 
     .mobile-link {
-        color: black;
+        color: var(--c-muted);
         text-decoration: none;
         font-size: 20px;
     }
+
+        .mobile-link.active {
+            color: var(--c-ink);
+            font-weight: 700;
+        }
 
     #box {
         opacity: 0;
