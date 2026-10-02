@@ -7,11 +7,16 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
+// Кириллица в <title>/мета-тегах как есть, а не &#x...; — сырой HTML читают AI-краулеры
+builder.Services.AddSingleton(HtmlEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Cyrillic, UnicodeRanges.GeneralPunctuation));
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -137,6 +142,24 @@ if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
 {
     app.UseHttpsRedirection();
 }
+
+// MapStaticAssets отдаёт .txt как "text/plain" без кодировки — для llms.txt/robots.txt
+// клиенты тогда могут не угадать UTF-8 и показать кириллицу кракозябрами.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Value?.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) == true)
+    {
+        context.Response.OnStarting(() =>
+        {
+            if (string.Equals(context.Response.ContentType, "text/plain", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.ContentType = "text/plain; charset=utf-8";
+            }
+            return Task.CompletedTask;
+        });
+    }
+    await next();
+});
 
 app.UseSwaggerUI();
 app.UseSwagger();

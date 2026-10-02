@@ -23,7 +23,9 @@ LumenusErp/                     # проект (LumenusErp.csproj)
     Pages/Admin/                # /admin/roles — управление ролями (Admin)
     Pages/AnalysisOfSocial/     # /aos-panel, /aos-settings (Admin, Aos)
     Account/                    # шаблонные страницы Identity
-    Layout/, Tools/             # layout, меню, MarkdownViewer
+    Layout/, Tools/             # layout, меню, MarkdownViewer, SeoMeta (мета/OG/JSON-LD), NoIndex
+  SiteInfo.cs                   # BaseUrl (https://lumenustech.ru), e-mail, Telegram — единое место
+  wwwroot/                      # llms.txt, llms-full.txt, robots.txt, sitemap.xml
   Controllers/LumenusController.cs
   Data/
     ApplicationDbContext.cs, ApplicationUser.cs
@@ -32,6 +34,7 @@ LumenusErp/                     # проект (LumenusErp.csproj)
     Migrations/App, Migrations/Aos
   Services/                     # клиенты LLM: OpenRouter, DeepSeek, YandexGPT (AiModule)
 Dockerfile, docker-compose.yml, .env.example
+deploy/                         # deploy.sh, remote.sh, Caddyfile
 ```
 
 ## Важное
@@ -59,6 +62,21 @@ Dockerfile, docker-compose.yml, .env.example
 | `Ai:OpenRouterApiKey`, `Ai:DeepSeekApiKey` | ключи LLM |
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |
 | `DisableHttpsRedirection` | `true` за reverse proxy, где TLS снимает nginx |
+
+Переменные `.env` для compose: `APP_PORT`, `APP_BIND` (адрес публикации порта приложения;
+`127.0.0.1` на проде за Caddy), `SITE_DOMAIN`, `ACME_EMAIL` (пусто = `info@lumenustech.ru`),
+`COMPOSE_PROFILES=proxy` (включает сервис `caddy`).
+
+## SEO
+
+- Базовый URL сайта — `SiteInfo.BaseUrl`; на публичных страницах (`/`, `/projects`, `/faq`)
+  `<PageTitle>` + `<SeoMeta Path=... />` (description, canonical, OG, Twitter, JSON-LD).
+  Контент JSON-LD строится из тех же данных, что рисует страница.
+- `MainLayout` добавляет `noindex` для `Account*`, `admin*`, `aos-*`, `auth`, `calculator`, `Error`.
+- `wwwroot/llms.txt`, `llms-full.txt`, `robots.txt`, `sitemap.xml` — **правятся вручную** при смене
+  контента страниц/списка проектов. `.txt` отдаётся с `charset=utf-8` (middleware в `Program.cs`).
+- Ссылки «Подробнее»/`/projects/<slug>` в реестре проектов ведут на несуществующие страницы —
+  в sitemap/llms они не включены.
 
 В Docker ключи задаются переменными окружения (`ConnectionStrings__DefaultConnection` и т.д.)
 из `.env`.
@@ -108,5 +126,9 @@ Compose всегда с `-p lumenus`, поэтому тома общие для 
 1. Установить Docker Engine + compose plugin (`https://docs.docker.com/engine/install/ubuntu/`).
 2. `git clone` репозитория, `cp .env.example .env`, задать `POSTGRES_PASSWORD`, `ADMIN_PASSWORD`.
 3. `docker compose up -d --build`. Приложение слушает `APP_PORT` (по умолчанию 8080).
-4. TLS — через nginx/Caddy перед контейнером (заголовки `X-Forwarded-*` поддерживаются).
+4. TLS — Caddy из compose (профиль `proxy`): в `.env` задать `COMPOSE_PROFILES=proxy`,
+   `APP_BIND=127.0.0.1`, `SITE_DOMAIN`, `ACME_EMAIL`; порты 80/443 должны быть свободны. Конфиг —
+   `deploy/Caddyfile`: домен → приложение (Let's Encrypt, HSTS), `www.` → редирект на апекс,
+   HTTP по голому IP проксируется на приложение (работает до настройки DNS). Для `make deploy`
+   те же переменные задаются в `shared/.env` (compose читает `COMPOSE_PROFILES` из env-файла).
 5. Бэкап: `docker compose exec db pg_dumpall -U "$POSTGRES_USER" > backup.sql`.

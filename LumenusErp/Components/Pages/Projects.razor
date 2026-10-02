@@ -1,14 +1,15 @@
 ﻿@page "/projects"
 @rendermode InteractiveServer
-<PageTitle>Реестр проектов — LumenusTech</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
+<SeoMeta Path="/projects" Title="@PageTitleText" Description="@PageDescription" JsonLd="@JsonLd" />
 
 @* ======================================================================== *@
 @*  HERO                                                                   *@
 @* ======================================================================== *@
-<section class="hero hero--sm">
+<section class="hero hero--sm" aria-labelledby="projects-title">
     <div class="container">
         <p class="eyebrow">РЕЕСТР</p>
-        <h1 class="hero__title mb-3">Архив проектов</h1>
+        <h1 id="projects-title" class="hero__title mb-3">Архив проектов</h1>
         <p class="hero__lead mb-0" style="max-width: 600px;">
             Завершённые и текущие работы. От локальных RAG-систем до гибридных AI-платформ
             для организаций с закрытым контуром.
@@ -19,20 +20,22 @@
 @* ======================================================================== *@
 @*  TABLE                                                                   *@
 @* ======================================================================== *@
-<section class="section section--tight">
+<section class="section section--tight" aria-labelledby="registry-title">
+    <h2 id="registry-title" class="visually-hidden">Реестр проектов</h2>
     <div class="container">
 
         @* ── Table ─────────────────────────────────────────────────── *@
         <div class="table-responsive table-card">
             <table class="table table-borderless mb-0 align-middle" style="min-width: 800px;">
+                <caption class="visually-hidden">Реестр проектов LumenusTech: заказчик, проект, направление, год и статус</caption>
                 <thead>
                     <tr>
-                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:16%;">Заказчик</th>
-                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:28%;">Проект</th>
-                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:14%;">Направление</th>
-                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:8%;">Год</th>
-                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:12%;">Статус</th>
-                        <th class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3 text-center" style="width:5%;"></th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:16%;">Заказчик</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:28%;">Проект</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:14%;">Направление</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:8%;">Год</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3" style="width:12%;">Статус</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3 text-center" style="width:5%;"><span class="visually-hidden">Подробнее</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,10 +147,10 @@
 @* ======================================================================== *@
 @*  CTA                                                                     *@
 @* ======================================================================== *@
-<section class="section section--alt">
+<section class="section section--alt" aria-labelledby="cta-title">
     <div class="container text-center">
         <p class="eyebrow">НОВАЯ ЗАПИСЬ</p>
-        <h2 class="section-title mb-3">Добавить проект в реестр</h2>
+        <h2 id="cta-title" class="section-title mb-3">Добавить проект в реестр</h2>
         <p class="text-muted mx-auto mb-4" style="max-width: 560px;">
             Спроектируем архитектуру под вашу задачу — с фокусом на безопасность и работу в закрытом контуре.
         </p>
@@ -158,6 +161,34 @@
 </section>
 
 @code {
+    private const string PageTitleText = "Реестр проектов — LumenusTech";
+    private const string PageDescription =
+        "Завершённые и текущие проекты LumenusTech: on-premise LLM, RAG-системы, гибридные AI-платформы для организаций с закрытым контуром.";
+
+    // JSON-LD: список проектов реестра
+    private object JsonLd => new Dictionary<string, object>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "ItemList",
+        ["name"] = "Реестр проектов LumenusTech",
+        ["itemListElement"] = projects.Select((p, i) => new Dictionary<string, object>
+        {
+            ["@type"] = "ListItem",
+            ["position"] = i + 1,
+            ["item"] = new Dictionary<string, object>
+            {
+                ["@type"] = "CreativeWork",
+                ["name"] = p.Title,
+                ["description"] = p.Description,
+                ["about"] = p.Scope,
+                ["dateCreated"] = p.Year,
+                ["creativeWorkStatus"] = p.Stamp == "В РАБОТЕ" ? "В работе" : "Завершено",
+                ["sourceOrganization"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = p.Client },
+                ["creator"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = SiteInfo.Name, ["url"] = SiteInfo.BaseUrl + "/" },
+            },
+        }).ToList(),
+    };
+
     private int? expandedIndex;
 
     private void Toggle(int index)

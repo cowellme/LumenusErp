@@ -1,0 +1,34 @@
+# LumenusTech: публичные страницы открыты для поисковиков и AI-краулеров,
+# служебные разделы (вход, аккаунт, админка, AOS, калькулятор, API) закрыты.
+
+User-agent: *
+Allow: /
+Disallow: /Account/
+Disallow: /admin
+Disallow: /aos-
+Disallow: /auth
+Disallow: /calculator
+Disallow: /swagger
+Disallow: /api/
+
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: YandexBot
+User-agent: Bingbot
+Allow: /
+Disallow: /Account/
+Disallow: /admin
+Disallow: /aos-
+Disallow: /auth
+Disallow: /calculator
+Disallow: /swagger
+Disallow: /api/
+
+Sitemap: https://lumenustech.ru/sitemap.xml

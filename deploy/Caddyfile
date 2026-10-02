@@ -1,0 +1,35 @@
+{
+	# Контакт для Let's Encrypt; пустое значение директива не принимает, поэтому compose подставляет info@lumenustech.ru
+	email {$ACME_EMAIL}
+}
+
+(security_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+{$SITE_DOMAIN} {
+	import security_headers
+	header Strict-Transport-Security "max-age=31536000"
+	encode zstd gzip
+	reverse_proxy app:8080
+}
+
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# Явный редирект HTTP -> HTTPS для домена: общий http://-блок ниже иначе перехватил бы эти хосты.
+http://{$SITE_DOMAIN}, http://www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# Запасной вариант: доступ по голому IP/любому другому имени по HTTP (пока DNS не настроен).
+http:// {
+	import security_headers
+	encode zstd gzip
+	reverse_proxy app:8080
+}

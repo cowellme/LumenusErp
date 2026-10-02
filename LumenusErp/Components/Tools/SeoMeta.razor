@@ -1,0 +1,41 @@
+@using System.Text.Encodings.Web
+@using System.Text.Json
+@using System.Text.Unicode
+
+@* Мета-теги страницы: description, canonical, OpenGraph, Twitter Card и JSON-LD. Заголовок — через <PageTitle> на странице. *@
+<HeadContent>
+    <meta name="description" content="@Description" />
+    <link rel="canonical" href="@Url" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="@Title" />
+    <meta property="og:description" content="@Description" />
+    <meta property="og:url" content="@Url" />
+    <meta property="og:site_name" content="@SiteInfo.Name" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="@Title" />
+    <meta name="twitter:description" content="@Description" />
+    @if (JsonLd is not null)
+    {
+        @((MarkupString)$"<script type=\"application/ld+json\">{Serialize(JsonLd)}</script>")
+    }
+</HeadContent>
+
+@code {
+    /// <summary>Путь страницы: "/" или "/projects".</summary>
+    [Parameter, EditorRequired] public string Path { get; set; } = "/";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Description { get; set; } = "";
+    /// <summary>Объект для JSON-LD (анонимный тип/словарь/список); null — без разметки.</summary>
+    [Parameter] public object? JsonLd { get; set; }
+
+    private string Url => SiteInfo.Url(Path);
+
+    // Кириллица остаётся читаемой, а <, >, & экранируются — закрыть тег script изнутри JSON нельзя.
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Cyrillic),
+    };
+
+    private static string Serialize(object value) => JsonSerializer.Serialize(value, JsonOptions);
+}

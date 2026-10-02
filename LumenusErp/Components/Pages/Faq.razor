@@ -2,15 +2,16 @@
 @using LumenusErp.Services
 @using Markdig
 @rendermode InteractiveServer
-<PageTitle>FAQ — LumenusTech</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
+<SeoMeta Path="/faq" Title="@PageTitleText" Description="@PageDescription" />
 
 @* ======================================================================== *@
 @*  HERO                                                                   *@
 @* ======================================================================== *@
-<section class="faq-hero">
+<section class="faq-hero" aria-labelledby="faq-title">
     <div class="container">
         <p class="faq-hero__tag">СПРАВКА</p>
-        <h1 class="faq-hero__title">Часто задаваемые вопросы</h1>
+        <h1 id="faq-title" class="faq-hero__title">Часто задаваемые вопросы</h1>
         <p class="faq-hero__subtitle">
             Ответы о системе, развёртывании и безопасности.
             Если не нашли нужного — задайте вопрос AI-ассистенту.
@@ -26,7 +27,7 @@
 @* ======================================================================== *@
 @*  SEARCH                                                                  *@
 @* ======================================================================== *@
-<section class="faq-search">
+<section class="faq-search" aria-label="Вопрос AI-ассистенту">
     <div class="container">
         <div class="faq-search__row">
             <div class="faq-search__input-wrap">
@@ -39,6 +40,7 @@
                 <input type="text"
                        class="faq-search__input"
                        placeholder="Напишите ваш вопрос..."
+                       aria-label="Ваш вопрос AI-ассистенту"
                        @bind="searchQuery"
                        @bind:event="oninput"
                        @onkeydown="HandleKeyDown" />
@@ -63,7 +65,7 @@
 @* ======================================================================== *@
 @*  THINKING / RESPONSE                                                     *@
 @* ======================================================================== *@
-<section class="faq-response">
+<section class="faq-response" aria-label="Ответ AI-ассистента" aria-live="polite">
     <div class="container">
         @if (isThinking)
         {
@@ -96,10 +98,10 @@
 @* ======================================================================== *@
 @*  CONTACT                                                                 *@
 @* ======================================================================== *@
-<section class="faq-contact">
+<section class="faq-contact" aria-labelledby="contact-title">
     <div class="container text-center">
         <p class="faq-contact__tag">ПОДДЕРЖКА</p>
-        <h2 class="faq-contact__title">Остались вопросы?</h2>
+        <h2 id="contact-title" class="faq-contact__title">Остались вопросы?</h2>
         <p class="faq-contact__subtitle">
             Свяжитесь напрямую — ответим в течение рабочего дня.
         </p>
@@ -107,7 +109,7 @@
             <a href="mailto:info@lumenustech.ru" class="btn btn-dark btn-lg">
                 info@lumenustech.ru
             </a>
-            <a href="https://t.me/lumenustech_bot" class="btn btn-outline-dark btn-lg">
+            <a href="@SiteInfo.TelegramUrl" class="btn btn-outline-dark btn-lg">
                 Telegram
             </a>
         </div>
@@ -115,6 +117,10 @@
 </section>
 
 @code {
+    private const string PageTitleText = "FAQ — LumenusTech";
+    private const string PageDescription =
+        "Частые вопросы о системе, развёртывании и безопасности. Задайте вопрос AI-ассистенту LumenusTech или свяжитесь с нами напрямую.";
+
     private string searchQuery = string.Empty;
     private string response = string.Empty;
     private bool isThinking;

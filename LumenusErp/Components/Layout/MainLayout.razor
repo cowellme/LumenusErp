@@ -1,5 +1,11 @@
 ﻿@using LumenusErp.Components.Tools
 @inherits LayoutComponentBase
+@inject NavigationManager Navigation
+
+@if (IsPrivatePath())
+{
+    <NoIndex />
+}
 
 <div class="d-flex flex-column min-vh-100">
     @* ── HEADER ────────────────────────────────────────────────── *@
@@ -42,7 +48,7 @@
                 <p class="site-footer__title">Контакты</p>
                 <ul class="site-footer__list">
                     <li><a href="mailto:info@lumenustech.ru">info@lumenustech.ru</a></li>
-                    <li><a href="https://t.me/lumenustech_bot" target="_blank" rel="noopener">Telegram</a></li>
+                    <li><a href="@SiteInfo.TelegramUrl" target="_blank" rel="noopener">Telegram</a></li>
                 </ul>
             </div>
         </div>
@@ -56,3 +62,14 @@
     <span class="ms-2 text-muted" style="cursor:pointer" onclick="this.parentElement.style.display='none'">✕</span>
 </div>
 
+@code {
+    // Служебные разделы (вход, аккаунт, админка, AOS, калькулятор) не должны попадать в индекс.
+    private static readonly string[] PrivatePrefixes =
+        ["Account", "admin", "aos-", "auth", "calculator", "Error"];
+
+    private bool IsPrivatePath()
+    {
+        var path = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return PrivatePrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+    }
+}
