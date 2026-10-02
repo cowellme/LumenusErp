@@ -1,16 +1,24 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @layout LumenusErp.Components.Layout.MainLayout
 
-<h1>Управление аккаунтом</h1>
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">АККАУНТ</p>
+        <h1 class="hero__title mb-0">Управление аккаунтом</h1>
+    </div>
+</section>
 
-<div>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
-            <ManageNavMenu />
-        </div>
-        <div class="col-lg-9">
-            @Body
+<section class="section section--tight">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-12 col-lg-3">
+                <ManageNavMenu />
+            </div>
+            <div class="col-12 col-lg-9 col-xl-7">
+                <div class="card-x form-card">
+                    @Body
+                </div>
+            </div>
         </div>
     </div>
-</div>
+</section>

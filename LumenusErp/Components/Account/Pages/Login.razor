@@ -115,9 +115,8 @@
         }
         else if (result.RequiresTwoFactor)
         {
-            RedirectManager.RedirectTo(
-                "Account/LoginWith2fa",
-                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });
+            Logger.LogWarning("User requires two-factor authentication, which is not supported.");
+            errorMessage = "Error: Для этой учётной записи включена двухфакторная аутентификация, вход с ней недоступен. Обратитесь к администратору.";
         }
         else if (result.IsLockedOut)
         {
@@ -126,7 +125,7 @@
         }
         else
         {
-            errorMessage = "Error: Invalid login attempt.";
+            errorMessage = "Error: Неверная почта или пароль.";
         }
     }
 
