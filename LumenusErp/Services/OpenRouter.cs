@@ -7,6 +7,7 @@ namespace LumenusErp.Services
     {
         // Один HttpClient на процесс, чтобы не исчерпывать сокеты
         private static readonly HttpClient SharedHttpClient = new() { Timeout = TimeSpan.FromSeconds(120) };
+        private static readonly JsonSerializerOptions JsonOptions = new() { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
         private const string ApiUrl = "https://openrouter.ai/api/v1/chat/completions";
         private const int MaxErrorBodyLength = 500;
 
@@ -17,7 +18,8 @@ namespace LumenusErp.Services
             _apiKey = apiKey;
         }
 
-        public async Task<string> SendChatCompletionAsync(string model, string message, string system)
+        public async Task<string> SendChatCompletionAsync(
+            string model, string message, string system, int? maxTokens = null, double? temperature = null)
         {
             var requestData = new
             {
@@ -34,10 +36,13 @@ namespace LumenusErp.Services
                         role = "user",
                         content = message
                     }
-                }
+                },
+                max_tokens = maxTokens,
+                temperature
             };
 
-            var jsonContent = JsonSerializer.Serialize(requestData);
+            // null-поля (max_tokens, temperature) в запрос не попадают
+            var jsonContent = JsonSerializer.Serialize(requestData, JsonOptions);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl)
             {

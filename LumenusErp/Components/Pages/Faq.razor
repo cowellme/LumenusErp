@@ -2,6 +2,7 @@
 @using LumenusErp.Services
 @using Markdig
 @rendermode InteractiveServer
+@inherits AiPageBase
 <PageTitle>@PageTitleText</PageTitle>
 <SeoMeta Path="/faq" Title="@PageTitleText" Description="@PageDescription" />
 
@@ -41,6 +42,7 @@
                        class="faq-search__input"
                        placeholder="Напишите ваш вопрос..."
                        aria-label="Ваш вопрос AI-ассистенту"
+                       maxlength="@AiInputLimits.FaqMaxChars"
                        @bind="searchQuery"
                        @bind:event="oninput"
                        @onkeydown="HandleKeyDown" />
@@ -89,6 +91,10 @@
                 </div>
                 <div class="faq-response__card-body">
                     <MarkdownViewer Content="@response" Safe="true" />
+                    @if (showTelegramLink)
+                    {
+                        <p class="mb-0 mt-3"><a href="@SiteInfo.TelegramUrl" target="_blank" rel="noopener">Написать в Telegram</a></p>
+                    }
                 </div>
             </div>
         }
@@ -124,6 +130,7 @@
     private string searchQuery = string.Empty;
     private string response = string.Empty;
     private bool isThinking;
+    private bool showTelegramLink;
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
@@ -140,10 +147,25 @@
         isThinking = true;
         await InvokeAsync(StateHasChanged);
 
-        var responseRaw = await AiModule.SendQuestionFaq(searchQuery);
-        response = string.IsNullOrEmpty(responseRaw)
-            ? "Не удалось сгенерировать ответ. Попробуйте переформулировать вопрос."
-            : responseRaw;
+        showTelegramLink = false;
+        var limit = await TryAcquireAsync(AiKind.Faq);
+        if (!limit.IsAllowed)
+        {
+            response = LimitMessage(limit);
+            showTelegramLink = limit.Status == AiLimitStatus.GloballyLimited;
+        }
+        else
+        {
+            // maxlength в разметке обходится, поэтому длину ограничиваем и на сервере
+            var question = searchQuery.Trim();
+            if (question.Length > AiInputLimits.FaqMaxChars)
+                question = question[..AiInputLimits.FaqMaxChars];
+
+            var responseRaw = await AiModule.SendQuestionFaq(question);
+            response = string.IsNullOrEmpty(responseRaw)
+                ? "Не удалось сгенерировать ответ. Попробуйте переформулировать вопрос."
+                : responseRaw;
+        }
 
         isThinking = false;
         await InvokeAsync(StateHasChanged);
@@ -157,5 +179,6 @@
     private void ClearResponse()
     {
         response = string.Empty;
+        showTelegramLink = false;
     }
 }

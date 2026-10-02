@@ -58,6 +58,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
+builder.Services.Configure<AiLimitsOptions>(builder.Configuration.GetSection("AiLimits"));
+builder.Services.AddSingleton<AiRateLimiter>();
+builder.Services.AddSingleton<AiPromptStore>();
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
@@ -77,7 +81,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 LumenusErp.MySec.Configure(app.Configuration["Api:Token"]);
-AiModule.Configure(app.Configuration);
+AiModule.Configure(app.Configuration, app.Services.GetRequiredService<AiPromptStore>());
 
 using (var scope = app.Services.CreateScope())
 {
@@ -89,6 +93,7 @@ using (var scope = app.Services.CreateScope())
     await dbContext.Database.MigrateAsync();
     await aosDbContext.Database.MigrateAsync();
     await ProjectSeed.EnsureSeededAsync(dbContext);
+    await AiPromptSeed.EnsureSeededAsync(dbContext);
 
     // ── Засидировать роли ────────────────────────────────────────────
     var roles = new[] { "Admin", "Manager", "User", "Ghost", "Aos" };

@@ -8,6 +8,7 @@ namespace LumenusErp.Data
         : IdentityDbContext<ApplicationUser>(options)
     {
         public DbSet<Project> Projects => Set<Project>();
+        public DbSet<AiPrompt> AiPrompts => Set<AiPrompt>();
 
         // Добавьте этот метод, если нужно переопределить конфигурацию
         protected override void OnModelCreating(ModelBuilder builder)
@@ -26,6 +27,14 @@ namespace LumenusErp.Data
                 e.Property(p => p.Status).HasMaxLength(30);
                 e.Property(p => p.Duration).HasMaxLength(100);
                 e.Property(p => p.Team).HasMaxLength(100);
+            });
+
+            builder.Entity<AiPrompt>(e =>
+            {
+                e.HasIndex(p => p.Key).IsUnique();
+                e.Property(p => p.Key).HasMaxLength(50);
+                e.Property(p => p.Title).HasMaxLength(200);
+                e.Property(p => p.Model).HasMaxLength(200);
             });
         }
     }

@@ -47,6 +47,12 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   для обоих контекстов. `EnsureDeleted/EnsureCreated` не использовать.
 - `Npgsql.EnableLegacyTimestampBehavior` включён: `DateTime` пишется как `timestamp`
   без требования `Kind=Utc`.
+- ИИ-функции (`/calculator`, `/faq`) публичные и платные: `AiRateLimiter` (в памяти, скользящие окна) считает
+  вызовы по IP клиента. IP берётся из `HttpContext` при пререндере (после `UseForwardedHeaders`) и переносится в
+  интерактивную фазу через `PersistentComponentState` (`Components/Tools/AiPageBase.cs`). Лимиты задаются в `AiLimits`.
+- Системные промпты ИИ лежат в таблице `AiPrompts` (ключи `estimate`, `faq`), правятся в `/admin/prompts`;
+  читаются через `AiPromptStore` (кэш 30 с). Тексты по умолчанию — `Services/DefaultPrompts.cs`: сидятся только
+  при отсутствии ключа и служат запасным вариантом.
 - Секреты только из конфигурации/переменных окружения, никогда не в коде.
   `MySec.Configure` и `AiModule.Configure` вызываются в `Program.cs` после `Build()`.
   Пустой `Api:Token` = API закрыт; пустой ключ LLM = метод возвращает сообщение без вызова API.
@@ -63,6 +69,8 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 | `Ai:OpenRouterApiKey`, `Ai:DeepSeekApiKey` | ключи LLM |
 | `Ai:OpenRouterModel` | модель OpenRouter для калькулятора и FAQ (пусто = `anthropic/claude-sonnet-5.5`) |
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |
+| `AiLimits:CalculatorPerHour`, `CalculatorPerDay`, `FaqPerHour`, `FaqPerDay` | лимиты ИИ на IP клиента (по умолчанию 5/15 и 20/60); админы без лимита |
+| `AiLimits:CalculatorGlobalPerDay`, `FaqGlobalPerDay` | суточный потолок на весь сервис (по умолчанию 300 и 1000) |
 | `DisableHttpsRedirection` | `true` за reverse proxy, где TLS снимает nginx |
 
 Переменные `.env` для compose: `APP_PORT`, `APP_BIND` (адрес публикации порта приложения;

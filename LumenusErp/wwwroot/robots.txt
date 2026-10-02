@@ -1,5 +1,5 @@
 # LumenusTech: публичные страницы открыты для поисковиков и AI-краулеров,
-# служебные разделы (вход, аккаунт, админка, AOS, калькулятор, API) закрыты.
+# служебные разделы (вход, аккаунт, админка, AOS, API) закрыты.
 
 User-agent: *
 Allow: /
@@ -7,7 +7,6 @@ Disallow: /Account/
 Disallow: /admin
 Disallow: /aos-
 Disallow: /auth
-Disallow: /calculator
 Disallow: /swagger
 Disallow: /api/
 
@@ -27,7 +26,6 @@ Disallow: /Account/
 Disallow: /admin
 Disallow: /aos-
 Disallow: /auth
-Disallow: /calculator
 Disallow: /swagger
 Disallow: /api/
 

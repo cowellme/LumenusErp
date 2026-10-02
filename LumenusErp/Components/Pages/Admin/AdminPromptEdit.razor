@@ -1,0 +1,233 @@
+﻿@page "/admin/prompts/{PromptKey}"
+@using LumenusErp.Data
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject AiPromptStore PromptStore
+
+<PageTitle>Редактирование промпта — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">ADMIN</p>
+        <h1 class="hero__title mb-2">@(entity?.Title ?? "Промпт")</h1>
+        <a href="/admin/prompts" class="font-monospace small fw-bold text-dark">&larr; К списку</a>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        @if (notFound)
+        {
+            <p class="text-muted">Промпт не найден.</p>
+        }
+        else if (entity is not null)
+        {
+            @if (errors.Count > 0)
+            {
+                <div class="alert alert-danger" role="alert">
+                    <ul class="mb-0">
+                        @foreach (var e in errors)
+                        {
+                            <li>@e</li>
+                        }
+                    </ul>
+                </div>
+            }
+            @if (saved)
+            {
+                <div class="alert alert-success" role="status">Сохранено.</div>
+            }
+            @if (entity.Key == DefaultPrompts.EstimateKey)
+            {
+                <div class="alert alert-warning" role="alert">
+                    Раздел с форматом ответа (OUTPUT FORMAT) должен остаться нетронутым: калькулятор разбирает JSON с полями
+                    <code>Summary</code>, <code>EstimatedBudget</code>, <code>EstimatedTimeline</code>, <code>RecommendedStack</code>, <code>Detail</code>.
+                    Если формат нарушить, посетители увидят сырой текст вместо карточки со сметой.
+                    @if (MissingFields.Count > 0)
+                    {
+                        <strong class="d-block mt-2">В тексте не найдены поля: @string.Join(", ", MissingFields).</strong>
+                    }
+                </div>
+            }
+
+            <EditForm Model="entity" OnSubmit="SaveAsync" FormName="prompt-edit">
+                <div class="mb-4">
+                    <label class="form-label small fw-bold" for="f-prompt">Системный промпт</label>
+                    <textarea id="f-prompt" class="form-control font-monospace" rows="28" style="font-size:0.82rem;"
+                              value="@systemPrompt" @oninput="e => systemPrompt = e.Value?.ToString() ?? string.Empty"></textarea>
+                    <div class="form-text">Символов: @systemPrompt.Length</div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold" for="f-model">Модель OpenRouter</label>
+                        <input id="f-model" class="form-control font-monospace" @bind="model" maxlength="200" placeholder="@AiModule.DefaultModel" />
+                        <div class="form-text">Пусто — используется модель по умолчанию: <code>@AiModule.DefaultModel</code> (Ai:OpenRouterModel).</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold" for="f-temp">Температура (0–2)</label>
+                        <input id="f-temp" type="number" step="0.1" min="0" max="2" class="form-control" @bind="temperature" />
+                        <div class="form-text">Пусто — по умолчанию у провайдера.</div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mb-5">
+                    <button type="submit" class="btn btn-dark" disabled="@busy">Сохранить</button>
+                    <button type="button" class="btn btn-outline-dark" @onclick="ResetToDefault">Сбросить к умолчанию</button>
+                </div>
+            </EditForm>
+
+            <div class="card-x form-card">
+                <p class="form-label small fw-bold mb-2">Проверить промпт</p>
+                <p class="small text-muted">Отправляет вопрос с текущим текстом формы (даже несохранённым) и показывает сырой ответ модели. Лимиты для администратора не действуют.</p>
+                <textarea class="form-control mb-3" rows="3" maxlength="4000" aria-label="Тестовый вопрос" @bind="testQuestion" @bind:event="oninput"></textarea>
+                <button type="button" class="btn btn-outline-dark" disabled="@(testing || string.IsNullOrWhiteSpace(testQuestion))" @onclick="RunTestAsync">
+                    @(testing ? "Ждём ответ..." : "Проверить")
+                </button>
+                @if (testError is not null)
+                {
+                    <div class="alert alert-danger mt-3 mb-0" role="alert">@testError</div>
+                }
+                @if (testResult is not null)
+                {
+                    <pre id="test-result" class="border rounded p-3 bg-white mt-3 mb-0 small" style="white-space: pre-wrap;">@testResult</pre>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private static readonly string[] EstimateFields = ["Summary", "EstimatedBudget", "EstimatedTimeline", "RecommendedStack", "Detail"];
+
+    [Parameter] public string PromptKey { get; set; } = "";
+
+    private AiPrompt? entity;
+    private string systemPrompt = "";
+    private string? model;
+    private double? temperature;
+    private bool notFound;
+    private bool busy;
+    private bool saved;
+    private bool testing;
+    private string testQuestion = "";
+    private string? testResult;
+    private string? testError;
+    private List<string> errors = new();
+
+    private List<string> MissingFields => entity?.Key == DefaultPrompts.EstimateKey
+        ? EstimateFields.Where(f => !systemPrompt.Contains(f, StringComparison.Ordinal)).ToList()
+        : new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        saved = false;
+        errors.Clear();
+        testResult = testError = null;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        entity = await db.AiPrompts.AsNoTracking().FirstOrDefaultAsync(p => p.Key == PromptKey);
+        notFound = entity is null;
+        if (entity is null)
+        {
+            return;
+        }
+
+        systemPrompt = entity.SystemPrompt;
+        model = entity.Model;
+        temperature = entity.Temperature;
+        testQuestion = entity.Key == DefaultPrompts.EstimateKey
+            ? "Нужен Telegram-бот, который отвечает на вопросы сотрудников по внутренней базе знаний."
+            : "Какие требования к серверу для развёртывания системы?";
+    }
+
+    private void ResetToDefault()
+    {
+        // Только подставляет текст в форму; в БД он попадёт после «Сохранить»
+        var def = DefaultPrompts.For(PromptKey);
+        if (def is not null)
+        {
+            systemPrompt = def;
+            saved = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (entity is null || busy)
+        {
+            return;
+        }
+
+        saved = false;
+        errors = Validate();
+        if (errors.Count > 0)
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var row = await db.AiPrompts.FirstOrDefaultAsync(p => p.Key == entity.Key);
+            if (row is null)
+            {
+                errors = new() { "Промпт удалён из БД." };
+                return;
+            }
+
+            row.SystemPrompt = systemPrompt;
+            row.Model = string.IsNullOrWhiteSpace(model) ? null : model.Trim();
+            row.Temperature = temperature;
+            row.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            PromptStore.Invalidate();
+            model = row.Model;
+            saved = true;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private List<string> Validate()
+    {
+        var list = new List<string>();
+        if (string.IsNullOrWhiteSpace(systemPrompt)) list.Add("Текст промпта обязателен.");
+        if (systemPrompt.Length > 30000) list.Add("Текст промпта слишком длинный (максимум 30000 символов).");
+        if (model is { Length: > 200 }) list.Add("Название модели слишком длинное.");
+        if (temperature is < 0 or > 2) list.Add("Температура должна быть от 0 до 2.");
+        return list;
+    }
+
+    private async Task RunTestAsync()
+    {
+        if (entity is null || testing || string.IsNullOrWhiteSpace(testQuestion))
+        {
+            return;
+        }
+
+        testing = true;
+        testResult = testError = null;
+        try
+        {
+            testResult = await AiModule.TestPromptAsync(entity.Key, systemPrompt, model, temperature, testQuestion);
+        }
+        catch (Exception ex)
+        {
+            testError = ex.Message;
+        }
+        finally
+        {
+            testing = false;
+        }
+    }
+}

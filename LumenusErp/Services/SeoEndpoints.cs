@@ -25,6 +25,7 @@ public static class SeoEndpoints
             AppendUrl(sb, "/", null);
             AppendUrl(sb, "/projects", projects.Count > 0 ? projects.Max(p => p.UpdatedAt) : null);
             AppendUrl(sb, "/faq", null);
+            AppendUrl(sb, "/calculator", null);
             foreach (var p in projects)
             {
                 AppendUrl(sb, "/projects/" + p.Slug, p.UpdatedAt);

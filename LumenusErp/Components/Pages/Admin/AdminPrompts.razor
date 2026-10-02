@@ -1,0 +1,67 @@
+﻿@page "/admin/prompts"
+@using LumenusErp.Data
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+<PageTitle>Промпты ИИ — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">ADMIN</p>
+        <h1 class="hero__title mb-2">Промпты ИИ</h1>
+        <p class="text-muted mb-0">Системные промпты калькулятора и FAQ-ассистента. Изменения применяются в течение 30 секунд.</p>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        <div class="table-responsive table-card">
+            <table class="table table-borderless mb-0 align-middle" style="min-width: 700px;">
+                <thead>
+                    <tr>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Промпт</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Модель</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Температура</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Изменён</th>
+                        <th scope="col" class="px-3 py-3"><span class="visually-hidden">Действия</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in prompts)
+                    {
+                        <tr>
+                            <td class="small px-3 py-3 fw-semibold">
+                                @p.Title
+                                <div class="font-monospace text-muted fw-normal" style="font-size:0.75rem;">@p.Key, @p.SystemPrompt.Length симв.</div>
+                            </td>
+                            <td class="font-monospace small px-3 py-3">@(p.Model ?? "по умолчанию")</td>
+                            <td class="font-monospace small px-3 py-3">@(p.Temperature?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "по умолчанию")</td>
+                            <td class="font-monospace small px-3 py-3">@p.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="px-3 py-3 text-end text-nowrap">
+                                <a href="/admin/prompts/@p.Key" class="btn btn-outline-dark btn-sm">Изменить</a>
+                            </td>
+                        </tr>
+                    }
+                    @if (prompts.Count == 0)
+                    {
+                        <tr><td colspan="5" class="text-center text-muted small py-4">Промптов пока нет</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+@code {
+    private List<AiPrompt> prompts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        prompts = await db.AiPrompts.AsNoTracking().OrderBy(p => p.Id).ToListAsync();
+    }
+}

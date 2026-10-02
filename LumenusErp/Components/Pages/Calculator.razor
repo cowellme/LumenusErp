@@ -3,12 +3,11 @@
 @using LumenusErp.Services
 @using Newtonsoft.Json
 @using LumenusErp.Components.Tools
+@inherits AiPageBase
 @inject ILogger<Calculator> Logger
-<PageTitle>Расчёт стоимости — LumenusTech</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
+<SeoMeta Path="/calculator" Title="@PageTitleText" Description="@PageDescription" />
 
-
-<AuthorizeView>
-    <Authorized>
 
         @* ======================================================================== *@
         @*  HERO                                                                   *@
@@ -55,6 +54,7 @@
                                   class="form-control"
                                   style="resize:vertical; font-size:0.9rem;"
                                   rows="14"
+                                  maxlength="@AiInputLimits.CalculatorMaxChars"
                                   placeholder="Пример:&#10;&#10;Производственная компания, 200 сотрудников. Нужно анализировать внутреннюю переписку в Telegram и корпоративную почту на предмет утечек коммерческой информации. Данные нельзя отправлять в облако — всё должно быть развёрнуто локально. Бюджет ориентировочно до 2 млн руб., сроки — 2–3 месяца."
                                   @bind="description"
                                   @bind:event="oninput"
@@ -151,34 +151,30 @@
                 @if (errorMessage != null)
                 {
                     <div class="alert alert-danger d-flex align-items-center mt-4 mb-0" role="alert">
-                        <span>@errorMessage</span>
+                        <span>
+                            @errorMessage
+                            @if (showTelegramLink)
+                            {
+                                <a href="@SiteInfo.TelegramUrl" target="_blank" rel="noopener" class="alert-link">Telegram</a>
+                            }
+                        </span>
                         <button type="button" class="btn btn-outline-danger btn-sm rounded-0 ms-auto fw-bold font-monospace text-uppercase"
                                 style="font-size:0.7rem; letter-spacing:0.06em;"
-                                @onclick="() => errorMessage = null">
+                                @onclick="() => { errorMessage = null; showTelegramLink = false; }">
                             ПОВТОРИТЬ
                         </button>
                     </div>
                 }
             </div>
         </section>
-    </Authorized>
-    <NotAuthorized>
-        <section class="hero hero--sm">
-            <div class="container">
-                <p class="text-muted" style="max-width: 580px;">
-                    Пожалуйста войдите в систему!
-                </p>
-                <NavLink class="btn btn-dark" href="Account/Login">
-                    Вход
-                </NavLink>
-            </div>
-        </section>
-        
-    </NotAuthorized>
-</AuthorizeView>
 
 
 @code {
+    private const string PageTitleText = "Расчёт стоимости проекта — LumenusTech";
+    private const string PageDescription =
+        "Калькулятор LumenusTech: опишите задачу, и AI-ассистент оценит объём работ, стек, сроки и примерный бюджет внедрения.";
+
+    private bool showTelegramLink;
     private string description = string.Empty;
     private string contactName = string.Empty;
     private string contactContact = string.Empty;
@@ -209,14 +205,28 @@
         if (string.IsNullOrWhiteSpace(description)) return;
         isLoading = true;
         errorMessage = null;
+        showTelegramLink = false;
         result = null;
         rawResult = null;
 
         try
         {
+            var limit = await TryAcquireAsync(AiKind.Calculator);
+            if (!limit.IsAllowed)
+            {
+                errorMessage = LimitMessage(limit);
+                showTelegramLink = limit.Status == AiLimitStatus.GloballyLimited;
+                return;
+            }
+
+            // maxlength в разметке обходится, поэтому длину ограничиваем и на сервере
+            var text = description.Trim();
+            if (text.Length > AiInputLimits.CalculatorMaxChars)
+                text = text[..AiInputLimits.CalculatorMaxChars];
+
             var prompt = string.IsNullOrEmpty(selectedChip)
-                ? description
-                : $"Тема: {selectedChip}\n\n{description}";
+                ? text
+                : $"Тема: {selectedChip}\n\n{text}";
 
             var responseRaw = await AiModule.EstimateProjectAsync(prompt);
 

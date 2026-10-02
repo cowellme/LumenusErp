@@ -63,9 +63,9 @@
 </div>
 
 @code {
-    // Служебные разделы (вход, аккаунт, админка, AOS, калькулятор) не должны попадать в индекс.
+    // Служебные разделы (вход, аккаунт, админка, AOS) не должны попадать в индекс.
     private static readonly string[] PrivatePrefixes =
-        ["Account", "admin", "aos-", "auth", "calculator", "Error"];
+        ["Account", "admin", "aos-", "auth", "Error"];
 
     private bool IsPrivatePath()
     {
