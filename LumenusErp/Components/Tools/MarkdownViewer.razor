@@ -5,8 +5,11 @@
 </div>
 
 @code {
+    // Таблицы GFM (| a | b |). UseAdvancedExtensions не берём: generic attributes ({onclick=...}) обходят DisableHtml.
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UsePipeTables().Build();
+
     // Без сырого HTML: для текста, который вводит человек (описания проектов).
-    private static readonly MarkdownPipeline SafePipeline = new MarkdownPipelineBuilder().DisableHtml().Build();
+    private static readonly MarkdownPipeline SafePipeline = new MarkdownPipelineBuilder().UsePipeTables().DisableHtml().Build();
 
     [Parameter]
     public string Content { get; set; } = string.Empty;
@@ -17,5 +20,5 @@
 
     private string Html => string.IsNullOrWhiteSpace(Content)
         ? string.Empty
-        : Safe ? Markdown.ToHtml(Content, SafePipeline) : Markdown.ToHtml(Content);
+        : Markdown.ToHtml(Content, Safe ? SafePipeline : Pipeline);
 }

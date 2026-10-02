@@ -537,6 +537,27 @@ hr.border-dark { border-color: var(--c-line-strong) !important; opacity: 1; }
     .theme-toggle { margin-left: auto; margin-right: 46px; }
 }
 
+/* ── 9c. Таблицы в markdown (MarkupString из MarkdownViewer — scoped CSS страниц до него не достаёт) */
+.md-content table {
+    display: block;            /* широкая таблица прокручивается сама, а не растягивает страницу */
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+}
+.md-content th, .md-content td {
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--c-line-strong);
+    vertical-align: top;
+}
+.md-content th {
+    background: var(--c-surface-alt);
+    color: var(--c-ink);
+    font-weight: 700;
+    text-align: left;
+}
+
 /* ── 10. Entrance animation ────────────────────────────────────────────── */
 @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
