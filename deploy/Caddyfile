@@ -13,7 +13,8 @@
 
 {$SITE_DOMAIN} {
 	import security_headers
-	header Strict-Transport-Security "max-age=31536000"
+	# ">" — заменить заголовок от приложения (UseHsts), а не добавить второй
+	header >Strict-Transport-Security "max-age=31536000"
 	encode zstd gzip
 	reverse_proxy app:8080
 }
