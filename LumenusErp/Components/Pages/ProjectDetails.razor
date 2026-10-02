@@ -1,0 +1,153 @@
+﻿@page "/projects/{Slug}"
+@using LumenusErp.Data
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+@if (project is null)
+{
+    <PageTitle>Проект не найден — LumenusTech</PageTitle>
+    <NoIndex />
+
+    <section class="hero hero--sm">
+        <div class="container">
+            <p class="eyebrow">404</p>
+            <h1 class="hero__title mb-3">Проект не найден</h1>
+            <p class="hero__lead mb-4">Такой записи нет в реестре или она ещё не опубликована.</p>
+            <a href="/projects" class="btn btn-dark px-4">&larr; Все проекты</a>
+        </div>
+    </section>
+}
+else
+{
+    <PageTitle>@project.Title — @project.Client — LumenusTech</PageTitle>
+    <SeoMeta Path="@("/projects/" + project.Slug)" Title="@project.Title" Description="@project.Summary" JsonLd="@JsonLd" />
+
+    <section class="hero hero--sm" aria-labelledby="project-title">
+        <div class="container">
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                <a href="/projects" class="font-monospace small fw-bold text-dark">&larr; Все проекты</a>
+                <AuthorizeView Roles="Admin">
+                    <a href="/admin/projects/@project.Id" class="btn btn-outline-dark btn-sm ms-auto">Редактировать</a>
+                </AuthorizeView>
+            </div>
+            <p class="eyebrow">@project.Client</p>
+            <h1 id="project-title" class="hero__title mb-3">@project.Title</h1>
+            <p class="hero__lead mb-4" style="max-width: 720px;">@project.Summary</p>
+
+            <div class="d-flex flex-wrap align-items-center gap-2 font-monospace small">
+                @if (project.Status == ProjectStatus.InProgress)
+                {
+                    <span class="pill pill--outline">@project.Status.ToUpperInvariant()</span>
+                }
+                else
+                {
+                    <span class="pill pill--solid">@project.Status.ToUpperInvariant()</span>
+                }
+                <span class="pill">@project.Year</span>
+                <span class="pill">@project.Direction</span>
+                @if (!string.IsNullOrWhiteSpace(project.Duration))
+                {
+                    <span class="pill">Срок: @project.Duration</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(project.Team))
+                {
+                    <span class="pill">Команда: @project.Team</span>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="section section--tight">
+        <div class="container project-body">
+            @if (!string.IsNullOrWhiteSpace(project.Challenge))
+            {
+                <article class="mb-5" aria-labelledby="sec-challenge">
+                    <p class="eyebrow">01</p>
+                    <h2 id="sec-challenge" class="section-title mb-3">Задача</h2>
+                    <MarkdownViewer Content="@project.Challenge" Safe="true" />
+                </article>
+            }
+            @if (!string.IsNullOrWhiteSpace(project.Solution))
+            {
+                <article class="mb-5" aria-labelledby="sec-solution">
+                    <p class="eyebrow">02</p>
+                    <h2 id="sec-solution" class="section-title mb-3">Решение</h2>
+                    <MarkdownViewer Content="@project.Solution" Safe="true" />
+                </article>
+            }
+            @if (!string.IsNullOrWhiteSpace(project.Result))
+            {
+                <article class="mb-5" aria-labelledby="sec-result">
+                    <p class="eyebrow">03</p>
+                    <h2 id="sec-result" class="section-title mb-3">Результат</h2>
+                    <MarkdownViewer Content="@project.Result" Safe="true" />
+                </article>
+            }
+            @if (project.Tags.Count > 0)
+            {
+                <div>
+                    <p class="eyebrow mb-2">Технологии</p>
+                    <div class="d-flex flex-wrap gap-1">
+                        @foreach (var tag in project.Tags)
+                        {
+                            <span class="pill pill--tag">@tag</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="section section--alt" aria-labelledby="cta-title">
+        <div class="container text-center">
+            <p class="eyebrow">СЛЕДУЮЩИЙ ПРОЕКТ</p>
+            <h2 id="cta-title" class="section-title mb-3">Нужно похожее решение?</h2>
+            <p class="text-muted mx-auto mb-4" style="max-width: 560px;">
+                Спроектируем архитектуру под вашу задачу — с фокусом на безопасность и работу в закрытом контуре.
+            </p>
+            <a href="/calculator" class="btn btn-dark btn-lg px-5">
+                Рассчитать стоимость
+            </a>
+            <div class="mt-4">
+                <a href="/projects" class="font-monospace small fw-bold text-dark">&larr; Все проекты</a>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    // Доступен при статическом рендере/prerender; в интерактивной схеме null.
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private Project? project;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        project = await db.Projects.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Slug == Slug && p.IsPublished);
+
+        if (project is null && HttpContext is { Response.HasStarted: false })
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+        }
+    }
+
+    private object? JsonLd => project is null ? null : new Dictionary<string, object>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "CreativeWork",
+        ["name"] = project.Title,
+        ["url"] = SiteInfo.Url("/projects/" + project.Slug),
+        ["description"] = project.Summary,
+        ["about"] = project.Direction,
+        ["dateCreated"] = project.Year.ToString(),
+        ["dateModified"] = project.UpdatedAt.ToString("yyyy-MM-dd"),
+        ["creativeWorkStatus"] = project.Status,
+        ["keywords"] = string.Join(", ", project.Tags),
+        ["sourceOrganization"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = project.Client },
+        ["creator"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = SiteInfo.Name, ["url"] = SiteInfo.BaseUrl + "/" },
+    };
+}

@@ -43,6 +43,13 @@
                 </NavLink>
             </div>
             <label class="menu-label">Управление</label>
+            <AuthorizeView Roles="Admin" Context="adminCtx">
+                <div class="mobile-link-box">
+                    <NavLink class="mobile-link" href="admin/projects">
+                        Редактор проектов
+                    </NavLink>
+                </div>
+            </AuthorizeView>
             <div class="mobile-link-box">
                 <NavLink class="mobile-link" href="Account/Manage">
                     Аккаунт @* @context.User.Identity?.Name *@

@@ -20,4 +20,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.7" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Шаблоны llms.txt: читаются с диска и дополняются проектами из БД -->
+    <Content Include="Content\*.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

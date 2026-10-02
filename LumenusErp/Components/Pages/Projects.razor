@@ -1,5 +1,8 @@
 ﻿@page "/projects"
 @rendermode InteractiveServer
+@using LumenusErp.Data
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 <PageTitle>@PageTitleText</PageTitle>
 <SeoMeta Path="/projects" Title="@PageTitleText" Description="@PageDescription" JsonLd="@JsonLd" />
 
@@ -42,59 +45,50 @@
                     @for (int i = 0; i < projects.Count; i++)
                     {
                         var p = projects[i];
-                        var isOpen = expandedIndex == i;
+                        var index = i; // копия для лямбд: счётчик цикла общий для всех итераций
+                        var isOpen = expandedIndex == index;
 
                         <tr class="@(isOpen ? "row-open" : "")"
                             style="cursor:pointer;"
-                            @onclick="() => Toggle(i)"
-                            @onkeydown="(e) => HandleRowKey(e, i)"
+                            @onclick="() => Toggle(index)"
+                            @onkeydown="(e) => HandleRowKey(e, index)"
                             tabindex="0"
                             role="button"
                             aria-expanded="@isOpen.ToString().ToLower()">
                             <td class="font-monospace small fw-semibold px-3 py-3">@p.Client</td>
                             <td class="small px-3 py-3 fw-semibold">@p.Title</td>
-                            <td class="font-monospace small fw-semibold px-3 py-3">@p.Scope</td>
+                            <td class="font-monospace small fw-semibold px-3 py-3">@p.Direction</td>
                             <td class="font-monospace small fw-semibold px-3 py-3">@p.Year</td>
                             <td class="px-3 py-3">
-                                @if (p.Stamp == "В РАБОТЕ")
+                                @if (p.Status == ProjectStatus.InProgress)
                                 {
                                     <span class="pill pill--outline">
-                                        @p.Stamp
+                                        @p.Status.ToUpperInvariant()
                                     </span>
                                 }
                                 else
                                 {
                                     <span class="pill pill--solid">
-                                        @p.Stamp
+                                        @p.Status.ToUpperInvariant()
                                     </span>
                                 }
                             </td>
                             <td class="text-center px-3 py-3">
-                                <a href="@p.Reference" class="font-monospace pe-3 link-dark fw-bold small" style="transition:transform 0.15s; display:inline-block; @(isOpen ? "transform:rotate(45deg)" : "")">Подробнее</a>
+                                <a href="/projects/@p.Slug" class="font-monospace pe-3 link-dark fw-bold small" style="display:inline-block;" @onclick:stopPropagation="true">Подробнее</a>
                             </td>
                         </tr>
 
                         @if (isOpen)
                         {
                             <tr class="row-open">
-                                <td colspan="7" class="p-0">
+                                <td colspan="6" class="p-0">
                                     <div class="p-4 p-md-5">
                                         <div class="row g-4">
                                             <div class="col-lg-8">
-                                                <p class="mb-4 lh-base">@p.Description</p>
-
-                                                @if (p.Details is { Count: > 0 })
-                                                {
-                                                    <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
-                                                        @foreach (var d in p.Details)
-                                                        {
-                                                            <li class="small text-muted position-relative ps-3">
-                                                                <span class="position-absolute top-0 start-0 text-muted" style="line-height:1.5;">—</span>
-                                                                @d
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                }
+                                                <p class="mb-3 lh-base">@p.Summary</p>
+                                                <p class="small text-muted mb-0 font-monospace">
+                                                    @p.Duration &middot; @p.Team
+                                                </p>
                                             </div>
                                             <div class="col-lg-4">
                                                 <div class="ps-lg-4 detail-side d-flex flex-column gap-4 h-100">
@@ -102,7 +96,7 @@
                                                     <div>
                                                         <p class="eyebrow mb-2">Технологии</p>
                                                         <div class="d-flex flex-wrap gap-1">
-                                                            @foreach (var tag in p.TechTags)
+                                                            @foreach (var tag in p.Tags)
                                                             {
                                                                 <span class="pill pill--tag">
                                                                     @tag
@@ -111,12 +105,7 @@
                                                         </div>
                                                     </div>
 
-                                                    <div>
-                                                        <p class="eyebrow mb-2">Результат</p>
-                                                        <p class="small mb-0 lh-sm">@p.Result</p>
-                                                    </div>
-
-                                                    <a href="@p.Url" class="font-monospace small fw-bold text-dark mt-auto pt-2">
+                                                    <a href="/projects/@p.Slug" class="font-monospace small fw-bold text-dark mt-auto pt-2">
                                                         Карточка проекта &rarr;
                                                     </a>
                                                 </div>
@@ -135,11 +124,11 @@
         <div class="d-flex flex-wrap gap-2 mt-3 font-monospace small text-muted">
             <span>Всего записей: <strong class="text-dark">@projects.Count</strong></span>
             <span class="text-secondary">/</span>
-            <span>Завершено: <strong class="text-dark">@projects.Count(p => p.Stamp == "ЗАВЕРШЕНО")</strong></span>
+            <span>Завершено: <strong class="text-dark">@projects.Count(p => p.Status == ProjectStatus.Done)</strong></span>
             <span class="text-secondary">/</span>
-            <span>В работе: <strong class="text-dark">@projects.Count(p => p.Stamp == "В РАБОТЕ")</strong></span>
+            <span>В работе: <strong class="text-dark">@projects.Count(p => p.Status == ProjectStatus.InProgress)</strong></span>
             <span class="text-secondary">/</span>
-            <span>Последнее обновление: <strong class="text-dark">@DateTime.Now.AddDays(-8).ToString("dd.MM.yyyy")</strong></span>
+            <span>Последнее обновление: <strong class="text-dark">@(projects.Count > 0 ? projects.Max(p => p.UpdatedAt).ToString("dd.MM.yyyy") : "—")</strong></span>
         </div>
     </div>
 </section>
@@ -175,21 +164,34 @@
         {
             ["@type"] = "ListItem",
             ["position"] = i + 1,
+            ["url"] = SiteInfo.Url("/projects/" + p.Slug),
             ["item"] = new Dictionary<string, object>
             {
                 ["@type"] = "CreativeWork",
                 ["name"] = p.Title,
-                ["description"] = p.Description,
-                ["about"] = p.Scope,
-                ["dateCreated"] = p.Year,
-                ["creativeWorkStatus"] = p.Stamp == "В РАБОТЕ" ? "В работе" : "Завершено",
+                ["url"] = SiteInfo.Url("/projects/" + p.Slug),
+                ["description"] = p.Summary,
+                ["about"] = p.Direction,
+                ["dateCreated"] = p.Year.ToString(),
+                ["creativeWorkStatus"] = p.Status,
                 ["sourceOrganization"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = p.Client },
                 ["creator"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = SiteInfo.Name, ["url"] = SiteInfo.BaseUrl + "/" },
             },
         }).ToList(),
     };
 
+    private List<Project> projects = new();
     private int? expandedIndex;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        projects = await db.Projects.AsNoTracking()
+            .Where(p => p.IsPublished)
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.Id)
+            .ToListAsync();
+    }
 
     private void Toggle(int index)
     {
@@ -202,140 +204,5 @@
         {
             Toggle(index);
         }
-    }
-
-    private readonly List<RegistryEntry> projects = new()
-    {
-        new()
-        {
-            Reference = "2026-01",
-            Client = "ООО «Главстрой»",
-            Title = "Система мониторинга корпоративных коммуникаций",
-            Scope = "On-Premise LLM",
-            Year = "2026",
-            Stamp = "В РАБОТЕ",
-            Description = "Разработан MCP-сервер на ASP.NET Core (.NET 9) как связующее звено между корпоративными данными и языковыми моделями. В соответствии с требованиями безопасности всё развёрнуто на локальном оборудовании заказчика: полный цикл от подбора «железа» до рабочего окружения.",
-            Details = new()
-            {
-                "Docker Compose, оркестрация контейнеров, CI/CD-пайплайны.",
-                "Конвейер шифрования персональных данных перед передачей в LLM.",
-                "RAG-система для извлечения и контекстного анализа документов.",
-                "Объём обрабатываемых данных: 500+ страниц переписки и 3–4 часа аудиозаписей ежедневно.",
-            },
-            TechTags = new() { ".NET 9", "ASP.NET Core", "Докер", "RAG", "CI/CD", "LLM" },
-            Result = "Автоматическая сводка в панели администратора и группировка сотрудников по зонам риска (красные, жёлтые, зелёные).",
-            Url = "/projects/glavstroy",
-        },
-        new()
-        {
-            Reference = "2026-02",
-            Client = "ВШГУ РАНХиГС",
-            Title = "Гибридная AI-платформа для документооборота",
-            Scope = "Гибридное развёртывание",
-            Year = "2026",
-            Stamp = "ЗАВЕРШЕНО",
-            Description = "Реализована двухконтурная архитектура. Контур 1 — гибридная обработка: связка Open Web UI → локальная модель (шифрование ПДн) → Open Router (мощные LLM). Контур 2 — интеграционный: Pyrus ↔ REST API (.NET) ↔ AI-конвейер.",
-            Details = new()
-            {
-                "Созданы специализированные модели под каждый бизнес-процесс.",
-                "Автоматическое чтение полей задач Pyrus, передача в AI-конвейер и обновление полей результатами обработки.",
-                "Двойная защита: шифрование моделью + алгоритмическая пост-проверка данных.",
-            },
-            TechTags = new() { "Open Web UI", "Open Router", "REST API .NET", "Pyrus", "Локальные LLM", "Шифрование" },
-            Result = "Полная автоматизация документооборота с двойной защитой персональных данных. Снижение ручного ввода на 70%.",
-            Url = "/projects/ranepa",
-        },
-        new()
-        {
-            Reference = "2026-03",
-            Client = "Аналитическая система",
-            Title = "Мониторинг Telegram и Instagram с GPT и Selenium",
-            Scope = "NLP / OSINT",
-            Year = "2026",
-            Stamp = "В РАБОТЕ",
-            Description = "Автоматизированный мониторинг Telegram-каналов и Instagram-страниц на предмет контента, нарушающего законодательство РФ. Семантический анализ через GPT-модели, классификация и эскалация подозрительного контента.",
-            Details = new()
-            {
-                "Selenium WebDriver — автоматизированный сбор постов из целевых каналов.",
-                "GPT-модели — семантический анализ контента на предмет нарушений УК РФ.",
-                "Автоматическая классификация и эскалация подозрительного контента по категориям.",
-                "Обширная база знаний: список иноагентов, запрещённая литература, скрытый контекст.",
-            },
-            TechTags = new() { "Selenium", "GPT", "Telegram API", ".NET", "NLP" },
-            Result = "Автоматическое выявление нарушений УК РФ в Telegram и Instagram с классификацией контента.",
-            Url = "/projects/telegram-analysis",
-        },
-        new()
-        {
-            Reference = "2026-04",
-            Client = "Логистическая компания",
-            Title = "RAG-конвейер обработки договоров",
-            Scope = "RAG / Документооборот",
-            Year = "2026",
-            Stamp = "ЗАВЕРШЕНО",
-            Description = "Автоматическое извлечение ключевых условий из 2 000+ договоров. Проверка на соответствие нормативам, выявление коллизий и рисков.",
-            Details = new()
-            {
-                "Построение RAG-конвейера для индексации и поиска по договорам.",
-                "Автоматическая классификация договоров по типам и уровням риска.",
-                "Интеграция с внутренней CRM заказчика через REST API.",
-            },
-            TechTags = new() { "RAG", "PostgreSQL", "REST API", ".NET", "Docker" },
-            Result = "Сокращение времени обработки одного договора с 4 часов до 15 минут. Выявлено 12% договоров с критическими коллизиями.",
-            Url = "/projects/contracts-rag",
-        },
-        new()
-        {
-            Reference = "2026-05",
-            Client = "ООО «Мир»",
-            Title = "LLM с базой знаний для КЦВ Мир ",
-            Scope = "Медицина",
-            Year = "2026",
-            Stamp = "ЗАВЕРШЕНО",
-            Description = "Использование языковой модели, ассистент по документам.",
-            Details = new()
-            {
-                "Развёртывание LLM для медицинского центра.",
-                "Шифрование персональных данных пациентов.",
-                "Генерация шаблонных документов для врачей.",
-            },
-            TechTags = new() { "LLM", "Docker", "Шифрование ПДн", "Python", "PostgreSQL" },
-            Result = "Сокращение времени на подготовку заключений на 40%. Полное соответствие требованиям о врачебной тайне.",
-            Url = "/projects/med-ai",
-        },
-        new()
-        {
-            Reference = "2026-01",
-            Client = "ООО «Рукубик»",
-            Title = "AI-скоринг корпоративных рисков",
-            Scope = "FinTech / Compliance",
-            Year = "2026",
-            Stamp = "ЗАВЕРШЕНО",
-            Description = "Анализ отчётности и транзакций через LLM. Выявление аномалий, предиктивная аналитика для маркетинг-отдела.",
-            Details = new()
-            {
-                "Разработка модели предсказания рисков на исторических данных.",
-                "Интеграция с внутренней системой документооборота.",
-                "Настройка алертов при выявлении аномалей.",
-            },
-            TechTags = new() { "LLM", ".NET 9", "PostgreSQL", "Docker", "REST API" },
-            Result = "Проект в активной фазе разработки. Пилотный запуск — Q2 2026.",
-            Url = "/projects/risk-scoring",
-        },
-    };
-
-    private sealed record RegistryEntry
-    {
-        public string Reference { get; init; } = "";
-        public string Client { get; init; } = "";
-        public string Title { get; init; } = "";
-        public string Scope { get; init; } = "";
-        public string Year { get; init; } = "";
-        public string Stamp { get; init; } = "";
-        public string Description { get; init; } = "";
-        public List<string> Details { get; init; } = new();
-        public List<string> TechTags { get; init; } = new();
-        public string Result { get; init; } = "";
-        public string Url { get; init; } = "";
     }
 }

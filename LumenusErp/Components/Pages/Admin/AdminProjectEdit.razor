@@ -1,0 +1,264 @@
+﻿@page "/admin/projects/new"
+@page "/admin/projects/{Id:int}"
+@using System.Text.RegularExpressions
+@using LumenusErp.Data
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsNew ? "Новый проект" : "Редактирование проекта") — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">ADMIN</p>
+        <h1 class="hero__title mb-2">@(IsNew ? "Новый проект" : "Редактирование проекта")</h1>
+        <a href="/admin/projects" class="font-monospace small fw-bold text-dark">&larr; К списку</a>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        @if (notFound)
+        {
+            <p class="text-muted">Проект не найден.</p>
+        }
+        else if (model is not null)
+        {
+            @if (errors.Count > 0)
+            {
+                <div class="alert alert-danger" role="alert">
+                    <ul class="mb-0">
+                        @foreach (var e in errors)
+                        {
+                            <li>@e</li>
+                        }
+                    </ul>
+                </div>
+            }
+            @if (saved)
+            {
+                <div class="alert alert-success" role="status">Сохранено.</div>
+            }
+
+            <EditForm Model="model" OnSubmit="SaveAsync" FormName="project-edit">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold" for="f-title">Название</label>
+                        <input id="f-title" class="form-control" @bind="model.Title" maxlength="300" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold" for="f-slug">Slug (URL)</label>
+                        <div class="input-group">
+                            <span class="input-group-text font-monospace small">/projects/</span>
+                            <input id="f-slug" class="form-control font-monospace" @bind="model.Slug" maxlength="100" />
+                        </div>
+                        <div class="form-text">Латиница в нижнем регистре, цифры и дефис, например risk-scoring.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold" for="f-client">Заказчик</label>
+                        <input id="f-client" class="form-control" @bind="model.Client" maxlength="200" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold" for="f-direction">Направление</label>
+                        <input id="f-direction" class="form-control" @bind="model.Direction" maxlength="100" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold" for="f-year">Год</label>
+                        <input id="f-year" type="number" class="form-control" @bind="model.Year" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold" for="f-status">Статус</label>
+                        <select id="f-status" class="form-select" @bind="model.Status">
+                            @foreach (var s in ProjectStatus.All)
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold" for="f-duration">Срок</label>
+                        <input id="f-duration" class="form-control" @bind="model.Duration" maxlength="100" placeholder="4 месяца" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold" for="f-team">Команда</label>
+                        <input id="f-team" class="form-control" @bind="model.Team" maxlength="100" placeholder="3 инженера" />
+                    </div>
+                    <div class="col-md-9">
+                        <label class="form-label small fw-bold" for="f-tags">Технологии (через запятую)</label>
+                        <input id="f-tags" class="form-control" @bind="tagsText" placeholder="RAG, .NET 9, Docker" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold" for="f-sort">Порядок сортировки</label>
+                        <input id="f-sort" type="number" class="form-control" @bind="model.SortOrder" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold" for="f-summary">Краткое описание (1–2 предложения)</label>
+                        <textarea id="f-summary" class="form-control" rows="2" @bind="model.Summary" @bind:event="oninput"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input id="f-pub" class="form-check-input" type="checkbox" role="switch" @bind="model.IsPublished" />
+                            <label class="form-check-label small fw-bold" for="f-pub">Опубликован (виден на сайте)</label>
+                        </div>
+                    </div>
+                </div>
+
+                @MarkdownField("challenge", "Задача (markdown)", model.Challenge, v => model.Challenge = v)
+                @MarkdownField("solution", "Решение (markdown)", model.Solution, v => model.Solution = v)
+                @MarkdownField("result", "Результат (markdown)", model.Result, v => model.Result = v)
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-dark px-4" disabled="@busy">Сохранить</button>
+                    <a href="/admin/projects" class="btn btn-outline-dark px-4">К списку</a>
+                    @if (!IsNew)
+                    {
+                        <a href="/projects/@model.Slug" class="btn btn-outline-dark ms-auto" target="_blank" rel="noopener">Открыть на сайте</a>
+                    }
+                </div>
+            </EditForm>
+        }
+    </div>
+</section>
+
+@code {
+    private static readonly Regex SlugRegex = new("^[a-z0-9-]+$", RegexOptions.Compiled);
+
+    [Parameter] public int? Id { get; set; }
+
+    private bool IsNew => Id is null;
+
+    private Project? model;
+    private string tagsText = "";
+    private bool notFound;
+    private bool busy;
+    private bool saved;
+    private List<string> errors = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        saved = false;
+        errors.Clear();
+        notFound = false;
+
+        if (IsNew)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var maxOrder = await db.Projects.Select(p => (int?)p.SortOrder).MaxAsync() ?? 0;
+            model = new Project { SortOrder = maxOrder + 10, Year = DateTime.Now.Year };
+            tagsText = "";
+            return;
+        }
+
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            model = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == Id);
+        }
+        notFound = model is null;
+        tagsText = model is null ? "" : string.Join(", ", model.Tags);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (model is null || busy)
+        {
+            return;
+        }
+
+        saved = false;
+        model.Slug = (model.Slug ?? "").Trim();
+        model.Tags = tagsText
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct()
+            .ToList();
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        errors = await ValidateAsync(db);
+        if (errors.Count > 0)
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            model.UpdatedAt = DateTime.UtcNow;
+            if (IsNew)
+            {
+                db.Projects.Add(model);
+            }
+            else
+            {
+                db.Projects.Update(model);
+            }
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Гонка за slug между проверкой и вставкой (уникальный индекс).
+            errors = new() { "Не удалось сохранить: возможно, такой slug уже занят." };
+            return;
+        }
+        finally
+        {
+            busy = false;
+        }
+
+        if (IsNew)
+        {
+            Navigation.NavigateTo($"/admin/projects/{model.Id}");
+        }
+        else
+        {
+            saved = true;
+        }
+    }
+
+    private async Task<List<string>> ValidateAsync(ApplicationDbContext db)
+    {
+        var list = new List<string>();
+        var m = model!;
+
+        if (string.IsNullOrWhiteSpace(m.Slug))
+        {
+            list.Add("Slug обязателен.");
+        }
+        else if (!SlugRegex.IsMatch(m.Slug))
+        {
+            list.Add("Slug может содержать только строчные латинские буквы, цифры и дефис.");
+        }
+        else if (await db.Projects.AnyAsync(p => p.Slug == m.Slug && p.Id != m.Id))
+        {
+            list.Add($"Slug «{m.Slug}» уже используется другим проектом.");
+        }
+
+        if (string.IsNullOrWhiteSpace(m.Title)) list.Add("Название обязательно.");
+        if (string.IsNullOrWhiteSpace(m.Client)) list.Add("Заказчик обязателен.");
+        if (string.IsNullOrWhiteSpace(m.Summary)) list.Add("Краткое описание обязательно.");
+        if (m.Year < 1990 || m.Year > 2100) list.Add("Год указан неверно.");
+        if (!ProjectStatus.All.Contains(m.Status)) list.Add("Неизвестный статус.");
+
+        return list;
+    }
+
+    // Поле markdown с живым превью справа
+    private RenderFragment MarkdownField(string key, string label, string value, Action<string> set) => __builder =>
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <label class="form-label small fw-bold" for="@("f-" + key)">@label</label>
+                <textarea id="@("f-" + key)" class="form-control font-monospace" rows="10"
+                          value="@value" @oninput="e => set(e.Value?.ToString() ?? string.Empty)"></textarea>
+            </div>
+            <div class="col-lg-6">
+                <p class="form-label small fw-bold">Превью</p>
+                <div class="border rounded p-3 bg-white h-100" style="min-height: 10rem;">
+                    <MarkdownViewer Content="@value" Safe="true" />
+                </div>
+            </div>
+        </div>
+    };
+}

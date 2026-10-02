@@ -25,6 +25,11 @@
 
     @* Right auth *@
     <div class="d-flex align-items-center ms-auto">
+        <AuthorizeView Roles="Admin">
+            <NavLink class="nav-link-x" href="admin/projects">
+                Редактор проектов
+            </NavLink>
+        </AuthorizeView>
         <AuthorizeView Roles="Admin, Aos">
             
             <NavLink class="nav-link-x" href="aos-panel">

@@ -19,8 +19,8 @@ ERP/сайт компании Lumenus (lumenustech.ru): лендинг, FAQ и �
 LumenusErp/                     # проект (LumenusErp.csproj)
   Program.cs                    # DI, миграции при старте, сид ролей и админа
   Components/
-    Pages/                      # Home, Faq, Calculator, Projects, Auth
-    Pages/Admin/                # /admin/roles — управление ролями (Admin)
+    Pages/                      # Home, Faq, Calculator, Projects, ProjectDetails, Auth
+    Pages/Admin/                # /admin/roles, /admin/projects — ролями и проектами (Admin)
     Pages/AnalysisOfSocial/     # /aos-panel, /aos-settings (Admin, Aos)
     Account/                    # шаблонные страницы Identity
     Layout/, Tools/             # layout, меню, MarkdownViewer, SeoMeta (мета/OG/JSON-LD), NoIndex
@@ -32,7 +32,8 @@ LumenusErp/                     # проект (LumenusErp.csproj)
     AosDbContext.cs
     Aos/                        # модели Blogger, Setting, TUser, Social (namespace Shared.Models)
     Migrations/App, Migrations/Aos
-  Services/                     # клиенты LLM: OpenRouter, DeepSeek, YandexGPT (AiModule)
+  Content/                      # шаблоны llms.txt / llms-full.txt
+  Services/                     # SeoEndpoints, клиенты LLM: OpenRouter, DeepSeek, YandexGPT (AiModule)
 Dockerfile, docker-compose.yml, .env.example
 deploy/                         # deploy.sh, remote.sh, Caddyfile
 ```
@@ -73,10 +74,17 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   `<PageTitle>` + `<SeoMeta Path=... />` (description, canonical, OG, Twitter, JSON-LD).
   Контент JSON-LD строится из тех же данных, что рисует страница.
 - `MainLayout` добавляет `noindex` для `Account*`, `admin*`, `aos-*`, `auth`, `calculator`, `Error`.
-- `wwwroot/llms.txt`, `llms-full.txt`, `robots.txt`, `sitemap.xml` — **правятся вручную** при смене
-  контента страниц/списка проектов. `.txt` отдаётся с `charset=utf-8` (middleware в `Program.cs`).
-- Ссылки «Подробнее»/`/projects/<slug>` в реестре проектов ведут на несуществующие страницы —
-  в sitemap/llms они не включены.
+- `/sitemap.xml`, `/llms.txt`, `/llms-full.txt` — **динамические** эндпоинты (`Services/SeoEndpoints.cs`):
+  sitemap строится из БД (/, /projects, /faq + опубликованные проекты, lastmod = `UpdatedAt`);
+  llms-файлы = шаблон `Content/llms.txt`, `Content/llms-full.txt` (копируются в publish через csproj)
+  + сгенерированный раздел «Projects». Статические тексты страниц в шаблонах правятся вручную.
+  `wwwroot/robots.txt` статический; `.txt` из статики отдаётся с `charset=utf-8` (middleware в `Program.cs`).
+- Проекты реестра — таблица `Projects` (`Data/Project.cs`), первичное наполнение — `Data/ProjectSeed.cs`
+  (только в пустую таблицу, правки админа не перезаписываются). Публично: `/projects`,
+  `/projects/{slug}` (404 с реальным статусом для неизвестных/неопубликованных); редактор — `/admin/projects`
+  (роль Admin). Markdown проектов рендерится с отключённым сырым HTML (`MarkdownViewer Safe="true"`).
+- `ApplicationDbContext` регистрируется через `AddDbContextFactory` + scoped-обёртку: компоненты Blazor
+  берут `IDbContextFactory`, Identity — обычный контекст.
 
 В Docker ключи задаются переменными окружения (`ConnectionStrings__DefaultConnection` и т.д.)
 из `.env`.

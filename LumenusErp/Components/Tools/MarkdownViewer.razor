@@ -5,10 +5,17 @@
 </div>
 
 @code {
+    // Без сырого HTML: для текста, который вводит человек (описания проектов).
+    private static readonly MarkdownPipeline SafePipeline = new MarkdownPipelineBuilder().DisableHtml().Build();
+
     [Parameter]
     public string Content { get; set; } = string.Empty;
 
+    /// <summary>Отключить сырой HTML в markdown (теги выводятся как текст).</summary>
+    [Parameter]
+    public bool Safe { get; set; }
+
     private string Html => string.IsNullOrWhiteSpace(Content)
         ? string.Empty
-        : Markdown.ToHtml(Content);
+        : Safe ? Markdown.ToHtml(Content, SafePipeline) : Markdown.ToHtml(Content);
 }

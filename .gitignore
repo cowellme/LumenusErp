@@ -368,3 +368,4 @@ FodyWeavers.xsd
 # Deploy
 .deploy.env
 backups/
+.shots/

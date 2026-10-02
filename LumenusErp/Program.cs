@@ -15,7 +15,7 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Кириллица в <title>/мета-тегах как есть, а не &#x...; — сырой HTML читают AI-краулеры
-builder.Services.AddSingleton(HtmlEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Cyrillic, UnicodeRanges.GeneralPunctuation));
+builder.Services.AddSingleton(HtmlEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Latin1Supplement, UnicodeRanges.Cyrillic, UnicodeRanges.GeneralPunctuation));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -35,8 +35,11 @@ builder.Services.AddAuthentication(options =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 var connectionStringAos = builder.Configuration.GetConnectionString("AosConnection") ?? throw new InvalidOperationException("Connection string 'AosConnection' not found.");
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// Фабрика нужна Blazor-компонентам (короткоживущий контекст на операцию); Identity и остальной
+// код получают обычный scoped-контекст, созданный той же фабрикой.
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 
 builder.Services.AddDbContext<AosDbContext>(options =>
     options.UseNpgsql(connectionStringAos));
@@ -85,6 +88,7 @@ using (var scope = app.Services.CreateScope())
 
     await dbContext.Database.MigrateAsync();
     await aosDbContext.Database.MigrateAsync();
+    await ProjectSeed.EnsureSeededAsync(dbContext);
 
     // ── Засидировать роли ────────────────────────────────────────────
     var roles = new[] { "Admin", "Manager", "User", "Ghost", "Aos" };
@@ -143,7 +147,7 @@ if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
     app.UseHttpsRedirection();
 }
 
-// MapStaticAssets отдаёт .txt как "text/plain" без кодировки — для llms.txt/robots.txt
+// MapStaticAssets отдаёт .txt как "text/plain" без кодировки — для robots.txt
 // клиенты тогда могут не угадать UTF-8 и показать кириллицу кракозябрами.
 app.Use(async (context, next) =>
 {
@@ -166,6 +170,7 @@ app.UseSwagger();
 app.UseAntiforgery();
 
 app.MapControllers();
+app.MapSeoEndpoints();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

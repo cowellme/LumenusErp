@@ -1,0 +1,119 @@
+﻿@page "/admin/projects"
+@using LumenusErp.Data
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+<PageTitle>Проекты — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container d-flex flex-wrap align-items-end gap-3">
+        <div>
+            <p class="eyebrow">ADMIN</p>
+            <h1 class="hero__title mb-2">Проекты</h1>
+            <p class="text-muted mb-0">Всего: <strong class="text-dark">@projects.Count</strong>, опубликовано: <strong class="text-dark">@projects.Count(p => p.IsPublished)</strong></p>
+        </div>
+        <a href="/admin/projects/new" class="btn btn-dark ms-auto">+ Создать проект</a>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        <div class="table-responsive table-card">
+            <table class="table table-borderless mb-0 align-middle" style="min-width: 900px;">
+                <thead>
+                    <tr>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Проект</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Заказчик</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Статус</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Опубликован</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Порядок</th>
+                        <th scope="col" class="px-3 py-3"><span class="visually-hidden">Действия</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in projects)
+                    {
+                        <tr>
+                            <td class="small px-3 py-3 fw-semibold">
+                                @p.Title
+                                <div class="font-monospace text-muted fw-normal" style="font-size:0.75rem;">/projects/@p.Slug</div>
+                            </td>
+                            <td class="font-monospace small px-3 py-3">@p.Client</td>
+                            <td class="px-3 py-3">
+                                <span class="pill @(p.Status == ProjectStatus.InProgress ? "pill--outline" : "pill--solid")">@p.Status.ToUpperInvariant()</span>
+                            </td>
+                            <td class="px-3 py-3">
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="pub-@p.Id"
+                                           checked="@p.IsPublished"
+                                           @onchange="() => TogglePublished(p)"
+                                           aria-label="Опубликован: @p.Title" />
+                                </div>
+                            </td>
+                            <td class="font-monospace small px-3 py-3">@p.SortOrder</td>
+                            <td class="px-3 py-3 text-end text-nowrap">
+                                @if (confirmDeleteId == p.Id)
+                                {
+                                    <span class="small me-2">Удалить?</span>
+                                    <button type="button" class="btn btn-dark btn-sm" @onclick="() => Delete(p)">Да</button>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmDeleteId = null">Нет</button>
+                                }
+                                else
+                                {
+                                    <a href="/admin/projects/@p.Id" class="btn btn-outline-dark btn-sm">Изменить</a>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmDeleteId = p.Id">Удалить</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (projects.Count == 0)
+                    {
+                        <tr><td colspan="6" class="text-center text-muted small py-4">Проектов пока нет</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+@code {
+    private List<Project> projects = new();
+    private int? confirmDeleteId;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        projects = await db.Projects.AsNoTracking()
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.Id)
+            .ToListAsync();
+    }
+
+    private async Task TogglePublished(Project p)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var entity = await db.Projects.FindAsync(p.Id);
+        if (entity is not null)
+        {
+            entity.IsPublished = !entity.IsPublished;
+            entity.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        await LoadAsync();
+    }
+
+    private async Task Delete(Project p)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Projects.Where(x => x.Id == p.Id).ExecuteDeleteAsync();
+        confirmDeleteId = null;
+        await LoadAsync();
+    }
+}
