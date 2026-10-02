@@ -86,7 +86,24 @@ docker run --rm --user $(id -u):$(id -g) -e HOME=/tmp -v "$PWD":/src -w /src/Lum
 docker compose exec db psql -U "$POSTGRES_USER" -d lumenuserp
 ```
 
-## Деплой на Ubuntu
+## Деплой на прод (make)
+
+Параметры сервера — в `.deploy.env` (шаблон `.deploy.env.example`, в git не попадает).
+Логика: `deploy/deploy.sh` (локально) + `deploy/remote.sh` (стримится на сервер по SSH).
+
+```bash
+make setup      # первый раз: каталоги, Docker, шаблон shared/.env (потом отредактировать!)
+make deploy     # выкатить закоммиченный HEAD (REF=<ref>, FORCE=1 при грязном дереве)
+make rollback   # на предыдущий релиз
+make releases | backup | backup-pull | prod-logs | prod-ps | ssh
+```
+
+На сервере: `$DEPLOY_PATH/{shared/.env, shared/backups, releases/<ts>-<sha>, current}`.
+Compose всегда с `-p lumenus`, поэтому тома общие для всех релизов. Перед деплоем
+делается `pg_dumpall`; при провале проверки `current` не переключается, поднимается
+предыдущий релиз. Миграции БД при этом не откатываются.
+
+## Деплой на Ubuntu вручную
 
 1. Установить Docker Engine + compose plugin (`https://docs.docker.com/engine/install/ubuntu/`).
 2. `git clone` репозитория, `cp .env.example .env`, задать `POSTGRES_PASSWORD`, `ADMIN_PASSWORD`.

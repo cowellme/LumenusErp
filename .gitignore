@@ -364,3 +364,7 @@ FodyWeavers.xsd
 св
 # Local secrets
 .env
+
+# Deploy
+.deploy.env
+backups/
