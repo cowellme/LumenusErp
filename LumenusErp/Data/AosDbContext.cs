@@ -1,4 +1,3 @@
-﻿using Microsoft.Build.Framework;
 using Microsoft.EntityFrameworkCore;
 using Shared.Models;
 public class AosDbContext(DbContextOptions<AosDbContext> options) : DbContext(options)

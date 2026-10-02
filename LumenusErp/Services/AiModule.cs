@@ -1,11 +1,22 @@
 ﻿using Analyze;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Configuration;
 
 namespace LumenusErp.Services
 {
     public class AiModule
     {
+        private static IConfiguration? _config;
+
+        public static void Configure(IConfiguration config) => _config = config;
+
+        private static string? GetKey(string key)
+        {
+            var value = _config?[key];
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
         private static string systemFaq = @"# ROLE
 
                                             Ты — технический проджект-менеджер и архитектор в IT-компании. Твоя задача — оценивать запросы клиентов на разработку и выдавать структурированную смету. Ты выступаешь как личный деловой ассистент: говоришь прямо, без воды и украшательств.
@@ -135,7 +146,8 @@ namespace LumenusErp.Services
 
 
                 var model = "";
-                var apiKey = ""; // заглушка, так как ключи не должны быть в коде
+                var apiKey = GetKey("Ai:OpenRouterApiKey");
+                if (apiKey == null) return "Не задан ключ Ai:OpenRouterApiKey";
                 var client = new OpenRouterClient(apiKey);
                 var response = await client.SendChatCompletionAsync(model, searchQuery, system);
                 var chs = JsonConvert.DeserializeObject<AiResponse>(response);
@@ -152,8 +164,9 @@ namespace LumenusErp.Services
         {
             try
             {
-                
-                var apiKey = ""; // заглушка, так как ключи не должны быть в коде
+
+                var apiKey = GetKey("Ai:DeepSeekApiKey");
+                if (apiKey == null) return "Не задан ключ Ai:DeepSeekApiKey";
                 var client = new DeepSeekService(apiKey);
                 var response = await client.ChatWithThinkingTypedAsync(searchQuery, systemFaq);
                 var textResponse = response ?? "Ответ не получилось сгенерировать";
@@ -176,9 +189,12 @@ namespace LumenusErp.Services
 
 
 
-                var accessKeyId  = "YCAJEYZ7qxDFmUWbdXmxYRjUh";
-                var secretAccessKey = "YCP-pOizA_3ITgdubNyfMk8Jl44hwUiLcCVu1jcz";
-                var iam = await YandexIamHelper.GetIamTokenAsync(accessKeyId, secretAccessKey, "b1gd3ng2gial17v7a99l");
+                var accessKeyId = GetKey("Ai:Yandex:AccessKeyId");
+                var secretAccessKey = GetKey("Ai:Yandex:SecretAccessKey");
+                var folderId = GetKey("Ai:Yandex:FolderId");
+                if (accessKeyId == null || secretAccessKey == null || folderId == null)
+                    return "Не заданы ключи Ai:Yandex:AccessKeyId, Ai:Yandex:SecretAccessKey, Ai:Yandex:FolderId";
+                var iam = await YandexIamHelper.GetIamTokenAsync(accessKeyId, secretAccessKey, folderId);
 
                 //var client = new OpenRouterClient(apiKey);
 

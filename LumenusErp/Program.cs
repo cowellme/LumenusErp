@@ -1,13 +1,16 @@
 using LumenusErp.Components;
 using LumenusErp.Components.Account;
 using LumenusErp.Data;
+using LumenusErp.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
-// aje2q0jl5c57faingh9l
-// AQVNwtAnUrCneqV4RTVqCgEztd1G_llkUfvfT55I
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -28,10 +31,24 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 var connectionStringAos = builder.Configuration.GetConnectionString("AosConnection") ?? throw new InvalidOperationException("Connection string 'AosConnection' not found.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddDbContext<AosDbContext>(options =>
-    options.UseMySql(connectionStringAos, ServerVersion.AutoDetect(connectionStringAos)));
+    options.UseNpgsql(connectionStringAos));
+
+var keysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(keysPath))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+}
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -51,6 +68,9 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+LumenusErp.MySec.Configure(app.Configuration["Api:Token"]);
+AiModule.Configure(app.Configuration);
+
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -58,12 +78,8 @@ using (var scope = app.Services.CreateScope())
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-    //// Для разработки можно использовать:
-    await dbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
-    await dbContext.Database.EnsureCreatedAsync();
-
-    await aosDbContext.Database.EnsureDeletedAsync(); // Будьте осторожны, удаляет БД!
-    await aosDbContext.Database.EnsureCreatedAsync();
+    await dbContext.Database.MigrateAsync();
+    await aosDbContext.Database.MigrateAsync();
 
     // ── Засидировать роли ────────────────────────────────────────────
     var roles = new[] { "Admin", "Manager", "User", "Ghost", "Aos" };
@@ -76,7 +92,8 @@ using (var scope = app.Services.CreateScope())
     }
 
     // ── Создать админа по умолчанию (если нет) ───────────────────────
-    var adminEmail = "rrovensky@mail.ru";
+    var adminEmail = builder.Configuration["Admin:Email"] ?? "rrovensky@mail.ru";
+    var adminPassword = builder.Configuration["Admin:Password"] ?? "Admin123!";
     var adminUser = await userManager.FindByEmailAsync(adminEmail);
     if (adminUser == null)
     {
@@ -86,8 +103,16 @@ using (var scope = app.Services.CreateScope())
             Email = adminEmail,
             EmailConfirmed = true
         };
-        await userManager.CreateAsync(adminUser, "Admin123!"); // ← поменяй пароль
-        await userManager.AddToRoleAsync(adminUser, "Admin");
+        var createResult = await userManager.CreateAsync(adminUser, adminPassword);
+        if (createResult.Succeeded)
+        {
+            await userManager.AddToRoleAsync(adminUser, "Admin");
+        }
+        else
+        {
+            app.Logger.LogWarning("Не удалось создать администратора {Email}: {Errors}",
+                adminEmail, string.Join("; ", createResult.Errors.Select(e => e.Description)));
+        }
     }
     else if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
     {
@@ -95,6 +120,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 // Configure the HTTP request pipeline.
+app.UseForwardedHeaders();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -106,7 +133,11 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseSwaggerUI();
 app.UseSwagger();
 app.UseAntiforgery();

@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: lumenuserp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d lumenuserp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=lumenuserp;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      ConnectionStrings__AosConnection: Host=db;Port=5432;Database=tracker;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      Admin__Email: ${ADMIN_EMAIL}
+      Admin__Password: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      DataProtection__KeysPath: /app/keys
+      DisableHttpsRedirection: "true"
+      Api__Token: ${API_TOKEN:-}
+      Ai__OpenRouterApiKey: ${OPENROUTER_API_KEY:-}
+      Ai__DeepSeekApiKey: ${DEEPSEEK_API_KEY:-}
+      Ai__Yandex__AccessKeyId: ${YANDEX_ACCESS_KEY_ID:-}
+      Ai__Yandex__SecretAccessKey: ${YANDEX_SECRET_ACCESS_KEY:-}
+      Ai__Yandex__FolderId: ${YANDEX_FOLDER_ID:-}
+    volumes:
+      - appkeys:/app/keys
+
+volumes:
+  pgdata:
+  appkeys:

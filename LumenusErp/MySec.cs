@@ -1,7 +1,24 @@
-﻿namespace LumenusErp
+using System.Security.Cryptography;
+using System.Text;
+
+namespace LumenusErp
 {
     public class MySec
     {
-        public static bool IsValidToken(string token) => token == "e0c88b5f5b57e89f3479323ec5bb4a214c5a391c0cbded828696bddd3bdef59a";
+        private static string _token = "";
+
+        public static void Configure(string? token) => _token = token ?? "";
+
+        public static bool IsValidToken(string token)
+        {
+            if (string.IsNullOrEmpty(_token) || string.IsNullOrEmpty(token))
+            {
+                return false;
+            }
+
+            return CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(token),
+                Encoding.UTF8.GetBytes(_token));
+        }
     }
 }
