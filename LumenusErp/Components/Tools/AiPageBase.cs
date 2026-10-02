@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 namespace LumenusErp.Components.Tools;
 
 /// <summary>
-/// Базовый класс страниц с платными вызовами ИИ (калькулятор, FAQ): определяет IP клиента и проверяет лимиты.
+/// Базовый класс компонентов-островков с платными вызовами ИИ (калькулятор, FAQ): определяет IP клиента и проверяет лимиты.
 /// </summary>
 /// <remarks>
 /// В интерактивной фазе Blazor Server HttpContext недоступен, поэтому IP берётся из HttpContext при пререндере
@@ -15,10 +15,11 @@ namespace LumenusErp.Components.Tools;
 /// </remarks>
 public abstract class AiPageBase : ComponentBase, IDisposable
 {
-    private const string StateKey = "client-ip";
-
     private PersistingComponentStateSubscription _persisting;
     private string? _clientIp;
+
+    // отдельный ключ на тип компонента: на странице может быть несколько островков
+    private string StateKey => "client-ip:" + GetType().Name;
 
     [CascadingParameter] public HttpContext? HttpContext { get; set; }
 

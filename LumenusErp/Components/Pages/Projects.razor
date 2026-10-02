@@ -1,5 +1,4 @@
 ﻿@page "/projects"
-@rendermode InteractiveServer
 @using LumenusErp.Data
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
@@ -45,16 +44,15 @@
                     @for (int i = 0; i < projects.Count; i++)
                     {
                         var p = projects[i];
-                        var index = i; // копия для лямбд: счётчик цикла общий для всех итераций
-                        var isOpen = expandedIndex == index;
+                        var detailId = "project-detail-" + i;
 
-                        <tr class="@(isOpen ? "row-open" : "")"
+                        @* Раскрытие строк — js/table-rows.js (без цепи Blazor, страница статическая) *@
+                        <tr data-row-toggle
                             style="cursor:pointer;"
-                            @onclick="() => Toggle(index)"
-                            @onkeydown="(e) => HandleRowKey(e, index)"
                             tabindex="0"
                             role="button"
-                            aria-expanded="@isOpen.ToString().ToLower()">
+                            aria-expanded="false"
+                            aria-controls="@detailId">
                             <td class="font-monospace small fw-semibold px-3 py-3">@p.Client</td>
                             <td class="small px-3 py-3 fw-semibold">@p.Title</td>
                             <td class="font-monospace small fw-semibold px-3 py-3">@p.Direction</td>
@@ -74,47 +72,43 @@
                                 }
                             </td>
                             <td class="text-center px-3 py-3">
-                                <a href="/projects/@p.Slug" class="font-monospace pe-3 link-dark fw-bold small" style="display:inline-block;" @onclick:stopPropagation="true">Подробнее</a>
+                                <a href="/projects/@p.Slug" class="font-monospace pe-3 link-dark fw-bold small" style="display:inline-block;">Подробнее</a>
                             </td>
                         </tr>
+                        <tr id="@detailId" class="row-open" hidden>
+                            <td colspan="6" class="p-0">
+                                <div class="p-4 p-md-5">
+                                    <div class="row g-4">
+                                        <div class="col-lg-8">
+                                            <p class="mb-3 lh-base">@p.Summary</p>
+                                            <p class="small text-muted mb-0 font-monospace">
+                                                @p.Duration &middot; @p.Team
+                                            </p>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <div class="ps-lg-4 detail-side d-flex flex-column gap-4 h-100">
 
-                        @if (isOpen)
-                        {
-                            <tr class="row-open">
-                                <td colspan="6" class="p-0">
-                                    <div class="p-4 p-md-5">
-                                        <div class="row g-4">
-                                            <div class="col-lg-8">
-                                                <p class="mb-3 lh-base">@p.Summary</p>
-                                                <p class="small text-muted mb-0 font-monospace">
-                                                    @p.Duration &middot; @p.Team
-                                                </p>
-                                            </div>
-                                            <div class="col-lg-4">
-                                                <div class="ps-lg-4 detail-side d-flex flex-column gap-4 h-100">
-
-                                                    <div>
-                                                        <p class="eyebrow mb-2">Технологии</p>
-                                                        <div class="d-flex flex-wrap gap-1">
-                                                            @foreach (var tag in p.Tags)
-                                                            {
-                                                                <span class="pill pill--tag">
-                                                                    @tag
-                                                                </span>
-                                                            }
-                                                        </div>
+                                                <div>
+                                                    <p class="eyebrow mb-2">Технологии</p>
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        @foreach (var tag in p.Tags)
+                                                        {
+                                                            <span class="pill pill--tag">
+                                                                @tag
+                                                            </span>
+                                                        }
                                                     </div>
-
-                                                    <a href="/projects/@p.Slug" class="font-monospace small fw-bold text-dark mt-auto pt-2">
-                                                        Карточка проекта &rarr;
-                                                    </a>
                                                 </div>
+
+                                                <a href="/projects/@p.Slug" class="font-monospace small fw-bold text-dark mt-auto pt-2">
+                                                    Карточка проекта &rarr;
+                                                </a>
                                             </div>
                                         </div>
                                     </div>
-                                </td>
-                            </tr>
-                        }
+                                </div>
+                            </td>
+                        </tr>
                     }
                 </tbody>
             </table>
@@ -181,7 +175,6 @@
     };
 
     private List<Project> projects = new();
-    private int? expandedIndex;
 
     protected override async Task OnInitializedAsync()
     {
@@ -191,18 +184,5 @@
             .OrderBy(p => p.SortOrder)
             .ThenBy(p => p.Id)
             .ToListAsync();
-    }
-
-    private void Toggle(int index)
-    {
-        expandedIndex = expandedIndex == index ? null : index;
-    }
-
-    private void HandleRowKey(KeyboardEventArgs e, int index)
-    {
-        if (e.Key is "Enter" or " ")
-        {
-            Toggle(index);
-        }
     }
 }
