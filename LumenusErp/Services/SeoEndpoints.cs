@@ -18,6 +18,7 @@ public static class SeoEndpoints
                 .OrderBy(p => p.SortOrder)
                 .Select(p => new { p.Slug, p.UpdatedAt })
                 .ToListAsync();
+            var pages = await LoadPublicPagesAsync(factory, withBlocks: false);
 
             var sb = new StringBuilder();
             sb.AppendLine("""<?xml version="1.0" encoding="UTF-8"?>""");
@@ -29,6 +30,10 @@ public static class SeoEndpoints
             foreach (var p in projects)
             {
                 AppendUrl(sb, "/projects/" + p.Slug, p.UpdatedAt);
+            }
+            foreach (var pg in pages)
+            {
+                AppendUrl(sb, "/p/" + pg.Slug, pg.UpdatedAt);
             }
             sb.AppendLine("</urlset>");
             return Results.Text(sb.ToString(), "application/xml; charset=utf-8");
@@ -44,6 +49,17 @@ public static class SeoEndpoints
             foreach (var p in projects)
             {
                 sb.AppendLine($"- [{p.Title}]({SiteInfo.Url("/projects/" + p.Slug)}): {p.Summary}");
+            }
+            var pages = await LoadPublicPagesAsync(factory, withBlocks: false);
+            if (pages.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## Pages");
+                sb.AppendLine();
+                foreach (var pg in pages)
+                {
+                    sb.AppendLine($"- [{pg.Title}]({SiteInfo.Url("/p/" + pg.Slug)}): {pg.Summary}");
+                }
             }
             return Results.Text(sb.ToString(), "text/plain; charset=utf-8");
         });
@@ -73,6 +89,11 @@ public static class SeoEndpoints
                 AppendSection(sb, "Решение", p.Solution);
                 AppendSection(sb, "Результат", p.Result);
             }
+            var pages = await LoadPublicPagesAsync(factory, withBlocks: true);
+            foreach (var pg in pages)
+            {
+                AppendPage(sb, pg);
+            }
             return Results.Text(sb.ToString(), "text/plain; charset=utf-8");
         });
     }
@@ -99,6 +120,66 @@ public static class SeoEndpoints
         sb.AppendLine($"#### {title}");
         sb.AppendLine();
         sb.AppendLine(markdown.Trim());
+    }
+
+    private static void AppendPage(StringBuilder sb, ContentPage page)
+    {
+        sb.AppendLine();
+        sb.AppendLine($"## {page.Title}");
+        sb.AppendLine();
+        sb.AppendLine($"Страница: {SiteInfo.Url("/p/" + page.Slug)}");
+        if (!string.IsNullOrWhiteSpace(page.Summary))
+        {
+            sb.AppendLine();
+            sb.AppendLine(page.Summary);
+        }
+        foreach (var b in page.Blocks.OrderBy(b => b.Order))
+        {
+            if (!string.IsNullOrWhiteSpace(b.Heading))
+            {
+                sb.AppendLine();
+                sb.AppendLine($"### {b.Heading}");
+            }
+            switch (b.Type)
+            {
+                case BlockType.Text when !string.IsNullOrWhiteSpace(b.Text):
+                    sb.AppendLine();
+                    sb.AppendLine(b.Text.Trim());
+                    break;
+                case BlockType.Bpmn:
+                    var names = BpmnXml.ExtractNames(b.BpmnXml);
+                    if (names.Count > 0)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine("Схема процесса (BPMN), элементы по порядку:");
+                        sb.AppendLine();
+                        foreach (var n in names)
+                        {
+                            sb.AppendLine($"- {n}");
+                        }
+                    }
+                    break;
+                case BlockType.Image:
+                    var caption = string.Join(". ", new[] { b.AltText, b.Caption }.Where(x => !string.IsNullOrWhiteSpace(x)));
+                    if (caption.Length > 0)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine($"Изображение: {caption}");
+                    }
+                    break;
+            }
+        }
+    }
+
+    private static async Task<List<ContentPage>> LoadPublicPagesAsync(IDbContextFactory<ApplicationDbContext> factory, bool withBlocks)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        IQueryable<ContentPage> query = db.ContentPages.AsNoTracking().Where(p => p.Visibility == PageVisibility.Public);
+        if (withBlocks)
+        {
+            query = query.Include(p => p.Blocks);
+        }
+        return await query.OrderBy(p => p.SortOrder).ThenBy(p => p.Id).ToListAsync();
     }
 
     private static async Task<List<Project>> LoadProjectsAsync(IDbContextFactory<ApplicationDbContext> factory)

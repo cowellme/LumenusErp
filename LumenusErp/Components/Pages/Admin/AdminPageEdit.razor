@@ -1,0 +1,519 @@
+@page "/admin/pages/new"
+@page "/admin/pages/{Id:int}"
+@using System.Text.RegularExpressions
+@using LumenusErp.Data
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager Navigation
+@inject MediaService Media
+
+<PageTitle>@(IsNew ? "Новая страница" : "Редактирование страницы") — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">ADMIN</p>
+        <h1 class="hero__title mb-2">@(IsNew ? "Новая страница" : "Редактирование страницы")</h1>
+        <a href="/admin/pages" class="font-monospace small fw-bold text-dark">&larr; К списку</a>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        @if (notFound)
+        {
+            <p class="text-muted">Страница не найдена.</p>
+        }
+        else if (model is not null)
+        {
+            @if (errors.Count > 0)
+            {
+                <div class="alert alert-danger" role="alert">
+                    <ul class="mb-0">
+                        @foreach (var e in errors)
+                        {
+                            <li>@e</li>
+                        }
+                    </ul>
+                </div>
+            }
+            @if (saved)
+            {
+                <div class="alert alert-success" role="status">Сохранено.</div>
+            }
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold" for="f-title">Заголовок</label>
+                    <input id="f-title" class="form-control" @bind="model.Title" maxlength="300" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold" for="f-slug">Slug (URL)</label>
+                    <div class="input-group">
+                        <span class="input-group-text font-monospace small">/p/</span>
+                        <input id="f-slug" class="form-control font-monospace" @bind="model.Slug" maxlength="100" />
+                    </div>
+                    <div class="form-text">Латиница в нижнем регистре, цифры и дефис, например process-intake.</div>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label small fw-bold" for="f-visibility">Доступ</label>
+                    <select id="f-visibility" class="form-select" @bind="model.Visibility">
+                        <option value="@PageVisibility.Draft">Черновик — только администратор</option>
+                        <option value="@PageVisibility.Authenticated">Только для вошедших пользователей</option>
+                        <option value="@PageVisibility.Public">Публичная — видна всем и поисковикам</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold" for="f-sort">Порядок сортировки</label>
+                    <input id="f-sort" type="number" class="form-control" @bind="model.SortOrder" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-bold" for="f-summary">Краткое описание (meta description, 1–2 предложения)</label>
+                    <textarea id="f-summary" class="form-control" rows="2" maxlength="1000" @bind="model.Summary" @bind:event="oninput"></textarea>
+                </div>
+            </div>
+
+            <h2 class="card-x__title">Блоки</h2>
+            @if (blocks.Count == 0)
+            {
+                <p class="text-muted small">Блоков пока нет — добавьте текст, диаграмму или фото.</p>
+            }
+            @for (var i = 0; i < blocks.Count; i++)
+            {
+                var index = i;
+                var b = blocks[i];
+                <div class="card-x block-card p-3 mb-3" @key="b">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <span class="pill pill--solid">@TypeLabel(b.Type)</span>
+                        <span class="font-monospace small text-muted">#@(index + 1)</span>
+                        <div class="ms-auto d-flex flex-wrap gap-1">
+                            <button type="button" class="btn btn-outline-dark btn-sm" disabled="@(index == 0)"
+                                    aria-label="Поднять блок @(index + 1) выше" @onclick="() => Move(index, -1)">&uarr; Выше</button>
+                            <button type="button" class="btn btn-outline-dark btn-sm" disabled="@(index == blocks.Count - 1)"
+                                    aria-label="Опустить блок @(index + 1) ниже" @onclick="() => Move(index, 1)">&darr; Ниже</button>
+                            @if (confirmBlock == b)
+                            {
+                                <span class="small align-self-center mx-1">Удалить блок?</span>
+                                <button type="button" class="btn btn-dark btn-sm" @onclick="() => RemoveBlockAsync(b)">Да</button>
+                                <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmBlock = null">Нет</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-outline-dark btn-sm" aria-label="Удалить блок @(index + 1)" @onclick="() => confirmBlock = b">Удалить</button>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold" for="@("h-" + b.Uid)">Заголовок блока (необязательно)</label>
+                        <input id="@("h-" + b.Uid)" class="form-control" @bind="b.Heading" maxlength="300" />
+                    </div>
+
+                    @switch (b.Type)
+                    {
+                        case BlockType.Text:
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <label class="form-label small fw-bold" for="@("t-" + b.Uid)">Текст (markdown)</label>
+                                    <textarea id="@("t-" + b.Uid)" class="form-control font-monospace" rows="10"
+                                              value="@b.Text" @oninput="e => b.Text = e.Value?.ToString() ?? string.Empty"></textarea>
+                                </div>
+                                <div class="col-lg-6">
+                                    <p class="form-label small fw-bold">Превью</p>
+                                    <div class="border rounded p-3 bg-white h-100" style="min-height: 10rem;">
+                                        <MarkdownViewer Content="@b.Text" Safe="true" />
+                                    </div>
+                                </div>
+                            </div>
+                            break;
+
+                        case BlockType.Image:
+                            <div class="row g-3">
+                                <div class="col-lg-5">
+                                    @if (b.MediaFileId is not null)
+                                    {
+                                        <img class="block-card__preview" src="/media/@b.MediaFileId" alt="@(string.IsNullOrWhiteSpace(b.AltText) ? "Загруженное изображение" : b.AltText)" />
+                                    }
+                                    <label class="form-label small fw-bold mt-2" for="@("f-" + b.Uid)">@(b.MediaFileId is null ? "Файл изображения" : "Заменить изображение")</label>
+                                    <InputFile id="@("f-" + b.Uid)" class="form-control" accept="image/jpeg,image/png,image/webp,image/gif"
+                                               OnChange="e => UploadImageAsync(b, e)" />
+                                    <div class="form-text">JPEG, PNG, WebP или GIF до @(Media.MaxBytes / 1024 / 1024) МБ.</div>
+                                    @if (b.UploadError is not null)
+                                    {
+                                        <div class="text-danger small mt-1" role="alert">@b.UploadError</div>
+                                    }
+                                </div>
+                                <div class="col-lg-7">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold" for="@("a-" + b.Uid)">Альтернативный текст (обязателен)</label>
+                                        <input id="@("a-" + b.Uid)" class="form-control" @bind="b.AltText" maxlength="500" />
+                                        <div class="form-text">Что изображено — для слабовидящих и поисковиков.</div>
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold" for="@("c-" + b.Uid)">Подпись (необязательно)</label>
+                                        <input id="@("c-" + b.Uid)" class="form-control" @bind="b.Caption" maxlength="500" />
+                                    </div>
+                                </div>
+                            </div>
+                            break;
+
+                        case BlockType.Bpmn:
+                            <BpmnEditor @ref="b.Editor" Xml="@b.BpmnXml" FileName="@(SafeFileName(model.Slug) + "-" + (index + 1) + ".bpmn")" />
+                            break;
+                    }
+                </div>
+            }
+
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <button type="button" class="btn btn-outline-dark" @onclick="() => AddBlock(BlockType.Text)">+ Текст</button>
+                <button type="button" class="btn btn-outline-dark" @onclick="() => AddBlock(BlockType.Bpmn)">+ BPMN</button>
+                <button type="button" class="btn btn-outline-dark" @onclick="() => AddBlock(BlockType.Image)">+ Фото</button>
+            </div>
+
+            <div class="save-bar d-flex flex-wrap gap-2 align-items-center">
+                <button type="button" class="btn btn-dark px-4" disabled="@busy" @onclick="SaveAsync">@(busy ? "Сохранение…" : "Сохранить")</button>
+                <a href="/admin/pages" class="btn btn-outline-dark px-4">К списку</a>
+                @if (saved)
+                {
+                    <span class="small text-success" role="status">Сохранено</span>
+                }
+                @if (!IsNew)
+                {
+                    <a href="/p/@model.Slug" class="btn btn-outline-dark ms-auto" target="_blank" rel="noopener">Открыть на сайте</a>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private static readonly Regex SlugRegex = new("^[a-z0-9-]+$", RegexOptions.Compiled);
+
+    // Блок в редакторе: данные + ссылка на BPMN-редактор для получения XML при сохранении
+    private sealed class BlockVm
+    {
+        private static int counter;
+        public int Uid { get; } = Interlocked.Increment(ref counter);
+        public BlockType Type { get; init; }
+        public string Heading { get; set; } = "";
+        public string Text { get; set; } = "";
+        public string BpmnXml { get; set; } = "";
+        public Guid? MediaFileId { get; set; }
+        public string Caption { get; set; } = "";
+        public string AltText { get; set; } = "";
+        public BpmnEditor? Editor { get; set; }
+        public string? UploadError { get; set; }
+    }
+
+    [Parameter] public int? Id { get; set; }
+
+    // ?saved=1 — после создания страницы редирект на её редактор с сообщением об успехе
+    [SupplyParameterFromQuery(Name = "saved")] public bool JustCreated { get; set; }
+
+    private bool IsNew => Id is null;
+
+    private ContentPage? model;
+    private readonly List<BlockVm> blocks = new();
+    // Картинки, которые уже сохранены в БД за блоками этой страницы
+    private HashSet<Guid> savedMediaIds = new();
+    private BlockVm? confirmBlock;
+    private bool notFound;
+    private bool busy;
+    private bool saved;
+    private List<string> errors = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        saved = JustCreated;
+        errors.Clear();
+        notFound = false;
+        blocks.Clear();
+        savedMediaIds = new();
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (IsNew)
+        {
+            var maxOrder = await db.ContentPages.Select(p => (int?)p.SortOrder).MaxAsync() ?? 0;
+            model = new ContentPage { SortOrder = maxOrder + 10 };
+            return;
+        }
+
+        model = await db.ContentPages.AsNoTracking()
+            .Include(p => p.Blocks.OrderBy(b => b.Order))
+            .FirstOrDefaultAsync(p => p.Id == Id);
+        notFound = model is null;
+        if (model is null)
+        {
+            return;
+        }
+
+        foreach (var b in model.Blocks)
+        {
+            blocks.Add(new BlockVm
+            {
+                Type = b.Type,
+                Heading = b.Heading,
+                Text = b.Text,
+                BpmnXml = b.BpmnXml,
+                MediaFileId = b.MediaFileId,
+                Caption = b.Caption,
+                AltText = b.AltText,
+            });
+            if (b.MediaFileId is { } mid)
+            {
+                savedMediaIds.Add(mid);
+            }
+        }
+    }
+
+    private static string TypeLabel(BlockType t) => t switch
+    {
+        BlockType.Text => "ТЕКСТ",
+        BlockType.Bpmn => "BPMN",
+        _ => "ФОТО",
+    };
+
+    private static string SafeFileName(string slug) => SlugRegex.IsMatch(slug ?? "") ? slug! : "diagram";
+
+    private void AddBlock(BlockType type)
+    {
+        blocks.Add(new BlockVm
+        {
+            Type = type,
+            BpmnXml = type == BlockType.Bpmn ? BpmnXml.EmptyDiagram : "",
+        });
+        saved = false;
+    }
+
+    private void Move(int index, int delta)
+    {
+        var target = index + delta;
+        if (target < 0 || target >= blocks.Count)
+        {
+            return;
+        }
+        (blocks[index], blocks[target]) = (blocks[target], blocks[index]);
+        saved = false;
+    }
+
+    private async Task RemoveBlockAsync(BlockVm b)
+    {
+        blocks.Remove(b);
+        confirmBlock = null;
+        saved = false;
+        // Файл, загруженный в этой сессии и ещё не сохранённый, больше никому не нужен
+        if (b.MediaFileId is { } mid && !savedMediaIds.Contains(mid))
+        {
+            await Media.DeleteIfUnreferencedAsync([mid]);
+        }
+    }
+
+    private async Task UploadImageAsync(BlockVm b, InputFileChangeEventArgs e)
+    {
+        b.UploadError = null;
+        var file = e.File;
+        try
+        {
+            // maxAllowedSize задан явно (по умолчанию 500 КБ), файл потоком уходит на диск
+            await using var stream = file.OpenReadStream(Media.MaxBytes);
+            var media = await Media.SaveAsync(stream, file.Name);
+
+            var old = b.MediaFileId;
+            b.MediaFileId = media.Id;
+            if (old is { } oldId && !savedMediaIds.Contains(oldId))
+            {
+                await Media.DeleteIfUnreferencedAsync([oldId]);
+            }
+            saved = false;
+        }
+        catch (MediaException ex)
+        {
+            b.UploadError = ex.Message;
+        }
+        catch (IOException)
+        {
+            b.UploadError = $"Файл больше {Media.MaxBytes / 1024 / 1024} МБ.";
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (model is null || busy)
+        {
+            return;
+        }
+
+        busy = true;
+        saved = false;
+        errors = new();
+        try
+        {
+            model.Slug = (model.Slug ?? "").Trim();
+            model.Title = (model.Title ?? "").Trim();
+            model.Summary = (model.Summary ?? "").Trim();
+
+            await PullBpmnAsync();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            errors.AddRange(await ValidateAsync(db));
+            if (errors.Count > 0)
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            ContentPage entity;
+            if (IsNew)
+            {
+                entity = new ContentPage { CreatedAt = now };
+                db.ContentPages.Add(entity);
+            }
+            else
+            {
+                var existing = await db.ContentPages.Include(p => p.Blocks).FirstOrDefaultAsync(p => p.Id == Id);
+                if (existing is null)
+                {
+                    errors.Add("Страница уже удалена.");
+                    return;
+                }
+                entity = existing;
+                db.ContentBlocks.RemoveRange(entity.Blocks.ToList());
+            }
+
+            entity.Slug = model.Slug;
+            entity.Title = model.Title;
+            entity.Summary = model.Summary;
+            entity.Visibility = model.Visibility;
+            entity.SortOrder = model.SortOrder;
+            entity.UpdatedAt = now;
+
+            for (var i = 0; i < blocks.Count; i++)
+            {
+                var b = blocks[i];
+                db.ContentBlocks.Add(new ContentBlock
+                {
+                    Page = entity,
+                    Order = i,
+                    Type = b.Type,
+                    Heading = (b.Heading ?? "").Trim(),
+                    Text = b.Type == BlockType.Text ? b.Text : "",
+                    BpmnXml = b.Type == BlockType.Bpmn ? b.BpmnXml : "",
+                    MediaFileId = b.Type == BlockType.Image ? b.MediaFileId : null,
+                    Caption = b.Type == BlockType.Image ? (b.Caption ?? "").Trim() : "",
+                    AltText = b.Type == BlockType.Image ? (b.AltText ?? "").Trim() : "",
+                });
+            }
+
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Гонка за slug между проверкой и вставкой (уникальный индекс)
+                errors.Add("Не удалось сохранить: возможно, такой slug уже занят.");
+                return;
+            }
+
+            // Картинки, снятые с блоков (удалены или заменены), и забытые загрузки
+            var current = blocks.Where(b => b.Type == BlockType.Image && b.MediaFileId is not null).Select(b => b.MediaFileId!.Value).ToHashSet();
+            await Media.DeleteIfUnreferencedAsync(savedMediaIds.Where(m => !current.Contains(m)));
+            await Media.DeleteOrphansAsync();
+            savedMediaIds = current;
+
+            if (IsNew)
+            {
+                Navigation.NavigateTo($"/admin/pages/{entity.Id}?saved=true");
+            }
+            else
+            {
+                saved = true;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    // Забирает актуальный XML из каждого BPMN-редактора
+    private async Task PullBpmnAsync()
+    {
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            var b = blocks[i];
+            if (b.Type != BlockType.Bpmn || b.Editor is null)
+            {
+                continue;
+            }
+            try
+            {
+                var xml = await b.Editor.GetXmlAsync();
+                if (xml is null)
+                {
+                    errors.Add($"Блок {i + 1}: редактор диаграмм не загрузился, сохранение невозможно.");
+                }
+                else
+                {
+                    b.BpmnXml = xml;
+                }
+            }
+            catch (JSException ex)
+            {
+                errors.Add($"Блок {i + 1}: не удалось получить диаграмму из редактора ({ex.Message}).");
+            }
+        }
+    }
+
+    private async Task<List<string>> ValidateAsync(ApplicationDbContext db)
+    {
+        var list = new List<string>();
+        var m = model!;
+
+        if (string.IsNullOrWhiteSpace(m.Slug))
+        {
+            list.Add("Slug обязателен.");
+        }
+        else if (!SlugRegex.IsMatch(m.Slug))
+        {
+            list.Add("Slug может содержать только строчные латинские буквы, цифры и дефис.");
+        }
+        else if (await db.ContentPages.AnyAsync(p => p.Slug == m.Slug && p.Id != m.Id))
+        {
+            list.Add($"Slug «{m.Slug}» уже используется другой страницей.");
+        }
+
+        if (string.IsNullOrWhiteSpace(m.Title)) list.Add("Заголовок обязателен.");
+        if (m.Visibility == PageVisibility.Public && string.IsNullOrWhiteSpace(m.Summary))
+        {
+            list.Add("Для публичной страницы нужно краткое описание (оно идёт в meta description).");
+        }
+
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            var b = blocks[i];
+            var n = i + 1;
+            switch (b.Type)
+            {
+                case BlockType.Text when string.IsNullOrWhiteSpace(b.Text):
+                    list.Add($"Блок {n}: текст пуст.");
+                    break;
+                case BlockType.Image when b.MediaFileId is null:
+                    list.Add($"Блок {n}: загрузите изображение.");
+                    break;
+                case BlockType.Image when string.IsNullOrWhiteSpace(b.AltText):
+                    list.Add($"Блок {n}: альтернативный текст обязателен.");
+                    break;
+                case BlockType.Bpmn:
+                    var bpmnError = BpmnXml.Validate(b.BpmnXml);
+                    if (bpmnError is not null) list.Add($"Блок {n}: {bpmnError}");
+                    break;
+            }
+        }
+
+        return list;
+    }
+}

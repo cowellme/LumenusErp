@@ -369,3 +369,6 @@ FodyWeavers.xsd
 .deploy.env
 backups/
 .shots/
+
+# Загрузки контент-страниц при локальном запуске без Docker
+LumenusErp/uploads/

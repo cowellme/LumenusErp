@@ -23,7 +23,7 @@ LumenusErp/                     # проект (LumenusErp.csproj)
     Pages/Admin/                # /admin/roles, /admin/projects — ролями и проектами (Admin)
     Pages/AnalysisOfSocial/     # /aos-panel, /aos-settings (Admin, Aos)
     Account/                    # шаблонные страницы Identity
-    Layout/, Tools/             # layout, меню, MarkdownViewer, SeoMeta (мета/OG/JSON-LD), NoIndex
+    Layout/, Tools/             # layout, меню, MarkdownViewer, BpmnEditor, SeoMeta (мета/OG/JSON-LD), NoIndex
   SiteInfo.cs                   # BaseUrl (https://lumenustech.ru), e-mail, Telegram — единое место
   wwwroot/                      # llms.txt, llms-full.txt, robots.txt, sitemap.xml
   Controllers/LumenusController.cs
@@ -71,6 +71,8 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |
 | `AiLimits:CalculatorPerHour`, `CalculatorPerDay`, `FaqPerHour`, `FaqPerDay` | лимиты ИИ на IP клиента (по умолчанию 5/15 и 20/60); админы без лимита |
 | `AiLimits:CalculatorGlobalPerDay`, `FaqGlobalPerDay` | суточный потолок на весь сервис (по умолчанию 300 и 1000) |
+| `Media:Path` | каталог загрузок (в Docker `/app/uploads`, том `uploads`; локально `<ContentRoot>/uploads`) |
+| `Media:MaxBytes` | максимум размера картинки, по умолчанию 10 МБ |
 | `DisableHttpsRedirection` | `true` за reverse proxy, где TLS снимает nginx |
 
 Переменные `.env` для compose: `APP_PORT`, `APP_BIND` (адрес публикации порта приложения;
@@ -97,6 +99,20 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 
 В Docker ключи задаются переменными окружения (`ConnectionStrings__DefaultConnection` и т.д.)
 из `.env`.
+
+## Контентные страницы (/p/{slug})
+
+Администратор собирает страницы из блоков (текст markdown, BPMN-диаграмма, фото) в `/admin/pages`.
+Модели `ContentPage`/`ContentBlock`/`MediaFile` в `ApplicationDbContext`. Видимость: Draft (только Admin, остальным
+404), Authenticated (анониму редирект на логин), Public (попадает в sitemap.xml, llms.txt, llms-full.txt).
+- Картинки: JPEG/PNG/WebP/GIF, тип проверяется по сигнатуре, SVG запрещён; на диске под именем Guid+расширение.
+  Отдаёт `GET /media/{id}` (nosniff, immutable-кэш для публичных; закрытые файлы по правам страницы, иначе 404).
+  Удаление блока/страницы удаляет файл, если на него больше нет ссылок; забытые загрузки старше часа чистятся при сохранении.
+- BPMN: bpmn-js 18.31.0 лежит в `wwwroot/lib/bpmn-js` (обновление: скачать tarball из npm, скопировать
+  `dist/bpmn-navigated-viewer.production.min.js`, `bpmn-modeler.production.min.js`, `dist/assets`, поправить `VERSION`
+  в `wwwroot/js/bpmn-view.js` и `bpmn-editor.js`). Просмотр — `bpmn-view.js` (NavigatedViewer, грузится лениво, работает
+  после enhanced navigation), редактор — `BpmnEditor.razor` + `bpmn-editor.js` (Modeler). XML вставляется в страницу как
+  JSON в `<script type="application/json">` (`<`, `>`, `&` экранированы).
 
 ## Команды
 
@@ -135,7 +151,7 @@ make releases | backup | backup-pull | prod-logs | prod-ps | ssh
 
 На сервере: `$DEPLOY_PATH/{shared/.env, shared/backups, releases/<ts>-<sha>, current}`.
 Compose всегда с `-p lumenus`, поэтому тома общие для всех релизов. Перед деплоем
-делается `pg_dumpall`; при провале проверки `current` не переключается, поднимается
+делается `pg_dumpall` и архив тома загрузок (`shared/backups/<ts>-uploads.tgz`, том `lumenus_uploads`; `backup-pull` качает только SQL); при провале проверки `current` не переключается, поднимается
 предыдущий релиз. Миграции БД при этом не откатываются.
 
 ## Деплой на Ubuntu вручную
@@ -148,4 +164,4 @@ Compose всегда с `-p lumenus`, поэтому тома общие для 
    `deploy/Caddyfile`: домен → приложение (Let's Encrypt, HSTS), `www.` → редирект на апекс,
    HTTP по голому IP проксируется на приложение (работает до настройки DNS). Для `make deploy`
    те же переменные задаются в `shared/.env` (compose читает `COMPOSE_PROFILES` из env-файла).
-5. Бэкап: `docker compose exec db pg_dumpall -U "$POSTGRES_USER" > backup.sql`.
+5. Бэкап: `docker compose exec db pg_dumpall -U "$POSTGRES_USER" > backup.sql`; загрузки — том `uploads` (`/app/uploads`).

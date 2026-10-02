@@ -1,0 +1,135 @@
+@using System.Text
+@using LumenusErp.Services
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Редактор BPMN (bpmn-js Modeler) для админки. XML забирается методом GetXmlAsync при сохранении страницы. *@
+<div class="bpmn-editor">
+    <div class="bpmn-editor__bar">
+        <label class="btn btn-outline-dark btn-sm mb-0">
+            Загрузить .bpmn
+            <InputFile class="visually-hidden" accept=".bpmn,.xml,application/xml,text/xml" OnChange="OnFileChosen" />
+        </label>
+        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="DownloadAsync" disabled="@(handle is null)">Скачать .bpmn</button>
+        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="FitAsync" disabled="@(handle is null)">Вписать</button>
+    </div>
+    @if (error is not null)
+    {
+        <div class="alert alert-danger small m-2 mb-0" role="alert">@error</div>
+    }
+    <div class="bpmn-editor__canvas" @ref="host"></div>
+</div>
+
+@code {
+    /// <summary>Исходный XML диаграммы (читается один раз при создании редактора).</summary>
+    [Parameter] public string Xml { get; set; } = "";
+
+    /// <summary>Имя файла для «Скачать .bpmn».</summary>
+    [Parameter] public string FileName { get; set; } = "diagram.bpmn";
+
+    private ElementReference host;
+    private IJSObjectReference? module;
+    private IJSObjectReference? handle;
+    private string? error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/bpmn-editor.js");
+            try
+            {
+                handle = await module.InvokeAsync<IJSObjectReference>("create", host, Xml);
+            }
+            catch (JSException ex)
+            {
+                error = "Не удалось открыть сохранённую диаграмму, показана пустая: " + ex.Message;
+                handle = await module.InvokeAsync<IJSObjectReference>("create", host, BpmnXml.EmptyDiagram);
+            }
+        }
+        catch (JSException ex)
+        {
+            error = "Редактор диаграмм не загрузился: " + ex.Message;
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>Текущий XML из редактора (null, если редактор не загрузился).</summary>
+    public async Task<string?> GetXmlAsync() =>
+        handle is null ? null : await handle.InvokeAsync<string>("getXml");
+
+    private async Task FitAsync()
+    {
+        if (handle is not null) await handle.InvokeVoidAsync("fit");
+    }
+
+    private async Task DownloadAsync()
+    {
+        if (handle is not null) await handle.InvokeVoidAsync("download", FileName);
+    }
+
+    private async Task OnFileChosen(InputFileChangeEventArgs e)
+    {
+        error = null;
+        if (handle is null)
+        {
+            return;
+        }
+
+        string text;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(BpmnXml.MaxBytes);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            text = await reader.ReadToEndAsync();
+        }
+        catch (IOException)
+        {
+            error = $"Файл больше {BpmnXml.MaxBytes / 1024 / 1024} МБ.";
+            return;
+        }
+
+        error = BpmnXml.Validate(text);
+        if (error is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            await handle.InvokeVoidAsync("setXml", text);
+        }
+        catch (JSException ex)
+        {
+            error = "Не удалось прочитать диаграмму: " + ex.Message;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (handle is not null)
+            {
+                await handle.InvokeVoidAsync("destroy");
+                await handle.DisposeAsync();
+            }
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // цепь уже закрыта — освобождать нечего
+        }
+    }
+}

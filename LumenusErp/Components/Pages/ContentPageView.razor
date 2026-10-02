@@ -1,0 +1,135 @@
+@page "/p/{Slug}"
+@using System.Text.Encodings.Web
+@using System.Text.Json
+@using System.Text.Unicode
+@using LumenusErp.Data
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager Navigation
+
+@if (pg is null)
+{
+    <PageTitle>Страница не найдена — LumenusTech</PageTitle>
+    <NoIndex />
+
+    <section class="hero hero--sm">
+        <div class="container">
+            <p class="eyebrow">404</p>
+            <h1 class="hero__title mb-3">Страница не найдена</h1>
+            <p class="hero__lead mb-4">Такой страницы нет или она недоступна.</p>
+            <a href="/" class="btn btn-dark px-4">&larr; На главную</a>
+        </div>
+    </section>
+}
+else
+{
+    <PageTitle>@pg.Title — LumenusTech</PageTitle>
+    @if (pg.Visibility == PageVisibility.Public)
+    {
+        <SeoMeta Path="@("/p/" + pg.Slug)" Title="@pg.Title" Description="@pg.Summary" />
+    }
+    else
+    {
+        <NoIndex />
+    }
+
+    <section class="hero hero--sm" aria-labelledby="page-title">
+        <div class="container">
+            <AuthorizeView Roles="Admin">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    @if (pg.Visibility != PageVisibility.Public)
+                    {
+                        <span class="pill pill--outline">@(pg.Visibility == PageVisibility.Draft ? "ЧЕРНОВИК" : "ТОЛЬКО ДЛЯ ВОШЕДШИХ")</span>
+                    }
+                    <a href="/admin/pages/@pg.Id" class="btn btn-outline-dark btn-sm ms-auto">Редактировать</a>
+                </div>
+            </AuthorizeView>
+            <h1 id="page-title" class="hero__title mb-3">@pg.Title</h1>
+            @if (!string.IsNullOrWhiteSpace(pg.Summary))
+            {
+                <p class="hero__lead mb-0" style="max-width: 720px;">@pg.Summary</p>
+            }
+        </div>
+    </section>
+
+    <section class="section section--tight">
+        <div class="container content-page">
+            @foreach (var b in pg.Blocks)
+            {
+                <article class="content-block mb-5">
+                    @if (!string.IsNullOrWhiteSpace(b.Heading))
+                    {
+                        <h2 class="section-title mb-3">@b.Heading</h2>
+                    }
+                    @switch (b.Type)
+                    {
+                        case BlockType.Text:
+                            <MarkdownViewer Content="@b.Text" Safe="true" />
+                            break;
+                        case BlockType.Image when b.MediaFileId is not null:
+                            <figure class="content-figure">
+                                <a href="/media/@b.MediaFileId" target="_blank" rel="noopener" title="Открыть в полном размере">
+                                    <img src="/media/@b.MediaFileId" alt="@b.AltText" loading="lazy" />
+                                </a>
+                                @if (!string.IsNullOrWhiteSpace(b.Caption))
+                                {
+                                    <figcaption>@b.Caption</figcaption>
+                                }
+                            </figure>
+                            break;
+                        case BlockType.Bpmn:
+                            <div class="bpmn-view" data-bpmn-view role="group" aria-label="@(string.IsNullOrWhiteSpace(b.Heading) ? "Диаграмма процесса" : b.Heading)">
+                                <div class="bpmn-view__bar"></div>
+                                <div class="bpmn-view__canvas"></div>
+                                @((MarkupString)$"<script type=\"application/json\" class=\"bpmn-xml\">{Serialize(b.BpmnXml)}</script>")
+                            </div>
+                            break;
+                    }
+                </article>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    // Страница статическая (SSR): HttpContext доступен всегда
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private ContentPage? pg;
+
+    // Кириллица читаема, а <, >, & экранируются: закрыть тег script изнутри XML нельзя
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Cyrillic),
+    };
+
+    private static string Serialize(string value) => JsonSerializer.Serialize(value, JsonOptions);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var found = await db.ContentPages.AsNoTracking()
+            .Include(p => p.Blocks.OrderBy(b => b.Order))
+            .FirstOrDefaultAsync(p => p.Slug == Slug);
+
+        var user = HttpContext?.User;
+        var isAdmin = user?.IsInRole("Admin") == true;
+        var isAuth = user?.Identity?.IsAuthenticated == true;
+
+        if (found is not null && found.Visibility == PageVisibility.Authenticated && !isAuth)
+        {
+            Navigation.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(Navigation.Uri)}", forceLoad: true);
+            return;
+        }
+
+        // Черновик для остальных выглядит как несуществующая страница
+        pg = found is not null && (found.Visibility != PageVisibility.Draft || isAdmin) ? found : null;
+
+        if (pg is null && HttpContext is { Response.HasStarted: false })
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+        }
+    }
+}

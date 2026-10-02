@@ -61,6 +61,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.Configure<AiLimitsOptions>(builder.Configuration.GetSection("AiLimits"));
 builder.Services.AddSingleton<AiRateLimiter>();
 builder.Services.AddSingleton<AiPromptStore>();
+builder.Services.AddSingleton<MediaService>();
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -176,6 +177,7 @@ app.UseAntiforgery();
 
 app.MapControllers();
 app.MapSeoEndpoints();
+app.MapMediaEndpoints();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -1,0 +1,115 @@
+@page "/admin/pages"
+@using LumenusErp.Data
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject MediaService Media
+
+<PageTitle>Страницы — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container d-flex flex-wrap align-items-end gap-3">
+        <div>
+            <p class="eyebrow">ADMIN</p>
+            <h1 class="hero__title mb-2">Страницы</h1>
+            <p class="text-muted mb-0">Всего: <strong class="text-dark">@pages.Count</strong>, публичных: <strong class="text-dark">@pages.Count(p => p.Visibility == PageVisibility.Public)</strong></p>
+        </div>
+        <a href="/admin/pages/new" class="btn btn-dark ms-auto">+ Создать страницу</a>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        <div class="table-responsive table-card">
+            <table class="table table-borderless mb-0 align-middle" style="min-width: 900px;">
+                <thead>
+                    <tr>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Страница</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Доступ</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Блоков</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Обновлена</th>
+                        <th scope="col" class="px-3 py-3"><span class="visually-hidden">Действия</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in pages)
+                    {
+                        <tr>
+                            <td class="small px-3 py-3 fw-semibold">
+                                @p.Title
+                                <div class="font-monospace text-muted fw-normal" style="font-size:0.75rem;">/p/@p.Slug</div>
+                            </td>
+                            <td class="px-3 py-3">
+                                <span class="pill @(p.Visibility == PageVisibility.Public ? "pill--solid" : "pill--outline")">@VisibilityLabel(p.Visibility)</span>
+                            </td>
+                            <td class="font-monospace small px-3 py-3">@p.BlockCount</td>
+                            <td class="font-monospace small px-3 py-3">@p.UpdatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td class="px-3 py-3 text-end text-nowrap">
+                                @if (confirmDeleteId == p.Id)
+                                {
+                                    <span class="small me-2">Удалить?</span>
+                                    <button type="button" class="btn btn-dark btn-sm" @onclick="() => Delete(p)">Да</button>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmDeleteId = null">Нет</button>
+                                }
+                                else
+                                {
+                                    <a href="/p/@p.Slug" class="btn btn-outline-dark btn-sm">Открыть</a>
+                                    <a href="/admin/pages/@p.Id" class="btn btn-outline-dark btn-sm">Изменить</a>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmDeleteId = p.Id">Удалить</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (pages.Count == 0)
+                    {
+                        <tr><td colspan="5" class="text-center text-muted small py-4">Страниц пока нет</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+@code {
+    private sealed record Row(int Id, string Slug, string Title, PageVisibility Visibility, int BlockCount, DateTime UpdatedAt);
+
+    private List<Row> pages = new();
+    private int? confirmDeleteId;
+
+    public static string VisibilityLabel(PageVisibility v) => v switch
+    {
+        PageVisibility.Public => "ПУБЛИЧНАЯ",
+        PageVisibility.Authenticated => "ДЛЯ ВОШЕДШИХ",
+        _ => "ЧЕРНОВИК",
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        pages = await db.ContentPages.AsNoTracking()
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.Id)
+            .Select(p => new Row(p.Id, p.Slug, p.Title, p.Visibility, p.Blocks.Count, p.UpdatedAt))
+            .ToListAsync();
+    }
+
+    private async Task Delete(Row p)
+    {
+        List<Guid> mediaIds;
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            mediaIds = await db.ContentBlocks.Where(b => b.PageId == p.Id && b.MediaFileId != null)
+                .Select(b => b.MediaFileId!.Value).ToListAsync();
+            await db.ContentPages.Where(x => x.Id == p.Id).ExecuteDeleteAsync();
+        }
+        await Media.DeleteIfUnreferencedAsync(mediaIds);
+        confirmDeleteId = null;
+        await LoadAsync();
+    }
+}

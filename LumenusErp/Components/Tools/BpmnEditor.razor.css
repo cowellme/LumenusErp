@@ -1,0 +1,23 @@
+.bpmn-editor {
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-md);
+    background: #fff;
+    overflow: hidden;
+}
+
+.bpmn-editor__bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--c-line);
+    background: var(--c-surface-alt);
+}
+
+.bpmn-editor__bar label:focus-within {
+    box-shadow: var(--focus-ring);
+}
+
+.bpmn-editor__canvas {
+    height: 520px;
+}

@@ -113,9 +113,28 @@ cmd_backup() {
     rm -f "$out.part"
     die "не удалось сделать бэкап БД"
   fi
+  backup_uploads "$ts"
   # Оставляем только свежие KEEP_BACKUPS
   list_names "$SHARED/backups" | grep '\.sql\.gz$' | all_but_last "$KEEP_BACKUPS" \
     | while read -r b; do rm -f -- "$SHARED/backups/$b"; done
+  list_names "$SHARED/backups" | grep -- '-uploads\.tgz$' | all_but_last "$KEEP_BACKUPS" \
+    | while read -r b; do rm -f -- "$SHARED/backups/$b"; done
+}
+
+# Архив тома с загруженными файлами (compose-проект lumenus => том lumenus_uploads)
+backup_uploads() {
+  local out="$SHARED/backups/$1-uploads.tgz"
+  if ! docker volume inspect lumenus_uploads >/dev/null 2>&1; then
+    echo "Тома lumenus_uploads ещё нет, архив загрузок пропущен"
+    return 0
+  fi
+  if docker run --rm -v lumenus_uploads:/u:ro alpine tar czf - -C /u . > "$out.part"; then
+    mv "$out.part" "$out"
+    echo "Бэкап загрузок: $out ($(du -h "$out" | cut -f1))"
+  else
+    rm -f "$out.part"
+    die "не удалось сделать архив загрузок"
+  fi
 }
 
 cmd_latest_backup() {
