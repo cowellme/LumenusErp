@@ -73,38 +73,75 @@
             // за время загрузки контейнер мог исчезнуть (переход на другую страницу)
             if (!root.isConnected) return;
             var fixed = root.hasAttribute('data-bpmn-fixed');
-            var viewer = new window.BpmnJS(fixed ? { container: canvas, additionalModules: FIXED_MODULES } : { container: canvas });
-            root._bpmnViewer = viewer;
-            return viewer.importXML(xml).then(function () {
-                var fit = function () {
-                    var cv = viewer.get('canvas');
-                    cv.zoom('fit-viewport', 'auto');
-                    // фиксированную схему не увеличиваем сверх 100%
-                    if (fixed && cv.zoom() > 1) cv.zoom(1, 'auto');
-                };
-                fit();
+            var gen = 0;
+            var fitBtn = null;
 
-                var bar = root.querySelector('.bpmn-view__bar');
-                if (bar && !bar.hasChildNodes()) {
-                    if (!fixed) bar.appendChild(button('Вписать', 'Вписать диаграмму в окно', fit));
-                    if (root.requestFullscreen) {
-                        bar.appendChild(button('На весь экран', 'Открыть на весь экран', function () {
-                            if (document.fullscreenElement === root) document.exitFullscreen();
-                            else root.requestFullscreen();
-                        }));
-                    }
+            // фиксированная схема статична, пока не открыта на весь экран; модули подменяются только при создании viewer
+            var isStatic = function () { return fixed && document.fullscreenElement !== root; };
+
+            var fit = function () {
+                var viewer = root._bpmnViewer;
+                if (!viewer) return;
+                var cv = viewer.get('canvas');
+                cv.zoom('fit-viewport', 'auto');
+                // статичную схему не увеличиваем сверх 100%
+                if (isStatic() && cv.zoom() > 1) cv.zoom(1, 'auto');
+            };
+
+            var bar = root.querySelector('.bpmn-view__bar');
+            var fsBtn = null;
+            if (bar && !bar.hasChildNodes()) {
+                fitBtn = button('Вписать', 'Вписать диаграмму в окно', fit);
+                if (root.requestFullscreen) {
+                    fsBtn = button('На весь экран', 'Открыть на весь экран', function () {
+                        if (document.fullscreenElement === root) document.exitFullscreen();
+                        else root.requestFullscreen();
+                    });
                 }
+                if (!isStatic()) bar.appendChild(fitBtn);
+                if (fsBtn) bar.appendChild(fsBtn);
+            }
+
+            // «Вписать» у фиксированной схемы есть только в полноэкранном режиме
+            var syncBar = function () {
+                if (!bar || !fitBtn) return;
+                if (isStatic()) { if (fitBtn.parentNode) fitBtn.remove(); }
+                else if (!fitBtn.parentNode) bar.insertBefore(fitBtn, fsBtn && fsBtn.parentNode === bar ? fsBtn : null);
+            };
+
+            // (пере)создаёт viewer; устаревший результат (gen изменился, пока шёл importXML) отбрасывается
+            var build = function () {
+                var my = ++gen;
+                var old = root._bpmnViewer;
+                if (old) { root._bpmnViewer = null; try { old.destroy(); } catch (e) { } }
+                var viewer = new window.BpmnJS(isStatic() ? { container: canvas, additionalModules: FIXED_MODULES } : { container: canvas });
+                root._bpmnViewer = viewer;
+                syncBar();
+                return viewer.importXML(xml).then(function () {
+                    if (my === gen) fit();
+                }, function (e) {
+                    if (my === gen) throw e;
+                });
+            };
+
+            var first = build();
+
+            if (fixed) {
+                root.addEventListener('fullscreenchange', function () {
+                    build().catch(function (e) { showError(root, 'Не удалось показать диаграмму: ' + (e && e.message ? e.message : e)); });
+                });
+                var timer = null;
+                var onResize = function () {
+                    if (!root.isConnected) { window.removeEventListener('resize', onResize); return; }
+                    if (!isStatic()) return;
+                    clearTimeout(timer);
+                    timer = setTimeout(fit, 150);
+                };
+                window.addEventListener('resize', onResize);
+            } else {
                 root.addEventListener('fullscreenchange', function () { setTimeout(fit, 50); });
-                if (fixed) {
-                    var timer = null;
-                    var onResize = function () {
-                        if (!root.isConnected) { window.removeEventListener('resize', onResize); return; }
-                        clearTimeout(timer);
-                        timer = setTimeout(fit, 150);
-                    };
-                    window.addEventListener('resize', onResize);
-                }
-            });
+            }
+            return first;
         }).catch(function (e) {
             showError(root, 'Не удалось показать диаграмму: ' + (e && e.message ? e.message : e));
         }).then(function () {
