@@ -115,9 +115,10 @@ cmd_backup() {
   fi
   backup_uploads "$ts"
   # Оставляем только свежие KEEP_BACKUPS
-  list_names "$SHARED/backups" | grep '\.sql\.gz$' | all_but_last "$KEEP_BACKUPS" \
+  list_names "$SHARED/backups" | { grep '\.sql\.gz$' || true; } | all_but_last "$KEEP_BACKUPS" \
     | while read -r b; do rm -f -- "$SHARED/backups/$b"; done
-  list_names "$SHARED/backups" | grep -- '-uploads\.tgz$' | all_but_last "$KEEP_BACKUPS" \
+  # grep без совпадений вернёт 1 и под pipefail уронит скрипт — поэтому || true
+  list_names "$SHARED/backups" | { grep -- '-uploads\.tgz$' || true; } | all_but_last "$KEEP_BACKUPS" \
     | while read -r b; do rm -f -- "$SHARED/backups/$b"; done
 }
 
