@@ -4,7 +4,7 @@
     padding: var(--space-3);
     height: 100%;
     padding: 10px;
-    border: solid 2px black;
+    border: solid 2px var(--c-ink);
     background: var(--color-bg);
 }
 
@@ -42,62 +42,62 @@
 
 /* 0 */
 .risk-none .card-risk-simple__tag {
-    color: #737373;
-    border-color: #a3a3a3;
-    background: #f5f5f5;
+    color: var(--risk-none-fg);
+    border-color: var(--risk-none-bd);
+    background: var(--risk-none-tag);
 }
 
 /* 1 */
 .risk-clean {
-    background: #f0fdf4;
+    background: var(--risk-clean-bg);
 }
 
     .risk-clean .card-risk-simple__tag {
-        color: #16a34a;
-        border-color: #22c55e;
-        background: #dcfce7;
+        color: var(--risk-clean-fg);
+        border-color: var(--risk-clean-bd);
+        background: var(--risk-clean-tag);
     }
 
 /* 2 */
 .risk-low {
-    background: #f7fee7;
+    background: var(--risk-low-bg);
 }
 
     .risk-low .card-risk-simple__tag {
-        color: #65a30d;
-        border-color: #a3e635;
-        background: #ecfccb;
+        color: var(--risk-low-fg);
+        border-color: var(--risk-low-bd);
+        background: var(--risk-low-tag);
     }
 
 /* 3 */
 .risk-medium {
-    background: #fefce8;
+    background: var(--risk-medium-bg);
 }
 
     .risk-medium .card-risk-simple__tag {
-        color: #a16207;
-        border-color: #facc15;
-        background: #fef08a;
+        color: var(--risk-medium-fg);
+        border-color: var(--risk-medium-bd);
+        background: var(--risk-medium-tag);
     }
 
 /* 4 */
 .risk-high {
-    background: #fff7ed;
+    background: var(--risk-high-bg);
 }
 
     .risk-high .card-risk-simple__tag {
-        color: #c2410c;
-        border-color: #f97316;
-        background: #fed7aa;
+        color: var(--risk-high-fg);
+        border-color: var(--risk-high-bd);
+        background: var(--risk-high-tag);
     }
 
 /* 5 */
 .risk-critical {
-    background: #fef2f2;
+    background: var(--risk-critical-bg);
 }
 
     .risk-critical .card-risk-simple__tag {
-        color: #dc2626;
-        border-color: #ef4444;
-        background: #fecaca;
+        color: var(--risk-critical-fg);
+        border-color: var(--risk-critical-bd);
+        background: var(--risk-critical-tag);
     }

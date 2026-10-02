@@ -17,6 +17,35 @@
     --c-accent: #7c3aed;
     --c-accent-soft: rgba(139, 92, 246, 0.18);
     --c-danger: #b42318;
+    --c-danger-hover: #cc0000;
+    --c-danger-soft: #fdecea;
+
+    /* «Чернильные» поверхности: кнопки, пилюли, шапки таблиц */
+    --c-on-ink: #ffffff;                  /* текст на --c-ink */
+    --c-on-ink-border: rgba(255, 255, 255, 0.5);
+    --c-btn-hover: #262626;
+    --c-btn-disabled-bg: #bdbdbd;
+    --c-btn-disabled-fg: #ffffff;
+    --c-hover: #ececec;
+    --c-header-bg: rgba(255, 255, 255, 0.82);
+    --c-overlay-bg: rgba(255, 255, 255, 0.95);
+    --c-placeholder: #8a8a8a;
+    --c-faint: #767676;                   /* плейсхолдеры, неактивные иконки */
+    --c-disabled-bg: #e5e5e5;
+    --c-hero-glow: #ececec;
+    --c-hero-glow-0: rgba(236, 236, 236, 0);
+    --c-dot: rgba(0, 0, 0, 0.14);
+    --c-ring-soft: rgba(0, 0, 0, 0.12);
+    --c-ring-soft-2: rgba(0, 0, 0, 0.15);
+    --c-diagram-bg: #ffffff;              /* подложка BPMN: схемы bpmn-js рассчитаны на светлый фон */
+
+    /* Статусы риска (AOS): текст / рамка / фон метки / фон карточки */
+    --risk-none-fg: #737373;   --risk-none-bd: #a3a3a3;   --risk-none-tag: #f5f5f5;
+    --risk-clean-fg: #16a34a;  --risk-clean-bd: #22c55e;  --risk-clean-tag: #dcfce7;  --risk-clean-bg: #f0fdf4;
+    --risk-low-fg: #65a30d;    --risk-low-bd: #a3e635;    --risk-low-tag: #ecfccb;    --risk-low-bg: #f7fee7;
+    --risk-medium-fg: #a16207; --risk-medium-bd: #facc15; --risk-medium-tag: #fef08a; --risk-medium-bg: #fefce8;
+    --risk-high-fg: #c2410c;   --risk-high-bd: #f97316;   --risk-high-tag: #fed7aa;   --risk-high-bg: #fff7ed;
+    --risk-critical-fg: #dc2626; --risk-critical-bd: #ef4444; --risk-critical-tag: #fecaca; --risk-critical-bg: #fef2f2;
 
     --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
@@ -35,7 +64,7 @@
     --t-fast: 0.15s var(--ease);
     --t-base: 0.25s var(--ease);
 
-    --focus-ring: 0 0 0 3px #ffffff, 0 0 0 5px #000000;
+    --focus-ring: 0 0 0 3px var(--c-surface), 0 0 0 5px var(--c-ink);   /* в тёмной теме инвертируется сам */
 
     /* Bootstrap hooks */
     --bs-body-font-family: var(--font-sans);
@@ -45,6 +74,55 @@
     --bs-link-color: var(--c-ink);
     --bs-link-hover-color: var(--c-muted);
     --bs-border-color: var(--c-line);
+}
+
+/* ── 1b. Тёмная тема ───────────────────────────────────────────────────── */
+/* data-theme и data-bs-theme ставит inline-скрипт в App.razor (и js/theme.js). */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --c-ink: #fafafa;
+    --c-ink-soft: #e0e0e0;
+    --c-text: #ededed;
+    --c-muted: #a1a1a1;
+    --c-subtle: #8a8a8a;
+    --c-line: #2a2a2d;
+    --c-line-strong: #3a3a3e;
+    --c-surface: #0b0b0c;
+    --c-surface-alt: #151517;
+    --c-accent: #a78bfa;
+    --c-accent-soft: rgba(167, 139, 250, 0.22);
+    --c-danger: #f87171;
+    --c-danger-hover: #fca5a5;
+    --c-danger-soft: rgba(248, 113, 113, 0.14);
+
+    --c-on-ink: #0b0b0c;
+    --c-on-ink-border: rgba(0, 0, 0, 0.5);
+    --c-btn-hover: #d4d4d4;
+    --c-btn-disabled-bg: #2a2a2d;
+    --c-btn-disabled-fg: #7a7a7a;
+    --c-hover: #202023;
+    --c-header-bg: rgba(11, 11, 12, 0.82);
+    --c-overlay-bg: rgba(11, 11, 12, 0.95);
+    --c-placeholder: #7a7a7a;
+    --c-faint: #8a8a8a;
+    --c-disabled-bg: #1c1c1f;
+    --c-hero-glow: #1d1d21;
+    --c-hero-glow-0: rgba(29, 29, 33, 0);
+    --c-dot: rgba(255, 255, 255, 0.1);
+    --c-ring-soft: rgba(255, 255, 255, 0.2);
+    --c-ring-soft-2: rgba(255, 255, 255, 0.22);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+    --risk-none-fg: #a3a3a3;   --risk-none-bd: #525252;   --risk-none-tag: #1f1f22;
+    --risk-clean-fg: #4ade80;  --risk-clean-bd: #16a34a;  --risk-clean-tag: #0f2a1a;  --risk-clean-bg: #0d1a12;
+    --risk-low-fg: #a3e635;    --risk-low-bd: #65a30d;    --risk-low-tag: #1c2a0c;    --risk-low-bg: #141a0b;
+    --risk-medium-fg: #facc15; --risk-medium-bd: #a16207; --risk-medium-tag: #2e2508; --risk-medium-bg: #1a1608;
+    --risk-high-fg: #fb923c;   --risk-high-bd: #c2410c;   --risk-high-tag: #2f1a0a;   --risk-high-bg: #1c1209;
+    --risk-critical-fg: #f87171; --risk-critical-bd: #b91c1c; --risk-critical-tag: #301212; --risk-critical-bg: #1c0e0e;
 }
 
 /* ── 2. Base ───────────────────────────────────────────────────────────── */
@@ -75,7 +153,7 @@ a:hover { color: var(--c-muted); }
 .fw-extrabold { font-weight: 800 !important; }
 .text-muted { color: var(--c-muted) !important; }
 
-::selection { background: #000; color: #fff; }
+::selection { background: var(--c-ink); color: var(--c-on-ink); }
 
 :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
 .btn:focus-visible, .form-control:focus-visible { box-shadow: var(--focus-ring); }
@@ -85,7 +163,7 @@ a:hover { color: var(--c-muted); }
     position: sticky;
     top: 0;
     z-index: 1030;
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--c-header-bg);
     -webkit-backdrop-filter: saturate(180%) blur(12px);
     backdrop-filter: saturate(180%) blur(12px);
     border-bottom: 1px solid var(--c-line);
@@ -132,10 +210,10 @@ a:hover { color: var(--c-muted); }
     background: var(--c-ink);
 }
 .nav-link-x--danger { color: var(--c-danger); }
-.nav-link-x--danger:hover { color: var(--c-danger); background: #fdecea; }
-.nav-link-x--cta { color: #fff; background: var(--c-ink); }
-.nav-link-x--cta:hover { color: #fff; background: var(--c-ink-soft); }
-.nav-link-x--cta.active { color: #fff; background: var(--c-ink); }
+.nav-link-x--danger:hover { color: var(--c-danger); background: var(--c-danger-soft); }
+.nav-link-x--cta { color: var(--c-on-ink); background: var(--c-ink); }
+.nav-link-x--cta:hover { color: var(--c-on-ink); background: var(--c-ink-soft); }
+.nav-link-x--cta.active { color: var(--c-on-ink); background: var(--c-ink); }
 .nav-link-x--cta.active::after { display: none; }
 
 /* ── 4. Footer ─────────────────────────────────────────────────────────── */
@@ -205,8 +283,8 @@ a:hover { color: var(--c-muted); }
     isolation: isolate;
     padding: clamp(3rem, 8vw, 6rem) 0 clamp(2.5rem, 6vw, 4.5rem);
     background:
-        radial-gradient(60rem 30rem at 85% -10%, #ececec 0%, rgba(236, 236, 236, 0) 60%),
-        #fff;
+        radial-gradient(60rem 30rem at 85% -10%, var(--c-hero-glow) 0%, var(--c-hero-glow-0) 60%),
+        var(--c-surface);
     border-bottom: 1px solid var(--c-line);
     overflow: hidden;
 }
@@ -215,7 +293,7 @@ a:hover { color: var(--c-muted); }
     position: absolute;
     inset: 0;
     z-index: -1;
-    background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 1px, transparent 1.2px);
+    background-image: radial-gradient(circle, var(--c-dot) 1px, transparent 1.2px);
     background-size: 22px 22px;
     -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
     mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
@@ -250,15 +328,19 @@ a:hover { color: var(--c-muted); }
                 background-color var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
 .btn-dark {
-    --bs-btn-bg: #000; --bs-btn-border-color: #000;
-    --bs-btn-hover-bg: #262626; --bs-btn-hover-border-color: #262626;
-    --bs-btn-active-bg: #000; --bs-btn-active-border-color: #000;
-    --bs-btn-disabled-bg: #bdbdbd; --bs-btn-disabled-border-color: #bdbdbd;
+    --bs-btn-color: var(--c-on-ink); --bs-btn-hover-color: var(--c-on-ink); --bs-btn-active-color: var(--c-on-ink);
+    --bs-btn-bg: var(--c-ink); --bs-btn-border-color: var(--c-ink);
+    --bs-btn-hover-bg: var(--c-btn-hover); --bs-btn-hover-border-color: var(--c-btn-hover);
+    --bs-btn-active-bg: var(--c-ink); --bs-btn-active-border-color: var(--c-ink);
+    --bs-btn-disabled-color: var(--c-btn-disabled-fg);
+    --bs-btn-disabled-bg: var(--c-btn-disabled-bg); --bs-btn-disabled-border-color: var(--c-btn-disabled-bg);
 }
 .btn-outline-dark {
-    --bs-btn-color: #000; --bs-btn-border-color: #000;
-    --bs-btn-hover-bg: #000; --bs-btn-hover-border-color: #000;
-    --bs-btn-active-bg: #000; --bs-btn-active-border-color: #000;
+    --bs-btn-color: var(--c-ink); --bs-btn-border-color: var(--c-ink);
+    --bs-btn-hover-color: var(--c-on-ink); --bs-btn-active-color: var(--c-on-ink);
+    --bs-btn-hover-bg: var(--c-ink); --bs-btn-hover-border-color: var(--c-ink);
+    --bs-btn-active-bg: var(--c-ink); --bs-btn-active-border-color: var(--c-ink);
+    --bs-btn-disabled-color: var(--c-muted); --bs-btn-disabled-border-color: var(--c-muted);
 }
 .btn-dark:hover:not(:disabled), .btn-outline-dark:hover:not(:disabled) {
     transform: translateY(-1px);
@@ -327,7 +409,7 @@ a:hover { color: var(--c-muted); }
     line-height: 1.3;
     transition: background-color var(--t-fast), border-color var(--t-fast);
 }
-.chip:hover { background: #ececec; border-color: var(--c-line-strong); }
+.chip:hover { background: var(--c-hover); border-color: var(--c-line-strong); }
 .pill {
     font-size: 0.68rem;
     letter-spacing: 0.06em;
@@ -335,16 +417,16 @@ a:hover { color: var(--c-muted); }
     padding: 0.25rem 0.7rem;
     white-space: nowrap;
 }
-.pill--solid { background: var(--c-ink); border-color: var(--c-ink); color: #fff; }
-.pill--outline { background: #fff; border-color: var(--c-ink); color: var(--c-ink); }
-.pill--tag { font-size: 0.7rem; background: #fff; }
+.pill--solid { background: var(--c-ink); border-color: var(--c-ink); color: var(--c-on-ink); }
+.pill--outline { background: var(--c-surface); border-color: var(--c-ink); color: var(--c-ink); }
+.pill--tag { font-size: 0.7rem; background: var(--c-surface); }
 
 /* ── 8. Table ──────────────────────────────────────────────────────────── */
 .table-card {
     border: 1px solid var(--c-line);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    background: #fff;
+    background: var(--c-surface);
 }
 .table-card table { --bs-table-bg: transparent; }
 .table-card thead th {
@@ -358,7 +440,7 @@ a:hover { color: var(--c-muted); }
 .table-card tbody tr:first-child { border-top: 0; }
 .table-card tbody tr[role="button"]:hover { background: var(--c-surface-alt); }
 .table-card tbody tr.row-open { background: var(--c-surface-alt); }
-.table-card tbody tr:focus-visible { box-shadow: inset 0 0 0 2px #000; border-radius: 0; }
+.table-card tbody tr:focus-visible { box-shadow: inset 0 0 0 2px var(--c-ink); border-radius: 0; }
 .detail-side { border-left: 0; }
 @media (min-width: 992px) { .detail-side { border-left: 1px solid var(--c-line); } }
 
@@ -366,7 +448,7 @@ a:hover { color: var(--c-muted); }
 .form-control, .form-select {
     border: 1px solid var(--c-line-strong);
     border-radius: var(--radius-md);
-    background-color: #fff;
+    background-color: var(--c-surface);
     color: var(--c-ink);
     padding: 0.7rem 0.9rem;
     transition: border-color var(--t-fast), box-shadow var(--t-fast);
@@ -374,10 +456,10 @@ a:hover { color: var(--c-muted); }
 .form-control:hover:not(:disabled) { border-color: var(--c-subtle); }
 .form-control:focus, .form-select:focus {
     border-color: var(--c-ink);
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 0 0 3px var(--c-ring-soft);
     outline: none;
 }
-.form-control::placeholder { color: #8a8a8a; }
+.form-control::placeholder { color: var(--c-placeholder); }
 .form-control:disabled { background: var(--c-surface-alt); }
 .form-label, label { font-weight: 600; }
 .field-label {
@@ -391,16 +473,21 @@ a:hover { color: var(--c-muted); }
     margin-bottom: 0.5rem;
 }
 .form-check-input { border: 1px solid var(--c-subtle); }
-.form-check-input:checked { background-color: #000; border-color: #000; }
-.form-check-input:focus { border-color: #000; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15); }
+.form-check-input:checked { background-color: var(--c-ink); border-color: var(--c-ink); }
+.form-check-input:focus { border-color: var(--c-ink); box-shadow: 0 0 0 3px var(--c-ring-soft-2); }
 .form-card { padding: clamp(1.25rem, 3vw, 2.5rem); }
 .form-card:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--c-line); }
 
 .alert { border-radius: var(--radius-md); }
-.nav-pills { --bs-nav-pills-link-active-bg: #000; --bs-nav-pills-border-radius: var(--radius-md); }
+.nav-pills { --bs-nav-pills-link-active-bg: var(--c-ink); --bs-nav-pills-link-active-color: var(--c-on-ink); --bs-nav-pills-border-radius: var(--radius-md); }
 .nav-pills .nav-link { color: var(--c-ink); }
 .nav-pills .nav-link:hover:not(.active) { background: var(--c-surface-alt); }
-.btn-primary { --bs-btn-bg: #000; --bs-btn-border-color: #000; --bs-btn-hover-bg: #262626; --bs-btn-hover-border-color: #262626; --bs-btn-active-bg: #000; --bs-btn-active-border-color: #000; }
+.btn-primary {
+    --bs-btn-color: var(--c-on-ink); --bs-btn-hover-color: var(--c-on-ink); --bs-btn-active-color: var(--c-on-ink);
+    --bs-btn-bg: var(--c-ink); --bs-btn-border-color: var(--c-ink);
+    --bs-btn-hover-bg: var(--c-btn-hover); --bs-btn-hover-border-color: var(--c-btn-hover);
+    --bs-btn-active-bg: var(--c-ink); --bs-btn-active-border-color: var(--c-ink);
+}
 .btn-link { color: var(--c-ink); }
 .table { --bs-table-border-color: var(--c-line); }
 .validation-message { color: var(--c-danger); }
@@ -410,8 +497,45 @@ a:hover { color: var(--c-muted); }
 .rounded-0 { border-radius: var(--radius-md) !important; }
 .border-dark { border-color: var(--c-line-strong) !important; }
 .border-2 { --bs-border-width: 1px; border-width: 1px !important; }
-.border-start.border-5 { border-left-width: 3px !important; border-left-color: #000 !important; }
+.border-start.border-5 { border-left-width: 3px !important; border-left-color: var(--c-ink) !important; }
 hr.border-dark { border-color: var(--c-line-strong) !important; opacity: 1; }
+
+/* Утилиты Bootstrap с фиксированными светлыми/тёмными цветами — следуют теме */
+.text-dark { color: var(--c-ink) !important; }
+.bg-white { background-color: var(--c-surface) !important; }
+.bg-dark { background-color: var(--c-ink) !important; color: var(--c-on-ink); }
+.bg-dark.text-white { color: var(--c-on-ink) !important; }
+.badge.bg-dark { color: var(--c-on-ink) !important; }
+.form-text { color: var(--c-muted); }
+
+/* ── 9b. Переключатель темы ────────────────────────────────────────────── */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-left: 0.5rem;
+    padding: 0;
+    font-size: 1.05rem;
+    line-height: 1;
+    color: var(--c-muted);
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--t-fast), background-color var(--t-fast);
+}
+.theme-toggle:hover { color: var(--c-ink); background: var(--c-surface-alt); }
+/* Иконка выбирается по [data-theme]: в светлой — луна (включить тёмную), в тёмной — солнце */
+.theme-toggle .bi-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .bi-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .bi-sun { display: inline-block; }
+@media (max-width: 768px) {
+    /* справа absolute-кнопка мобильного меню (42px + отступ) */
+    .theme-toggle { margin-left: auto; margin-right: 46px; }
+}
 
 /* ── 10. Entrance animation ────────────────────────────────────────────── */
 @keyframes rise {

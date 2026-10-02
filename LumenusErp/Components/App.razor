@@ -5,7 +5,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+        // Тема до подключения CSS, чтобы не мигало: выбор из localStorage, иначе системная.
+        (function () {
+            var t = null;
+            try { var v = localStorage.getItem('theme'); if (v === 'light' || v === 'dark') t = v; } catch (e) { }
+            if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            var d = document.documentElement;
+            d.setAttribute('data-theme', t);
+            d.setAttribute('data-bs-theme', t);
+            var m = document.querySelector('meta[name="theme-color"]');
+            if (m) m.setAttribute('content', t === 'dark' ? '#0b0b0c' : '#ffffff');
+        })();
+    </script>
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["LumenusErp.styles.css"]" />
@@ -24,6 +37,7 @@
 <body>
     <Routes />
     <script src="_framework/blazor.web.js"></script>
+    <script src="@Assets["js/theme.js"]" defer></script>
     <script src="@Assets["js/table-rows.js"]" defer></script>
     <script src="@Assets["js/bpmn-view.js"]" defer></script>
 </body>

@@ -6,7 +6,7 @@
     isolation: isolate;
     overflow: hidden;
     padding: clamp(2.5rem, 6vw, 4rem) 0 clamp(2rem, 4vw, 3rem);
-    background: radial-gradient(60rem 30rem at 85% -10%, #ececec 0%, rgba(236, 236, 236, 0) 60%), #ffffff;
+    background: radial-gradient(60rem 30rem at 85% -10%, var(--c-hero-glow) 0%, var(--c-hero-glow-0) 60%), var(--c-surface);
     border-bottom: 1px solid var(--c-line);
 }
 
@@ -15,7 +15,7 @@
         position: absolute;
         inset: 0;
         z-index: -1;
-        background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 1px, transparent 1.2px);
+        background-image: radial-gradient(circle, var(--c-dot) 1px, transparent 1.2px);
         background-size: 22px 22px;
         -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
         mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
@@ -26,7 +26,7 @@
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
-    color: #555555;
+    color: var(--c-muted);
     margin-bottom: 1rem;
 }
 
@@ -37,13 +37,13 @@
     line-height: 1.1;
     text-wrap: balance;
     margin-bottom: 0.75rem;
-    color: #000000;
+    color: var(--c-ink);
     border: none;
     padding: 0;
 }
 
 .faq-hero__subtitle {
-    color: #555555;
+    color: var(--c-muted);
     font-size: 1rem;
     max-width: 560px;
     line-height: 1.6;
@@ -72,7 +72,7 @@
    CONTACT
    ========================================================================== */
 .faq-contact {
-    background: #f5f5f5;
+    background: var(--c-surface-alt);
     border-top: 1px solid var(--c-line);
     padding: var(--space-section) 0;
 }
@@ -82,7 +82,7 @@
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
-    color: #555555;
+    color: var(--c-muted);
     margin-bottom: 0.75rem;
 }
 
@@ -90,14 +90,14 @@
     font-size: clamp(1.4rem, 3vw, 2rem);
     font-weight: 800;
     letter-spacing: -0.03em;
-    color: #000000;
+    color: var(--c-ink);
     margin-bottom: 0.75rem;
     border: none;
     padding: 0;
 }
 
 .faq-contact__subtitle {
-    color: #555555;
+    color: var(--c-muted);
     max-width: 500px;
     margin: 0 auto 2rem;
     font-size: 1rem;

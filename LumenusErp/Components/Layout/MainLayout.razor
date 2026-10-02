@@ -18,6 +18,10 @@
 
             
             <NavMenu />
+            @* Переключатель темы: обычный HTML, клик обрабатывает js/theme.js (делегирование по [data-theme-toggle]) *@
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Переключить тему" title="Переключить тему">
+                <i class="bi bi-moon" aria-hidden="true"></i><i class="bi bi-sun" aria-hidden="true"></i>
+            </button>
             <div class="mobile-menu">
                 <MobileMenu/>
             </div>
@@ -56,9 +60,9 @@
     </footer>
 </div>
 
-<div id="blazor-error-ui" class="position-fixed bottom-0 end-0 m-3 p-3 bg-white border border-danger border-2 font-monospace small text-danger d-none">
+<div id="blazor-error-ui" class="position-fixed bottom-0 end-0 m-3 p-3 bg-body border border-danger border-2 font-monospace small text-danger d-none">
     An unhandled error has occurred.
-    <a href="." class="fw-bold text-dark">Reload</a>
+    <a href="." class="fw-bold text-body">Reload</a>
     <span class="ms-2 text-muted" style="cursor:pointer" onclick="this.parentElement.style.display='none'">✕</span>
 </div>
 

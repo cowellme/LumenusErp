@@ -1,7 +1,7 @@
 .bpmn-editor {
     border: 1px solid var(--c-line);
     border-radius: var(--radius-md);
-    background: #fff;
+    background: var(--c-surface);
     overflow: hidden;
 }
 
@@ -20,4 +20,5 @@
 
 .bpmn-editor__canvas {
     height: 520px;
+    background: var(--c-diagram-bg);   /* схемы bpmn-js рисуются тёмными линиями — подложка остаётся светлой */
 }

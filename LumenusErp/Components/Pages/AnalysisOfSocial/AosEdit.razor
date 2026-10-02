@@ -38,7 +38,7 @@
                               rows="10"
                               placeholder="Введите системный промпт для AI..."
                               @bind="_setting.SystemPrompt"></textarea>
-                    <div class="form-text small mt-1" style="font-size:0.72rem; color:#888;">
+                    <div class="form-text small mt-1" style="font-size:0.72rem; color:var(--c-subtle);">
                         Этот промпт используется как базовый контекст при анализе блогеров.
                     </div>
                 </div>
@@ -55,7 +55,7 @@
                            min="1"
                            placeholder="1"
                            @bind="_setting.UpdateTime" />
-                    <div class="form-text small mt-1" style="font-size:0.72rem; color:#888;">
+                    <div class="form-text small mt-1" style="font-size:0.72rem; color:var(--c-subtle);">
                         Как часто система автоматически сканирует блогеров. Рекомендуется: 4 часа.
                     </div>
                 </div>
