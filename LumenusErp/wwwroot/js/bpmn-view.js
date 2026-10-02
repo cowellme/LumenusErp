@@ -50,6 +50,15 @@
         if (canvas) canvas.textContent = text;
     }
 
+    // Заглушки модулей навигации NavigatedViewer для фиксированной схемы: подписки на wheel/mousedown/клавиши
+    // не создаются, остальные модули эти сервисы не вызывают (проверено по бандлу bpmn-js 18.31.0).
+    function noop() { return false; }
+    var FIXED_MODULES = [{
+        zoomScroll: ['value', { scroll: noop, reset: noop, toggle: noop, stepZoom: noop, zoom: noop, isEnabled: noop }],
+        moveCanvas: ['value', { moveCanvas: noop, isActive: noop }],
+        keyboardMove: ['value', { moveCanvas: noop }]
+    }];
+
     function init(root) {
         if (root.querySelector('.djs-container') || root.getAttribute('data-bpmn-busy')) return;
         var source = root.querySelector('script.bpmn-xml');
@@ -63,15 +72,21 @@
         loadLib().then(function () {
             // за время загрузки контейнер мог исчезнуть (переход на другую страницу)
             if (!root.isConnected) return;
-            var viewer = new window.BpmnJS({ container: canvas });
+            var fixed = root.hasAttribute('data-bpmn-fixed');
+            var viewer = new window.BpmnJS(fixed ? { container: canvas, additionalModules: FIXED_MODULES } : { container: canvas });
             root._bpmnViewer = viewer;
             return viewer.importXML(xml).then(function () {
-                var fit = function () { viewer.get('canvas').zoom('fit-viewport', 'auto'); };
+                var fit = function () {
+                    var cv = viewer.get('canvas');
+                    cv.zoom('fit-viewport', 'auto');
+                    // фиксированную схему не увеличиваем сверх 100%
+                    if (fixed && cv.zoom() > 1) cv.zoom(1, 'auto');
+                };
                 fit();
 
                 var bar = root.querySelector('.bpmn-view__bar');
                 if (bar && !bar.hasChildNodes()) {
-                    bar.appendChild(button('Вписать', 'Вписать диаграмму в окно', fit));
+                    if (!fixed) bar.appendChild(button('Вписать', 'Вписать диаграмму в окно', fit));
                     if (root.requestFullscreen) {
                         bar.appendChild(button('На весь экран', 'Открыть на весь экран', function () {
                             if (document.fullscreenElement === root) document.exitFullscreen();
@@ -80,6 +95,15 @@
                     }
                 }
                 root.addEventListener('fullscreenchange', function () { setTimeout(fit, 50); });
+                if (fixed) {
+                    var timer = null;
+                    var onResize = function () {
+                        if (!root.isConnected) { window.removeEventListener('resize', onResize); return; }
+                        clearTimeout(timer);
+                        timer = setTimeout(fit, 150);
+                    };
+                    window.addEventListener('resize', onResize);
+                }
             });
         }).catch(function (e) {
             showError(root, 'Не удалось показать диаграмму: ' + (e && e.message ? e.message : e));

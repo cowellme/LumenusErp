@@ -54,6 +54,9 @@ public class ContentBlock
     /// <summary>BPMN 2.0 XML, для <see cref="BlockType.Bpmn"/>.</summary>
     public string BpmnXml { get; set; } = "";
 
+    /// <summary>Для <see cref="BlockType.Bpmn"/>: статичная схема без зума и перемещения (по умолчанию интерактивная).</summary>
+    public bool BpmnFixed { get; set; }
+
     /// <summary>Картинка, для <see cref="BlockType.Image"/>.</summary>
     public Guid? MediaFileId { get; set; }
     public MediaFile? MediaFile { get; set; }

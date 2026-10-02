@@ -132,6 +132,7 @@ docker-сети (`http://app:8080`). Контракт зафиксирован �
   в `wwwroot/js/bpmn-view.js` и `bpmn-editor.js`). Просмотр — `bpmn-view.js` (NavigatedViewer, грузится лениво, работает
   после enhanced navigation), редактор — `BpmnEditor.razor` + `bpmn-editor.js` (Modeler). XML вставляется в страницу как
   JSON в `<script type="application/json">` (`<`, `>`, `&` экранированы).
+  Флаг `ContentBlock.BpmnFixed` (чекбокс в редакторе) — статичная схема: `bpmn-view.js` подменяет модули zoomScroll/moveCanvas/keyboardMove заглушками, без кнопки «Вписать».
 
 ## Команды
 

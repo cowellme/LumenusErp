@@ -78,7 +78,7 @@ else
                             </figure>
                             break;
                         case BlockType.Bpmn:
-                            <div class="bpmn-view" data-bpmn-view role="group" aria-label="@(string.IsNullOrWhiteSpace(b.Heading) ? "Диаграмма процесса" : b.Heading)">
+                            <div class="@(b.BpmnFixed ? "bpmn-view bpmn-view--fixed" : "bpmn-view")" data-bpmn-view data-bpmn-fixed="@(b.BpmnFixed ? "" : null)" role="group" aria-label="@(string.IsNullOrWhiteSpace(b.Heading) ? "Диаграмма процесса" : b.Heading)">
                                 <div class="bpmn-view__bar"></div>
                                 <div class="bpmn-view__canvas"></div>
                                 @((MarkupString)$"<script type=\"application/json\" class=\"bpmn-xml\">{Serialize(b.BpmnXml)}</script>")
