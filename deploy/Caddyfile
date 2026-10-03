@@ -16,7 +16,15 @@
 	# ">" — заменить заголовок от приложения (UseHsts), а не добавить второй
 	header >Strict-Transport-Security "max-age=31536000"
 	encode zstd gzip
-	reverse_proxy app:8080
+
+	# Сервис распознавания речи myasi (отдельный compose-проект в сети lumenus_default), префикс /myasi срезается
+	handle_path /myasi/* {
+		reverse_proxy myasi:8000
+	}
+
+	handle {
+		reverse_proxy app:8080
+	}
 }
 
 # Трекер задач: то же приложение, отдельный хост (приложение различает его по Tasks:Host / TASKS_HOST).

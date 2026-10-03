@@ -205,6 +205,8 @@ Compose всегда с `-p lumenus`, поэтому тома общие для 
 4. TLS — Caddy из compose (профиль `proxy`): в `.env` задать `COMPOSE_PROFILES=proxy`,
    `APP_BIND=127.0.0.1`, `SITE_DOMAIN`, `ACME_EMAIL`; порты 80/443 должны быть свободны. Конфиг —
    `deploy/Caddyfile`: домен → приложение (Let's Encrypt, HSTS), `www.` → редирект на апекс,
-   HTTP по голому IP проксируется на приложение (работает до настройки DNS). Для `make deploy`
+   HTTP по голому IP проксируется на приложение (работает до настройки DNS). `/myasi/*` на основном домене
+   проксируется (без префикса) в сервис myasi (`myasi:8000`, отдельный compose-проект в сети `lumenus_default`;
+   пока он не запущен — 502). Для `make deploy`
    те же переменные задаются в `shared/.env` (compose читает `COMPOSE_PROFILES` из env-файла).
 5. Бэкап: `docker compose exec db pg_dumpall -U "$POSTGRES_USER" > backup.sql`; загрузки — том `uploads` (`/app/uploads`).
