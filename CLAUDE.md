@@ -76,6 +76,8 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   `api/lumenus` по-прежнему только на общем токене. Общий токен для api/tasks планируется отключить (см. `TODO.md`).
 - Чужая задача для GET/PATCH/DELETE = **404**; список, поиск дублей и `externalId` — только среди задач владельца
   (уникальный индекс `(OwnerId, Source, ExternalId)`, индекс дублей `(OwnerId, Source, Status, TitleNormalized)`).
+- `GET /api/me` (тот же `[ApiToken]`) → `{"userId": "<Id пользователя>"}` — владелец токена, одинаков для всех его токенов;
+  myasi по нему привязывает задачи в очереди к пользователю. Общий токен → Id администратора.
 - `POST /api/tasks` (`title`, `source` обязательны; `sourceText`, `externalId`, `createdAt` нет) → 201 + `Location`;
   `GET /api/tasks?source=&status=open|done`; `GET|PATCH|DELETE /api/tasks/{id}` (PATCH: `{"status":"open|done"}`).
   DELETE мягкий (`DeletedAt`) → 204; удалённая задача для GET/PATCH/DELETE = 404 и в списках не видна.
