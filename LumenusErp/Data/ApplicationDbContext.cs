@@ -13,6 +13,7 @@ namespace LumenusErp.Data
         public DbSet<ContentBlock> ContentBlocks => Set<ContentBlock>();
         public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
         public DbSet<TaskItem> TaskItems => Set<TaskItem>();
+        public DbSet<UserApiToken> UserApiTokens => Set<UserApiToken>();
 
         // Добавьте этот метод, если нужно переопределить конфигурацию
         protected override void OnModelCreating(ModelBuilder builder)
@@ -71,14 +72,25 @@ namespace LumenusErp.Data
 
             builder.Entity<TaskItem>(e =>
             {
-                e.HasIndex(t => new { t.Source, t.ExternalId }).IsUnique();
-                e.HasIndex(t => new { t.Source, t.Status, t.TitleNormalized });
+                e.HasOne(t => t.Owner).WithMany().HasForeignKey(t => t.OwnerId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(t => new { t.OwnerId, t.Source, t.ExternalId }).IsUnique();
+                e.HasIndex(t => new { t.OwnerId, t.Source, t.Status, t.TitleNormalized });
                 e.Property(t => t.Title).HasMaxLength(300);
                 e.Property(t => t.TitleNormalized).HasMaxLength(300);
                 e.Property(t => t.Status).HasMaxLength(20);
                 e.Property(t => t.SourceText).HasMaxLength(20000);
                 e.Property(t => t.Source).HasMaxLength(50);
                 e.Property(t => t.ExternalId).HasMaxLength(100);
+            });
+
+            builder.Entity<UserApiToken>(e =>
+            {
+                e.HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(t => t.TokenHash).IsUnique();
+                e.HasIndex(t => t.UserId);
+                e.Property(t => t.Name).HasMaxLength(100);
+                e.Property(t => t.TokenHash).HasMaxLength(64);
+                e.Property(t => t.Prefix).HasMaxLength(20);
             });
         }
     }

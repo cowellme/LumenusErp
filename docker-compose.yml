@@ -33,6 +33,7 @@ services:
       Media__MaxBytes: ${MEDIA_MAX_BYTES:-10485760}
       DisableHttpsRedirection: "true"
       Api__Token: ${API_TOKEN:-}
+      Tasks__Host: ${TASKS_HOST:-}
       Ai__OpenRouterApiKey: ${OPENROUTER_API_KEY:-}
       Ai__OpenRouterModel: ${OPENROUTER_MODEL:-}
       Ai__DeepSeekApiKey: ${DEEPSEEK_API_KEY:-}

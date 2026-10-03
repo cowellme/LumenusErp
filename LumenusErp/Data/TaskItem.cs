@@ -1,12 +1,16 @@
 namespace LumenusErp.Data;
 
-/// <summary>Задача, присланная внешним сервисом (myasi) через api/tasks. Удаление мягкое (DeletedAt).</summary>
+/// <summary>Задача пользователя: от внешнего сервиса (myasi, api/tasks) или заведённая вручную в трекере. Удаление мягкое (DeletedAt).</summary>
 public class TaskItem
 {
     public const string StatusOpen = "open";
     public const string StatusDone = "done";
 
     public Guid Id { get; set; }
+
+    /// <summary>Владелец задачи (AspNetUsers.Id): каждый видит только свои.</summary>
+    public string OwnerId { get; set; } = "";
+    public ApplicationUser? Owner { get; set; }
     public string Title { get; set; } = "";
 
     /// <summary>Title.Trim().ToLowerInvariant(): ключ поиска открытого дубля.</summary>

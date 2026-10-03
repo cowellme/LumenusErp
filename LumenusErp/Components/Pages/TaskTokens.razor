@@ -1,0 +1,178 @@
+@page "/tasks/tokens"
+@using System.Security.Claims
+@using LumenusErp.Data
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject UserApiTokenService TokenService
+@inject AuthenticationStateProvider AuthProvider
+@inject IJSRuntime JS
+
+<PageTitle>API-токены — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">TASKS</p>
+        <h1 class="hero__title mb-2">API-токены</h1>
+        <a href="/tasks" class="font-monospace small fw-bold text-dark">&larr; К задачам</a>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container" style="max-width: 820px;">
+        <div class="card-x p-3 mb-4">
+            <p class="mb-1 fw-semibold">Как подключить myasi</p>
+            <p class="small text-muted mb-0">
+                Создайте токен и пропишите его в настройках myasi. Сервис шлёт запросы на <span class="font-monospace">/api/tasks</span>
+                с заголовком <span class="font-monospace">Authorization: Bearer &lt;токен&gt;</span>, и все его задачи попадают в ваш список.
+            </p>
+        </div>
+
+        @if (error is not null)
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+
+        @if (newToken is not null)
+        {
+            <div class="alert alert-warning" role="status">
+                <p class="fw-semibold mb-2">Токен «@newTokenName» создан. Скопируйте его сейчас: потом он не будет показан.</p>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <code class="flex-grow-1" style="overflow-wrap:anywhere;" id="new-token">@newToken</code>
+                    <button type="button" class="btn btn-dark btn-sm" @onclick="CopyAsync">@(copied ? "Скопировано" : "Скопировать")</button>
+                </div>
+            </div>
+        }
+
+        <form class="d-flex gap-2 mb-4" @onsubmit="CreateAsync">
+            <input class="form-control" @bind="name" @bind:event="oninput" maxlength="@UserApiTokenService.MaxName"
+                   placeholder="Название токена, например myasi" aria-label="Название токена" />
+            <button type="submit" class="btn btn-dark text-nowrap" disabled="@(string.IsNullOrWhiteSpace(name))">Создать</button>
+        </form>
+
+        @if (!loaded)
+        {
+            <p class="text-muted">Загрузка…</p>
+        }
+        else if (tokens.Count == 0)
+        {
+            <p class="text-muted">Токенов пока нет.</p>
+        }
+        else
+        {
+            <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                @foreach (var t in tokens)
+                {
+                    <li class="card-x p-3" @key="t.Id">
+                        <div class="d-flex flex-wrap align-items-start gap-2">
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <div class="fw-semibold" style="overflow-wrap:anywhere;">
+                                    @t.Name
+                                    @if (t.RevokedAt is not null)
+                                    {
+                                        <span class="pill pill--outline ms-1">ОТОЗВАН</span>
+                                    }
+                                </div>
+                                <div class="small text-muted font-monospace">@t.Prefix…</div>
+                                <div class="small text-muted mt-1">
+                                    Создан: @FormatLocal(t.CreatedAt)<br />
+                                    Использован: @(t.LastUsedAt is null ? "ни разу" : FormatLocal(t.LastUsedAt.Value))
+                                    @if (t.RevokedAt is not null)
+                                    {
+                                        <br />@("Отозван: " + FormatLocal(t.RevokedAt.Value))
+                                    }
+                                </div>
+                            </div>
+                            @if (t.RevokedAt is null)
+                            {
+                                <div class="d-flex align-items-center gap-2">
+                                    @if (confirmRevokeId == t.Id)
+                                    {
+                                        <span class="small">Отозвать?</span>
+                                        <button type="button" class="btn btn-dark btn-sm" @onclick="() => RevokeAsync(t)">Да</button>
+                                        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmRevokeId = null">Нет</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmRevokeId = t.Id">Отозвать</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</section>
+
+@code {
+    private string? ownerId;
+    private List<UserApiToken> tokens = new();
+    private string name = "";
+    private string? error;
+    private string? newToken, newTokenName;
+    private bool copied, loaded;
+    private Guid? confirmRevokeId;
+    private int utcOffsetMinutes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        ownerId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        await ReloadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        utcOffsetMinutes = await JS.InvokeAsync<int>("lmnTasks.utcOffsetMinutes");
+        StateHasChanged();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (ownerId is null) return;
+        tokens = await TokenService.ListAsync(ownerId);
+        loaded = true;
+    }
+
+    private string FormatLocal(DateTime utc) => utc.AddMinutes(utcOffsetMinutes).ToString("dd.MM.yyyy HH:mm") + (utcOffsetMinutes == 0 ? " UTC" : "");
+
+    private async Task CreateAsync()
+    {
+        error = null;
+        if (ownerId is null) return;
+        var clean = name.Trim();
+        if (clean.Length is 0 or > UserApiTokenService.MaxName)
+        {
+            error = $"Название: 1–{UserApiTokenService.MaxName} символов.";
+            return;
+        }
+        var (entity, plain) = await TokenService.CreateAsync(ownerId, clean);
+        newToken = plain;
+        newTokenName = entity.Name;
+        copied = false;
+        name = "";
+        await ReloadAsync();
+    }
+
+    private async Task CopyAsync()
+    {
+        if (newToken is null) return;
+        copied = await JS.InvokeAsync<bool>("lmnTasks.copy", newToken);
+        if (!copied) error = "Не удалось скопировать: выделите токен и скопируйте вручную.";
+    }
+
+    private async Task RevokeAsync(UserApiToken t)
+    {
+        error = null;
+        if (ownerId is null) return;
+        await TokenService.RevokeAsync(ownerId, t.Id);
+        confirmRevokeId = null;
+        await ReloadAsync();
+    }
+}

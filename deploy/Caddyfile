@@ -19,6 +19,14 @@
 	reverse_proxy app:8080
 }
 
+# Трекер задач: то же приложение, отдельный хост (приложение различает его по Tasks:Host / TASKS_HOST).
+app.{$SITE_DOMAIN} {
+	import security_headers
+	header >Strict-Transport-Security "max-age=31536000"
+	encode zstd gzip
+	reverse_proxy app:8080
+}
+
 www.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }
@@ -26,6 +34,11 @@ www.{$SITE_DOMAIN} {
 # Явный редирект HTTP -> HTTPS для домена: общий http://-блок ниже иначе перехватил бы эти хосты.
 http://{$SITE_DOMAIN}, http://www.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# HTTP -> HTTPS для трекера: редирект на свой хост, а не на основной домен.
+http://app.{$SITE_DOMAIN} {
+	redir https://app.{$SITE_DOMAIN}{uri} permanent
 }
 
 # Запасной вариант: доступ по голому IP/любому другому имени по HTTP (пока DNS не настроен).

@@ -62,6 +62,8 @@ builder.Services.Configure<AiLimitsOptions>(builder.Configuration.GetSection("Ai
 builder.Services.AddSingleton<AiRateLimiter>();
 builder.Services.AddSingleton<AiPromptStore>();
 builder.Services.AddSingleton<MediaService>();
+builder.Services.AddSingleton<TaskService>();
+builder.Services.AddSingleton<UserApiTokenService>();
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -137,6 +139,29 @@ using (var scope = app.Services.CreateScope())
 // Configure the HTTP request pipeline.
 app.UseForwardedHeaders();
 
+// Трекер задач живёт на отдельном поддомене (Tasks:Host): на нём / ведёт в /tasks, на остальных хостах /tasks* = 404.
+// Пустой Tasks:Host — без ограничений. API, Account, статику и т. п. не трогаем.
+var tasksHost = app.Configuration["Tasks:Host"]?.Trim();
+if (!string.IsNullOrEmpty(tasksHost))
+{
+    app.Use(async (context, next) =>
+    {
+        var onTasksHost = string.Equals(context.Request.Host.Host, tasksHost, StringComparison.OrdinalIgnoreCase);
+        var path = context.Request.Path;
+        if (onTasksHost && HttpMethods.IsGet(context.Request.Method) && path == "/")
+        {
+            context.Response.Redirect("/tasks");
+            return;
+        }
+        if (!onTasksHost && (path.Equals("/tasks", StringComparison.OrdinalIgnoreCase) || path.StartsWithSegments("/tasks", StringComparison.OrdinalIgnoreCase)))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+        await next();
+    });
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -173,6 +198,10 @@ app.Use(async (context, next) =>
 
 app.UseSwaggerUI();
 app.UseSwagger();
+// Явно, а не автоматически (WebApplication иначе ставит их в самое начало конвейера): иначе анонимный запрос
+// к [Authorize]-странице получил бы редирект на логин раньше, чем host-middleware ответит 404.
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapControllers();

@@ -1,5 +1,239 @@
-﻿<h3>TaskManager</h3>
+@page "/tasks"
+@using System.Security.Claims
+@using LumenusErp.Data
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject TaskService Tasks
+@inject AuthenticationStateProvider AuthProvider
+@inject IJSRuntime JS
+
+<PageTitle>Задачи — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container d-flex flex-wrap align-items-end gap-3">
+        <div>
+            <p class="eyebrow">TASKS</p>
+            <h1 class="hero__title mb-2">Мои задачи</h1>
+            <p class="text-muted mb-0">Открытых: <strong>@openCount</strong>, выполненных: <strong>@doneCount</strong></p>
+        </div>
+        <a href="/tasks/tokens" class="btn btn-outline-dark ms-auto">API-токены</a>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container" style="max-width: 820px;">
+        @if (error is not null)
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+
+        <form class="d-flex gap-2 mb-4" @onsubmit="AddAsync">
+            <input class="form-control" @bind="newTitle" @bind:event="oninput" maxlength="@TaskService.MaxTitle"
+                   placeholder="Новая задача" aria-label="Название новой задачи" />
+            <button type="submit" class="btn btn-dark text-nowrap" disabled="@(string.IsNullOrWhiteSpace(newTitle))">Добавить</button>
+        </form>
+
+        <div class="btn-group mb-3" role="group" aria-label="Фильтр задач">
+            @foreach (var (value, label) in Filters)
+            {
+                <button type="button" class="btn btn-sm @(filter == value ? "btn-dark" : "btn-outline-dark")" @onclick="() => SetFilter(value)">@label</button>
+            }
+        </div>
+
+        @if (!loaded)
+        {
+            <p class="text-muted">Загрузка…</p>
+        }
+        else if (shown.Count == 0)
+        {
+            <p class="text-muted">Задач нет.</p>
+        }
+        else
+        {
+            <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                @foreach (var t in shown)
+                {
+                    <li class="card-x p-3" @key="t.Id">
+                        <div class="d-flex align-items-start gap-3">
+                            <input type="checkbox" class="form-check-input mt-1 flex-shrink-0" style="width:1.25rem;height:1.25rem;"
+                                   checked="@(t.Status == TaskItem.StatusDone)" @onchange="() => ToggleAsync(t)"
+                                   aria-label="@(t.Status == TaskItem.StatusDone ? "Вернуть в открытые" : "Отметить выполненной")" />
+                            <div class="flex-grow-1" style="min-width:0;">
+                                @if (editId == t.Id)
+                                {
+                                    <input class="form-control" @ref="editInput" @bind="editTitle" @bind:event="oninput" maxlength="@TaskService.MaxTitle"
+                                           @onkeydown="e => EditKeyAsync(e, t)" aria-label="Название задачи" />
+                                    <div class="d-flex gap-2 mt-2">
+                                        <button type="button" class="btn btn-dark btn-sm" @onclick="() => SaveEditAsync(t)">Сохранить</button>
+                                        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="CancelEdit">Отмена</button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="fw-semibold" style="overflow-wrap:anywhere;@(t.Status == TaskItem.StatusDone ? "text-decoration:line-through;color:var(--c-muted);" : "")">@t.Title</div>
+                                    <div class="small text-muted font-monospace mt-1">
+                                        @FormatLocal(t.CreatedAt)
+                                        @if (t.Source != TaskService.WebSource)
+                                        {
+                                            <span class="pill pill--tag ms-1">@t.Source</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(t.SourceText))
+                                    {
+                                        <details class="mt-2">
+                                            <summary class="small text-muted">Исходный текст</summary>
+                                            <p class="small mb-0 mt-1" style="white-space:pre-wrap;overflow-wrap:anywhere;">@t.SourceText</p>
+                                        </details>
+                                    }
+                                }
+                            </div>
+                        </div>
+                        @if (editId != t.Id)
+                        {
+                            <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 mt-2">
+                                @if (confirmDeleteId == t.Id)
+                                {
+                                    <span class="small me-1">Удалить?</span>
+                                    <button type="button" class="btn btn-dark btn-sm" @onclick="() => DeleteAsync(t)">Да</button>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmDeleteId = null">Нет</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => StartEdit(t)">Изменить</button>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmDeleteId = t.Id">Удалить</button>
+                                }
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</section>
 
 @code {
+    private const string FilterOpen = "open", FilterDone = "done", FilterAll = "all";
+    private static readonly (string Value, string Label)[] Filters =
+        [(FilterOpen, "Открытые"), (FilterDone, "Выполненные"), (FilterAll, "Все")];
 
+    private string? ownerId;
+    private List<TaskItem> all = new();
+    private string filter = FilterOpen;
+    private string newTitle = "";
+    private string? error;
+    private bool loaded;
+    private Guid? editId, confirmDeleteId;
+    private string editTitle = "";
+    private int utcOffsetMinutes;
+    private ElementReference editInput;
+    private bool focusEdit;
+
+    private IEnumerable<TaskItem> Visible => filter == FilterAll ? all : all.Where(t => t.Status == filter);
+    private List<TaskItem> shown = new();
+    private int openCount => all.Count(t => t.Status == TaskItem.StatusOpen);
+    private int doneCount => all.Count(t => t.Status == TaskItem.StatusDone);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        ownerId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        await ReloadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusEdit)
+        {
+            focusEdit = false;
+            await editInput.FocusAsync();
+        }
+        if (!firstRender) return;
+        // Часовой пояс браузера: сервер его не знает.
+        utcOffsetMinutes = await JS.InvokeAsync<int>("lmnTasks.utcOffsetMinutes");
+        StateHasChanged();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (ownerId is null) return;
+        all = await Tasks.ListAsync(ownerId);
+        loaded = true;
+        Refilter();
+    }
+
+    private void Refilter() => shown = Visible.ToList();
+
+    private void SetFilter(string value)
+    {
+        filter = value;
+        Refilter();
+    }
+
+    private string FormatLocal(DateTime utc) => utc.AddMinutes(utcOffsetMinutes).ToString("dd.MM.yyyy HH:mm") + (utcOffsetMinutes == 0 ? " UTC" : "");
+
+    private async Task AddAsync()
+    {
+        error = null;
+        if (ownerId is null) return;
+        var r = await Tasks.CreateManualAsync(ownerId, newTitle);
+        if (r.Errors is not null)
+        {
+            error = $"Название: 1–{TaskService.MaxTitle} символов.";
+            return;
+        }
+        newTitle = "";
+        await ReloadAsync();
+    }
+
+    private async Task ToggleAsync(TaskItem t)
+    {
+        error = null;
+        if (ownerId is null) return;
+        var next = t.Status == TaskItem.StatusDone ? TaskItem.StatusOpen : TaskItem.StatusDone;
+        await Tasks.SetStatusAsync(ownerId, t.Id, next);
+        await ReloadAsync();
+    }
+
+    private void StartEdit(TaskItem t)
+    {
+        error = null;
+        editId = t.Id;
+        editTitle = t.Title;
+        focusEdit = true;
+    }
+
+    private void CancelEdit() => editId = null;
+
+    private async Task EditKeyAsync(KeyboardEventArgs e, TaskItem t)
+    {
+        if (e.Key == "Enter") await SaveEditAsync(t);
+        else if (e.Key == "Escape") CancelEdit();
+    }
+
+    private async Task SaveEditAsync(TaskItem t)
+    {
+        error = null;
+        if (ownerId is null) return;
+        if (TaskService.NormalizeTitle(editTitle) is null)
+        {
+            error = $"Название: 1–{TaskService.MaxTitle} символов.";
+            return;
+        }
+        await Tasks.RenameAsync(ownerId, t.Id, editTitle);
+        editId = null;
+        await ReloadAsync();
+    }
+
+    private async Task DeleteAsync(TaskItem t)
+    {
+        error = null;
+        if (ownerId is null) return;
+        await Tasks.DeleteAsync(ownerId, t.Id);
+        confirmDeleteId = null;
+        await ReloadAsync();
+    }
 }

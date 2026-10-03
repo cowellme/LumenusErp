@@ -59,22 +59,42 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   `MySec.Configure` и `AiModule.Configure` вызываются в `Program.cs` после `Build()`.
   Пустой `Api:Token` = API закрыт; пустой ключ LLM = метод возвращает сообщение без вызова API.
 
-## API задач (`api/tasks`)
+## API задач (`api/tasks`) и трекер
 
-Задачи от внешнего сервиса myasi (распознавание речи): он создаёт, читает, отмечает выполненными и удаляет их по
-docker-сети (`http://app:8080`). Контракт зафиксирован на стороне myasi — имена полей, коды и пути не менять.
-Модель — `Data/TaskItem.cs` (таблица `TaskItems`, `ApplicationDbContext`), контроллер — `Controllers/TasksController.cs`.
+Задачи принадлежат пользователю (`TaskItem.OwnerId`, FK на `AspNetUsers`, cascade): каждый видит только свои. Их присылает
+внешний сервис myasi (распознавание речи) по docker-сети (`http://app:8080`) и создают вручную в трекере. Контракт api/tasks
+зафиксирован на стороне myasi — имена полей, коды и пути не менять; поле владельца в ответах не отдаётся.
+Модель — `Data/TaskItem.cs` (таблица `TaskItems`, `ApplicationDbContext`), контроллер — `Controllers/TasksController.cs`;
+валидация, нормализация, идемпотентность и мягкое удаление — в `Services/TaskService.cs`, его используют и контроллер, и страница `/tasks`.
 
-- Авторизация: `Authorization: Bearer <Api:Token>`, фильтр `ApiTokenAttribute` (через `MySec.IsValidToken`).
-  Нет/неверный токен или пустой `Api:Token` — **401** (не 400: myasi считает 400 окончательным отказом и теряет задачу).
-  Фильтр срабатывает раньше валидации тела; редиректа на логин нет (`[Authorize]` не используется).
+- Авторизация: `Authorization: Bearer <токен>`, фильтр `ApiTokenAttribute`. Владелец запроса кладётся в `HttpContext.Items`
+  (`ApiOwner.Get`). Токен — либо **личный** (`lmn_…`, `UserApiTokenService.ValidateAsync`: поиск по SHA-256 хэшу в
+  `UserApiTokens`, не отозван; `LastUsedAt` обновляется не чаще раза в минуту) — владелец = его пользователь; либо
+  **переходный режим**: общий `Api:Token` (`MySec.IsValidToken`) — владелец = администратор (пользователь с e-mail из
+  `Admin:Email`, иначе первый по e-mail в роли Admin; нет такого — 401). Нет/неверный токен или пустой `Api:Token` — **401**
+  (не 400: myasi считает 400 окончательным отказом и теряет задачу). Фильтр срабатывает раньше валидации тела; редиректа на логин нет.
+  `api/lumenus` по-прежнему только на общем токене. Общий токен для api/tasks планируется отключить (см. `TODO.md`).
+- Чужая задача для GET/PATCH/DELETE = **404**; список, поиск дублей и `externalId` — только среди задач владельца
+  (уникальный индекс `(OwnerId, Source, ExternalId)`, индекс дублей `(OwnerId, Source, Status, TitleNormalized)`).
 - `POST /api/tasks` (`title`, `source` обязательны; `sourceText`, `externalId`, `createdAt` нет) → 201 + `Location`;
   `GET /api/tasks?source=&status=open|done`; `GET|PATCH|DELETE /api/tasks/{id}` (PATCH: `{"status":"open|done"}`).
   DELETE мягкий (`DeletedAt`) → 204; удалённая задача для GET/PATCH/DELETE = 404 и в списках не видна.
-- Идемпотентность POST (вместо 201 возвращается 200 и существующая задача): та же пара (`source`, `externalId`),
-  **включая мягко удалённую** (не воскрешается); либо неудалённая открытая задача того же `source` с тем же названием
+- Идемпотентность POST (вместо 201 возвращается 200 и существующая задача): та же пара (`source`, `externalId`) у того же владельца,
+  **включая мягко удалённую** (не воскрешается); либо неудалённая открытая задача того же владельца и `source` с тем же названием
   без учёта регистра и крайних пробелов (`TitleNormalized`). Гонка по уникальному индексу (23505) разруливается перечитыванием.
 - Время — UTC с суффиксом `Z` (при отдаче `DateTime.SpecifyKind(..., Utc)` из-за legacy timestamp); `createdAt` с офсетом приводится к UTC.
+
+Трекер (Blazor, `[Authorize]` — любой вошедший): `/tasks` (`Components/Pages/TaskManager.razor`) — свои задачи, фильтр
+Открытые/Выполненные/Все, отметка выполнения, правка названия, мягкое удаление, ручное создание (`Source = "web"`),
+исходный текст myasi по клику, время в часовом поясе браузера (смещение берётся через `wwwroot/js/tasks.js`).
+`/tasks/tokens` (`TaskTokens.razor`) — личные токены: создать (полный токен показывается один раз, в БД только хэш), отозвать;
+токен прописывается в myasi как `Authorization: Bearer <токен>`. Оба пути под `noindex` (`PrivatePrefixes` в `MainLayout`).
+
+Поддомен: `Tasks:Host` (на проде `app.lumenustech.ru`, env `TASKS_HOST`). Если задан: на этом хосте `GET /` → 302 `/tasks`, на любом другом
+`/tasks` и `/tasks/*` → 404 (middleware в `Program.cs` после `UseForwardedHeaders`; `UseAuthentication/UseAuthorization` вызваны
+явно после него, иначе автоматические отдали бы анониму редирект на логин раньше 404). `/api/*`, `/Account/*`, статика и `/_blazor`
+не затрагиваются, поэтому myasi работает с `app:8080`. Пусто — без ограничений (локальная разработка). В `deploy/Caddyfile` — блок `app.{$SITE_DOMAIN}`
+(нужна DNS-запись) и HTTP→HTTPS редирект на тот же хост.
 
 ## Конфигурация
 
@@ -84,7 +104,8 @@ docker-сети (`http://app:8080`). Контракт зафиксирован �
 | `ConnectionStrings:AosConnection` | БД AOS (`tracker`) |
 | `Admin:Email`, `Admin:Password` | админ, создаваемый при первом старте |
 | `DataProtection:KeysPath` | каталог ключей Data Protection (куки переживают рестарт) |
-| `Api:Token` | Bearer-токен для `api/lumenus` |
+| `Api:Token` | Bearer-токен для `api/lumenus`; для `api/tasks` — переходный (задачи пишутся администратору) |
+| `Tasks:Host` | хост трекера (`app.lumenustech.ru`); пусто = без ограничений по хосту |
 | `Ai:OpenRouterApiKey`, `Ai:DeepSeekApiKey` | ключи LLM |
 | `Ai:OpenRouterModel` | модель OpenRouter для калькулятора и FAQ (пусто = `anthropic/claude-sonnet-5.5`) |
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |
@@ -96,7 +117,7 @@ docker-сети (`http://app:8080`). Контракт зафиксирован �
 
 Переменные `.env` для compose: `APP_PORT`, `APP_BIND` (адрес публикации порта приложения;
 `127.0.0.1` на проде за Caddy), `SITE_DOMAIN`, `ACME_EMAIL` (пусто = `info@lumenustech.ru`),
-`COMPOSE_PROFILES=proxy` (включает сервис `caddy`).
+`TASKS_HOST` (хост трекера; пусто локально, на проде `app.lumenustech.ru`), `COMPOSE_PROFILES=proxy` (включает сервис `caddy`).
 
 ## SEO
 
