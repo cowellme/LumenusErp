@@ -1,4 +1,5 @@
 ﻿@using Markdig
+@using System.Text.RegularExpressions
 
 <div class="md-content">
     @((MarkupString)Html)
@@ -11,6 +12,11 @@
     // Без сырого HTML: для текста, который вводит человек (описания проектов).
     private static readonly MarkdownPipeline SafePipeline = new MarkdownPipelineBuilder().UsePipeTables().DisableHtml().Build();
 
+    // Единственное исключение из DisableHtml — <br> (перенос в ячейке таблицы). Markdig выводит его как &lt;br&gt;;
+    // возвращаем тег без атрибутов. Блоки <code> пропускаем целиком, чтобы примеры кода остались текстом.
+    private static readonly Regex BrOrCode = new(@"<code[^>]*>.*?</code>|&lt;br\s*/?&gt;",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
     [Parameter]
     public string Content { get; set; } = string.Empty;
 
@@ -20,5 +26,7 @@
 
     private string Html => string.IsNullOrWhiteSpace(Content)
         ? string.Empty
-        : Markdown.ToHtml(Content, Safe ? SafePipeline : Pipeline);
+        : Safe
+            ? BrOrCode.Replace(Markdown.ToHtml(Content, SafePipeline), m => m.Value.StartsWith('<') ? m.Value : "<br>")
+            : Markdown.ToHtml(Content, Pipeline);
 }
