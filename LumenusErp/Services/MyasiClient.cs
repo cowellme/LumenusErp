@@ -17,9 +17,13 @@ public class MyasiClient(HttpClient http)
             await using var fs = new FileStream(wavPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
             using var content = new StreamContent(fs);
             content.Headers.ContentType = new("audio/wav");
-            // extract=false: задачи выделяем сами; старая версия myasi параметр игнорирует
-            using var response = await http.PostAsync("api/audio?extract=false", content, ct);
+            // Служебный эндпоинт: только текст, без задач и без отправки их в Lumenus; токен — заголовок клиента (Myasi:Token)
+            using var response = await http.PostAsync("api/transcribe", content, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.NotFound)
+            {
+                throw new MyasiException("Сервис распознавания не принял служебный токен: проверьте Myasi:Token (MYASI_TOKEN) и TRANSCRIBE_TOKEN в myasi");
+            }
             if (!response.IsSuccessStatusCode)
             {
                 throw new MyasiException($"Сервис распознавания вернул {(int)response.StatusCode}: {Detail(body, response.StatusCode)}");

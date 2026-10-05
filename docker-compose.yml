@@ -32,6 +32,7 @@ services:
       Media__Path: /app/uploads
       Media__MaxBytes: ${MEDIA_MAX_BYTES:-10485760}
       Myasi__BaseUrl: ${MYASI_URL:-http://myasi:8000}
+      Myasi__Token: ${MYASI_TOKEN:-}
       Calls__MaxBytes: ${CALLS_MAX_BYTES:-2147483648}
       DisableHttpsRedirection: "true"
       Api__Token: ${API_TOKEN:-}

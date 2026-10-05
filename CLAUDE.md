@@ -112,7 +112,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   `GET /tasks/calls/antiforgery` и шлёт его в заголовке `X-CSRF-TOKEN` (`AddAntiforgery(HeaderName)`, проверка `IAntiforgery.ValidateRequestAsync`).
   Не больше 2 записей пользователя в `queued/processing` (иначе 429). Ответ 201 `{"id"}`.
 - Обработка (`Services/CallProcessor.cs`, `BackgroundService` + `CallQueue` на `Channel<Guid>`) — по одной записи за раз. ffmpeg режет аудио
-  на WAV 16 кГц моно s16 по 10 минут (лимит myasi ~60 МБ на запрос); куски по очереди идут в `POST {Myasi:BaseUrl}/api/audio?extract=false`
+  на WAV 16 кГц моно s16 по 10 минут (лимит myasi ~60 МБ на запрос); куски по очереди идут в служебный `POST {Myasi:BaseUrl}/api/transcribe` с `Authorization: Bearer {Myasi:Token}` (= `TRANSCRIBE_TOKEN` myasi; только текст, без задач и без отправки в Lumenus)
   (таймаут 15 минут на кусок), тексты склеиваются пробелом. Транскрипт сохраняется сразу после распознавания (виден и при сбое LLM).
   Задачи — промпт `call-tasks` (`/admin/prompts`), ответ — JSON-массив `[{"title","quote"}]`, разбор в `CallTaskParser`; транскрипт длиннее
   120 000 символов обрезается для модели. Нет ключа OpenRouter → статус `done` с `Error` «ИИ не настроен — задачи не выделены».
@@ -137,6 +137,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 | `Api:Token` | Bearer-токен для `api/lumenus`; для `api/tasks` — переходный (задачи пишутся администратору) |
 | `Tasks:Host` | хост трекера (`app.lumenustech.ru`); пусто = без ограничений по хосту |
 | `Myasi:BaseUrl` | сервис распознавания речи myasi для «Созвонов» (по умолчанию `http://myasi:8000`; env `MYASI_URL`) |
+| `Myasi:Token` | служебный токен `POST /api/transcribe` myasi, совпадает с его `TRANSCRIBE_TOKEN` (env `MYASI_TOKEN`) |
 | `Calls:MaxBytes` | максимум размера записи созвона, по умолчанию 2 ГБ (env `CALLS_MAX_BYTES`) |
 | `Calls:WorkPath` | каталог временных файлов созвонов, по умолчанию `<Media:Path>/calls-tmp` |
 | `Ai:OpenRouterApiKey`, `Ai:DeepSeekApiKey` | ключи LLM |
@@ -150,7 +151,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 
 Переменные `.env` для compose: `APP_PORT`, `APP_BIND` (адрес публикации порта приложения;
 `127.0.0.1` на проде за Caddy), `SITE_DOMAIN`, `ACME_EMAIL` (пусто = `info@lumenustech.ru`),
-`TASKS_HOST` (хост трекера; пусто локально, на проде `app.lumenustech.ru`), `MYASI_URL`, `CALLS_MAX_BYTES`, `COMPOSE_PROFILES=proxy` (включает сервис `caddy`).
+`TASKS_HOST` (хост трекера; пусто локально, на проде `app.lumenustech.ru`), `MYASI_URL`, `MYASI_TOKEN`, `CALLS_MAX_BYTES`, `COMPOSE_PROFILES=proxy` (включает сервис `caddy`).
 
 ## SEO
 

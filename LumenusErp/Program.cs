@@ -77,6 +77,9 @@ builder.Services.AddHttpClient(CallProcessor.HttpClientName, client =>
     var baseUrl = builder.Configuration["Myasi:BaseUrl"];
     client.BaseAddress = new Uri((string.IsNullOrWhiteSpace(baseUrl) ? "http://myasi:8000" : baseUrl.Trim()).TrimEnd('/') + "/");
     client.Timeout = TimeSpan.FromMinutes(15);
+    // Служебный токен myasi (его TRANSCRIBE_TOKEN); пусто — myasi ответит 404/401, запись получит понятную ошибку
+    var token = builder.Configuration["Myasi:Token"];
+    if (!string.IsNullOrWhiteSpace(token)) client.DefaultRequestHeaders.Authorization = new("Bearer", token.Trim());
 });
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
