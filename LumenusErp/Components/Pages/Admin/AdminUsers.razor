@@ -1,0 +1,291 @@
+@page "/admin/users"
+@page "/admin/roles"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using LumenusErp.Data
+@using LumenusErp.Services
+@attribute [Authorize(Roles = "Admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject AdminUserService Admin
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Пользователи и роли — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">ADMIN</p>
+        <h1 class="hero__title mb-2">Пользователи и роли</h1>
+        <p class="text-muted mb-0">Всего пользователей: <strong class="text-dark">@users.Count</strong></p>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger">@error</div>
+        }
+        @if (!string.IsNullOrEmpty(success))
+        {
+            <div class="alert alert-success">@success</div>
+        }
+
+        @* ── Новый пользователь ───────────────────────────────────── *@
+        <div class="table-card p-3 mb-4">
+            <h2 class="h5 fw-bold mb-3">Новый пользователь</h2>
+            <EditForm Model="newUser" OnValidSubmit="CreateUser" FormName="new-user">
+                <DataAnnotationsValidator />
+                <div class="row g-2 align-items-start">
+                    <div class="col-12 col-md-4">
+                        <InputText class="form-control form-control-sm" placeholder="E-mail" @bind-Value="newUser.Email" />
+                        <ValidationMessage For="() => newUser.Email" class="text-danger small" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <InputText type="password" class="form-control form-control-sm" placeholder="Пароль" autocomplete="new-password" @bind-Value="newUser.Password" />
+                        <ValidationMessage For="() => newUser.Password" class="text-danger small" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <button type="submit" class="btn btn-dark btn-sm">Создать</button>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-3 mt-3">
+                    @foreach (var r in roles)
+                    {
+                        <label class="form-check small">
+                            <input type="checkbox" class="form-check-input"
+                                   checked="@newUser.Roles.Contains(r.Name)"
+                                   @onchange="e => ToggleNewRole(r.Name, (bool)e.Value!)" />
+                            @r.Name
+                        </label>
+                    }
+                </div>
+            </EditForm>
+        </div>
+
+        @* ── Пользователи ─────────────────────────────────────────── *@
+        <div class="table-responsive table-card mb-4">
+            <table class="table table-borderless mb-0 align-middle" style="min-width: 700px;">
+                <thead>
+                    <tr>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Email</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Роли</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        <tr>
+                            <td class="px-3 py-3 small fw-semibold">
+                                @user.Email
+                                @if (user.IsLockedOut)
+                                {
+                                    <span class="badge bg-danger rounded-0 ms-1">заблокирован</span>
+                                }
+                            </td>
+                            <td class="px-3 py-3">
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var role in user.Roles)
+                                    {
+                                        <span class="badge bg-dark rounded-0 font-monospace fw-bold"
+                                              style="font-size:0.65rem; letter-spacing:0.06em;">
+                                            @role
+                                            <button type="button"
+                                                    class="btn-close btn-close-white ms-1"
+                                                    style="font-size:0.45rem;"
+                                                    @onclick="() => RemoveRole(user, role)"
+                                                    title="Удалить роль @role"></button>
+                                        </span>
+                                    }
+                                    @if (!user.Roles.Any())
+                                    {
+                                        <span class="text-muted small font-monospace">—</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="px-3 py-3">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <select class="form-select form-select-sm font-monospace small"
+                                            style="width:auto; min-width:130px;"
+                                            @bind="selectedRoles[user.Id]">
+                                        <option value="">— Добавить роль —</option>
+                                        @foreach (var r in roles.Where(r => !user.Roles.Contains(r.Name)))
+                                        {
+                                            <option value="@r.Name">@r.Name</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-outline-dark btn-sm"
+                                            disabled="@(string.IsNullOrEmpty(selectedRoles.GetValueOrDefault(user.Id)))"
+                                            @onclick="() => AddRole(user)">+</button>
+                                    @if (passwordUserId == user.Id)
+                                    {
+                                        <input type="password" class="form-control form-control-sm" style="width:auto;"
+                                               placeholder="Новый пароль" autocomplete="new-password" @bind="newPassword" />
+                                        <button type="button" class="btn btn-dark btn-sm" @onclick="() => SavePassword(user)">Сохранить</button>
+                                        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="CancelPassword">Отмена</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => StartPassword(user)">Сменить пароль</button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* ── Роли ─────────────────────────────────────────────────── *@
+        <h2 class="h5 fw-bold mb-3">Роли</h2>
+        <div class="table-responsive table-card mb-3">
+            <table class="table table-borderless mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Роль</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Пользователей</th>
+                        <th scope="col" class="px-3 py-3"><span class="visually-hidden">Действия</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in roles)
+                    {
+                        <tr>
+                            <td class="px-3 py-3 small fw-semibold">
+                                @r.Name
+                                @if (r.IsSystem)
+                                {
+                                    <span class="badge bg-secondary rounded-0 ms-1">системная</span>
+                                }
+                            </td>
+                            <td class="px-3 py-3 font-monospace small">@r.UserCount</td>
+                            <td class="px-3 py-3 text-end">
+                                @if (!r.IsSystem)
+                                {
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => DeleteRole(r.Name)">Удалить</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex gap-2">
+            <input class="form-control form-control-sm" style="max-width:260px;" maxlength="64"
+                   placeholder="Название новой роли" @bind="newRoleName" />
+            <button type="button" class="btn btn-dark btn-sm" @onclick="CreateRole">Создать роль</button>
+        </div>
+    </div>
+</section>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<AdminUserRow> users = new();
+    private List<AdminRoleRow> roles = new();
+    private readonly Dictionary<string, string> selectedRoles = new();
+    private readonly NewUserModel newUser = new();
+    private string? currentUserId;
+    private string? error;
+    private string? success;
+    private string? passwordUserId;
+    private string? newPassword;
+    private string? newRoleName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+            currentUserId = UserManager.GetUserId((await AuthState).User);
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        users = await Admin.ListUsersAsync();
+        roles = await Admin.ListRolesAsync();
+        foreach (var u in users)
+            selectedRoles.TryAdd(u.Id, "");
+    }
+
+    // Выполняет операцию, показывает результат и перечитывает данные.
+    private async Task Run(Func<Task<AdminResult>> action, string? okMessage = null)
+    {
+        var result = await action();
+        error = result.Ok ? null : result.Error;
+        success = result.Ok ? okMessage : null;
+        await LoadData();
+    }
+
+    private void ToggleNewRole(string role, bool on)
+    {
+        if (on) newUser.Roles.Add(role);
+        else newUser.Roles.Remove(role);
+    }
+
+    private async Task CreateUser()
+    {
+        var email = newUser.Email;
+        await Run(() => Admin.CreateUserAsync(newUser.Email, newUser.Password, newUser.Roles), $"Пользователь {email} создан");
+        if (error == null)
+        {
+            newUser.Email = "";
+            newUser.Password = "";
+            newUser.Roles.Clear();
+        }
+    }
+
+    private Task AddRole(AdminUserRow user)
+    {
+        var role = selectedRoles.GetValueOrDefault(user.Id);
+        if (string.IsNullOrEmpty(role)) return Task.CompletedTask;
+        selectedRoles[user.Id] = "";
+        return Run(() => Admin.AddRoleAsync(user.Id, role));
+    }
+
+    private Task RemoveRole(AdminUserRow user, string role) =>
+        Run(() => Admin.RemoveRoleAsync(user.Id, role, currentUserId));
+
+    private void StartPassword(AdminUserRow user)
+    {
+        passwordUserId = user.Id;
+        newPassword = "";
+    }
+
+    private void CancelPassword()
+    {
+        passwordUserId = null;
+        newPassword = null;
+    }
+
+    private async Task SavePassword(AdminUserRow user)
+    {
+        await Run(() => Admin.ResetPasswordAsync(user.Id, newPassword), $"Пароль для {user.Email} изменён");
+        if (error == null) CancelPassword();
+    }
+
+    private async Task CreateRole()
+    {
+        var name = newRoleName?.Trim();
+        await Run(() => Admin.CreateRoleAsync(name), $"Роль {name} создана");
+        if (error == null) newRoleName = "";
+    }
+
+    private Task DeleteRole(string name) =>
+        Run(() => Admin.DeleteRoleAsync(name), $"Роль {name} удалена");
+
+    private sealed class NewUserModel
+    {
+        [Required(ErrorMessage = "Укажите e-mail")]
+        [EmailAddress(ErrorMessage = "Некорректный e-mail")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Укажите пароль")]
+        public string Password { get; set; } = "";
+
+        public HashSet<string> Roles { get; } = new();
+    }
+}

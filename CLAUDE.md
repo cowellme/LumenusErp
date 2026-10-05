@@ -20,7 +20,7 @@ LumenusErp/                     # проект (LumenusErp.csproj)
   Program.cs                    # DI, миграции при старте, сид ролей и админа
   Components/
     Pages/                      # Home, Faq, Calculator, Projects, ProjectDetails, Auth
-    Pages/Admin/                # /admin/roles, /admin/projects — ролями и проектами (Admin)
+    Pages/Admin/                # Admin: /admin — хаб админки, /admin/users (старый /admin/roles) — пользователи и роли, /admin/projects, /admin/pages, /admin/prompts
     Pages/AnalysisOfSocial/     # /aos-panel, /aos-settings (Admin, Aos)
     Account/                    # шаблонные страницы Identity
     Layout/, Tools/             # layout, меню, MarkdownViewer, BpmnEditor, SeoMeta (мета/OG/JSON-LD), NoIndex
@@ -55,6 +55,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 - Системные промпты ИИ лежат в таблице `AiPrompts` (ключи `estimate`, `faq`, `call-tasks`), правятся в `/admin/prompts`;
   читаются через `AiPromptStore` (кэш 30 с). Тексты по умолчанию — `Services/DefaultPrompts.cs`: сидятся только
   при отсутствии ключа и служат запасным вариантом.
+- Системные роли — `AdminUserService.SystemRoles`, их нельзя удалить; с себя и с последнего администратора роль Admin не снимается.
 - Секреты только из конфигурации/переменных окружения, никогда не в коде.
   `MySec.Configure` и `AiModule.Configure` вызываются в `Program.cs` после `Build()`.
   Пустой `Api:Token` = API закрыт; пустой ключ LLM = метод возвращает сообщение без вызова API.

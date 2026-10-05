@@ -1,0 +1,108 @@
+@page "/admin"
+@page "/admin-panel"
+@using LumenusErp.Data
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+<PageTitle>Админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">ADMIN</p>
+        <h1 class="hero__title mb-2">Админка</h1>
+        <p class="text-muted mb-0">
+            Пользователей: <strong class="text-dark">@usersCount</strong>
+            · Проектов: <strong class="text-dark">@projectsCount</strong>
+            · Страниц: <strong class="text-dark">@pagesCount</strong>
+        </p>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        <div class="row g-3">
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="table-card p-3 h-100 d-flex flex-column">
+                    <h2 class="h5 fw-bold">Пользователи и роли</h2>
+                    <p class="text-muted small flex-grow-1">Создание пользователей, роли, смена пароля.</p>
+                    <div class="d-flex gap-2"><a href="/admin/users" class="btn btn-dark btn-sm">Открыть</a></div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="table-card p-3 h-100 d-flex flex-column">
+                    <h2 class="h5 fw-bold">Проекты</h2>
+                    <p class="text-muted small flex-grow-1">Реестр проектов на сайте.</p>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/projects" class="btn btn-dark btn-sm">Открыть</a>
+                        <a href="/admin/projects/new" class="btn btn-outline-dark btn-sm">Новый проект</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="table-card p-3 h-100 d-flex flex-column">
+                    <h2 class="h5 fw-bold">Контентные страницы</h2>
+                    <p class="text-muted small flex-grow-1">Страницы из блоков: текст, BPMN, фото.</p>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/pages" class="btn btn-dark btn-sm">Открыть</a>
+                        <a href="/admin/pages/new" class="btn btn-outline-dark btn-sm">Новая страница</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="table-card p-3 h-100 d-flex flex-column">
+                    <h2 class="h5 fw-bold">Промпты ИИ</h2>
+                    <p class="text-muted small flex-grow-1">Системные промпты калькулятора, FAQ и созвонов.</p>
+                    <div class="d-flex gap-2"><a href="/admin/prompts" class="btn btn-dark btn-sm">Открыть</a></div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="table-card p-3 h-100 d-flex flex-column">
+                    <h2 class="h5 fw-bold">Трекер задач</h2>
+                    <p class="text-muted small flex-grow-1">Задачи, созвоны и личные API-токены.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="/tasks" class="btn btn-dark btn-sm">Открыть</a>
+                        <a href="/tasks/calls" class="btn btn-outline-dark btn-sm">Созвоны</a>
+                        <a href="/tasks/tokens" class="btn btn-outline-dark btn-sm">API-токены</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="table-card p-3 h-100 d-flex flex-column">
+                    <h2 class="h5 fw-bold">AOS</h2>
+                    <p class="text-muted small flex-grow-1">Анализ соцсетей блогеров.</p>
+                    <div class="d-flex gap-2">
+                        <a href="/aos-panel" class="btn btn-dark btn-sm">Панель</a>
+                        <a href="/aos-settings" class="btn btn-outline-dark btn-sm">Настройки</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="table-card p-3 h-100 d-flex flex-column">
+                    <h2 class="h5 fw-bold">Swagger API</h2>
+                    <p class="text-muted small flex-grow-1">Документация API (откроется в новой вкладке).</p>
+                    <div class="d-flex gap-2"><a href="/swagger" target="_blank" rel="noopener" class="btn btn-dark btn-sm">Открыть</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private int usersCount;
+    private int projectsCount;
+    private int pagesCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        usersCount = await UserManager.Users.CountAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        projectsCount = await db.Projects.CountAsync();
+        pagesCount = await db.ContentPages.CountAsync();
+    }
+}

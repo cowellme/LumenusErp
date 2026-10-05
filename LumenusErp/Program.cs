@@ -22,6 +22,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
+builder.Services.AddScoped<AdminUserService>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
@@ -116,8 +117,7 @@ using (var scope = app.Services.CreateScope())
     await AiPromptSeed.EnsureSeededAsync(dbContext);
 
     // ── Засидировать роли ────────────────────────────────────────────
-    var roles = new[] { "Admin", "Manager", "User", "Ghost", "Aos" };
-    foreach (var role in roles)
+    foreach (var role in AdminUserService.SystemRoles)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
