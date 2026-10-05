@@ -1,0 +1,17 @@
+@* Полоса прогресса 0–100 с подписью справа. *@
+<div class="es-progress-row">
+    <div class="es-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Clamped">
+        <span style="width:@(Clamped)%"></span>
+    </div>
+    @if (Label is not null)
+    {
+        <span>@Label</span>
+    }
+</div>
+
+@code {
+    [Parameter] public int Value { get; set; }
+    [Parameter] public string? Label { get; set; }
+
+    private int Clamped => Math.Clamp(Value, 0, 100);
+}

@@ -1,0 +1,181 @@
+@page "/english/students/{StudentId}"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishProgressService Progress
+@inject EnglishHomeworkService Homework
+@inject EnglishTestService Tests
+
+<PageTitle>@(student?.DisplayName ?? "Ученик") — English Studio</PageTitle>
+
+<a href="english/students" class="es-link mb-3">← Все ученики</a>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (student is null || stats is null)
+{
+    <div class="es-panel"><EsEmpty Text="Ученик не найден." /></div>
+}
+else
+{
+    <EsHeading Title="@student.DisplayName" Text="@($"{student.User?.Email}{(string.IsNullOrEmpty(student.City) ? "" : " · " + student.City)}")">
+        <a class="es-btn es-btn--secondary" href="english/messages?with=@Uri.EscapeDataString(student.UserId)"><i class="bi bi-chat-dots"></i> Написать</a>
+    </EsHeading>
+
+    <EsMessages Error="@Error" Notice="@Notice" />
+
+    <div class="es-grid-4">
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-mint"><i class="bi bi-book"></i></span><strong>@stats.LessonsCompleted / @stats.LessonsTotal</strong><span>уроков</span></div>
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-blue"><i class="bi bi-clock"></i></span><strong>@EnglishText.Duration(stats.MinutesThisWeek)</strong><span>за 7 дней · цель @EnglishText.Duration(student.WeeklyGoalMinutes)</span></div>
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-peach"><i class="bi bi-bullseye"></i></span><strong>@stats.AverageScore%</strong><span>средний балл тестов</span></div>
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-purple"><i class="bi bi-fire"></i></span><strong>@stats.Streak</strong><span>дней подряд · @stats.Xp XP</span></div>
+    </div>
+
+    <div class="es-tabs es-spaced">
+        @foreach (var (key, title) in Tabs)
+        {
+            <button type="button" class="@(tab == key ? "active" : "")" @onclick="() => tab = key">@title</button>
+        }
+    </div>
+
+    @switch (tab)
+    {
+        case "overview":
+            <div class="es-grid-2">
+                <div class="es-panel">
+                    <h2>О ученике</h2>
+                    <p><b>Цель:</b> @(string.IsNullOrEmpty(student.Goal) ? "—" : student.Goal)</p>
+                    <p><b>Интересы:</b> @(string.IsNullOrEmpty(student.Interests) ? "—" : student.Interests)</p>
+                    <p class="es-prewrap mb-0">@student.Bio</p>
+                </div>
+                <EsHeatmap Stats="stats" Today="DateOnly.FromDateTime(NowLocal)" Title="Регулярность" />
+            </div>
+            break;
+
+        case "work":
+            <div class="es-panel">
+                <h2>Домашние задания</h2>
+                @if (submissions.Count == 0)
+                {
+                    <EsEmpty Icon="bi-clipboard-check" Text="Работ пока нет." />
+                }
+                @foreach (var s in submissions)
+                {
+                    <div class="es-row">
+                        <div class="es-row__main">
+                            <h3>@s.Submission.Homework?.Title</h3>
+                            <p>@EnglishText.DateAndTime(Local(s.Submission.SubmittedAt))</p>
+                        </div>
+                        <span class="es-tag @(s.Submission.Status == EnglishSubmission.StatusReviewed ? "" : "es-tag--warn")">
+                            @(s.Submission.Status == EnglishSubmission.StatusReviewed ? $"{s.Submission.Score}/100" : "ЖДЁТ ПРОВЕРКИ")
+                        </span>
+                    </div>
+                }
+                <a href="english/review" class="es-link">Перейти к проверке <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <div class="es-panel">
+                <h2>Тесты</h2>
+                @if (results.Count == 0)
+                {
+                    <EsEmpty Icon="bi-file-earmark-text" Text="Тестов пока не проходил." />
+                }
+                @foreach (var r in results)
+                {
+                    <div class="es-row">
+                        <div class="es-row__main">
+                            <h3>@r.Test.Title</h3>
+                            <p>@EnglishText.DateAndTime(Local(r.Result.CreatedAt)) · @r.Result.CorrectCount из @r.Result.Total</p>
+                        </div>
+                        <strong>@r.Result.Score%</strong>
+                    </div>
+                }
+            </div>
+            break;
+
+        case "skills":
+            <div class="es-panel">
+                <h2>Уровень и навыки</h2>
+                <label class="es-field" style="max-width:240px">Уровень
+                    <input class="form-control" @bind="form.Level" maxlength="50" placeholder="A2" />
+                </label>
+                <div class="es-form-grid">
+                    @SkillInput("Speaking", () => form.SkillSpeaking, v => form.SkillSpeaking = v)
+                    @SkillInput("Listening", () => form.SkillListening, v => form.SkillListening = v)
+                    @SkillInput("Reading", () => form.SkillReading, v => form.SkillReading = v)
+                    @SkillInput("Writing", () => form.SkillWriting, v => form.SkillWriting = v)
+                    @SkillInput("Grammar", () => form.SkillGrammar, v => form.SkillGrammar = v)
+                    @SkillInput("Vocabulary", () => form.SkillVocabulary, v => form.SkillVocabulary = v)
+                </div>
+                <label class="es-field">Комментарий для ученика — виден в его прогрессе
+                    <textarea class="form-control" rows="3" @bind="form.TeacherComment" maxlength="@EnglishProfileService.MaxComment"></textarea>
+                </label>
+                <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+            </div>
+            break;
+
+        case "notes":
+            <div class="es-panel">
+                <h2>Заметки преподавателя</h2>
+                <p class="es-muted es-small">Видны только вам.</p>
+                <textarea class="form-control mb-3" rows="10" @bind="form.TeacherNotes" maxlength="@EnglishProfileService.MaxNotes"
+                          placeholder="Сильные стороны, типичные ошибки, темы для следующих занятий"></textarea>
+                <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+            </div>
+            <div class="es-panel">
+                <h2>Отвязать ученика</h2>
+                <p class="es-muted">Ученик пропадёт из вашего списка и групп. Его работы и результаты сохранятся.</p>
+                @if (confirmRemove)
+                {
+                    <button type="button" class="es-btn es-btn--danger" @onclick="RemoveAsync">Да, отвязать</button>
+                    <button type="button" class="es-btn es-btn--secondary" @onclick="() => confirmRemove = false">Отмена</button>
+                }
+                else
+                {
+                    <button type="button" class="es-btn es-btn--danger" @onclick="() => confirmRemove = true">Отвязать</button>
+                }
+            </div>
+            break;
+    }
+}
+
+@code {
+    [Parameter] public string StudentId { get; set; } = "";
+
+    private static readonly (string Key, string Title)[] Tabs =
+        [("overview", "Обзор"), ("work", "Работы"), ("skills", "Навыки"), ("notes", "Заметки")];
+
+    private string tab = "overview";
+    private EnglishProfile? student;
+    private EnglishProfile form = new();
+    private EnglishStudentStats? stats;
+    private List<EnglishSubmissionView> submissions = new();
+    private List<EnglishResultView> results = new();
+    private bool confirmRemove;
+
+    protected override async Task LoadAsync()
+    {
+        student = await Profiles.GetStudentAsync(UserId, StudentId);
+        if (student is null) return;
+        form = student;
+        stats = await Progress.GetStatsAsync(StudentId);
+        submissions = await Homework.ListSubmissionsAsync(UserId, StudentId);
+        results = await Tests.RecentResultsAsync(UserId, StudentId, 50);
+    }
+
+    private RenderFragment SkillInput(string name, Func<int> get, Action<int> set) => @<label class="es-field">@name, %
+        <input type="number" class="form-control" min="0" max="100" value="@get()" @onchange="e => set(int.TryParse(e.Value?.ToString(), out var v) ? v : 0)" />
+    </label>;
+
+    private async Task SaveAsync()
+    {
+        Report(await Profiles.UpdateStudentByTeacherAsync(UserId, form), "Сохранено.");
+    }
+
+    private async Task RemoveAsync()
+    {
+        await Profiles.RemoveStudentAsync(UserId, StudentId);
+        Navigation.NavigateTo("english/students");
+    }
+}

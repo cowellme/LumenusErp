@@ -1,0 +1,14 @@
+@* Ошибка или подтверждение последней операции. *@
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="es-alert es-alert--error" role="alert">@Error</div>
+}
+else if (!string.IsNullOrEmpty(Notice))
+{
+    <div class="es-alert es-alert--ok" role="status">@Notice</div>
+}
+
+@code {
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public string? Notice { get; set; }
+}

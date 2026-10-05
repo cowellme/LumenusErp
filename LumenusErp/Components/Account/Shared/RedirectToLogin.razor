@@ -1,8 +1,22 @@
 ﻿@inject NavigationManager NavigationManager
 
 @code {
-    protected override void OnInitialized()
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
     {
+        // English Studio: свой экран входа; вошедшему без нужной роли — на главную модуля
+        // (она пустит любого ученика/преподавателя, а остальных отправит выбрать роль на /english/login)
+        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        if (path.StartsWith("english", StringComparison.OrdinalIgnoreCase))
+        {
+            var user = AuthState is null ? null : (await AuthState).User;
+            var signedIn = user?.Identity?.IsAuthenticated == true;
+            var hasRole = user is not null && (user.IsInRole("Teacher") || user.IsInRole("Student"));
+            var target = signedIn && hasRole ? "english/home" : $"english/login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}";
+            NavigationManager.NavigateTo(target, forceLoad: true);
+            return;
+        }
         NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", forceLoad: true);
     }
 }

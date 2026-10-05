@@ -1,0 +1,257 @@
+@page "/english/homework"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishHomeworkService Homework
+@inject EnglishLessonService Lessons
+
+<PageTitle>Домашние задания — English Studio</PageTitle>
+
+<EsHeading Title="Домашние задания"
+           Text="@(IsTeacher ? "Назначение, контроль отправки и проверка работ учеников." : "Закрепляем материал небольшими, осмысленными шагами.")">
+    @if (IsTeacher)
+    {
+        <button type="button" class="es-btn" @onclick="() => Edit(null)"><i class="bi bi-plus-lg"></i> Назначить задание</button>
+    }
+</EsHeading>
+
+<EsMessages Error="@(editing is null ? Error : null)" Notice="@Notice" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (IsTeacher)
+{
+    @if (teacherList.Count == 0)
+    {
+        <div class="es-panel"><EsEmpty Icon="bi-clipboard-check" Text="Заданий пока нет. Назначьте первое — его увидят все ученики или выбранная группа." /></div>
+    }
+    <div class="es-grid-2">
+        @foreach (var h in teacherList)
+        {
+            var newCount = h.Submissions.Count(s => s.Status == EnglishSubmission.StatusSubmitted);
+            <div class="es-panel">
+                <div class="d-flex gap-1 flex-wrap">
+                    <span class="es-tag">@(h.Group is null ? "ВСЕ УЧЕНИКИ" : "ГРУППА: " + h.Group.Name.ToUpper(EnglishText.Ru))</span>
+                    @if (h.DueAt is { } due)
+                    {
+                        <span class="es-tag es-tag--warn">ДО @EnglishText.Date(Local(due)).ToUpper(EnglishText.Ru)</span>
+                    }
+                </div>
+                <h2 class="mt-2">@h.Title</h2>
+                <p class="es-prewrap es-muted">@h.Instruction</p>
+                @if (h.Lesson is not null)
+                {
+                    <p class="es-small">Урок: <a class="es-link" href="english/lessons/@h.Lesson.Id">@h.Lesson.Title</a></p>
+                }
+                <p class="es-small mb-0">Сдано работ: <strong>@h.Submissions.Select(s => s.StudentId).Distinct().Count()</strong>@(newCount > 0 ? $" · новых: {newCount}" : "")</p>
+                <div class="es-btn-row">
+                    <a href="english/review" class="es-btn es-btn--secondary">Перейти к проверке</a>
+                    <button type="button" class="es-btn es-btn--secondary" @onclick="() => Edit(h)"><i class="bi bi-pencil"></i> Изменить</button>
+                    @if (confirmDeleteId == h.Id)
+                    {
+                        <button type="button" class="es-btn es-btn--danger es-btn--sm" @onclick="() => DeleteAsync(h.Id)">Удалить с работами</button>
+                        <button type="button" class="es-btn es-btn--secondary es-btn--sm" @onclick="() => confirmDeleteId = null">Нет</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="es-icon-btn" aria-label="Удалить задание" @onclick="() => confirmDeleteId = h.Id"><i class="bi bi-trash"></i></button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    @if (studentList.Count == 0)
+    {
+        <div class="es-panel"><EsEmpty Icon="bi-clipboard-check" Text="Заданий пока нет. Отдыхай или повтори слова!" /></div>
+    }
+    <div class="es-lesson-layout">
+        <div>
+            @foreach (var card in studentList)
+            {
+                var h = card.Homework;
+                var last = card.LastSubmission;
+                <div class="es-panel">
+                    <div class="d-flex gap-1 flex-wrap">
+                        @if (h.DueAt is { } due)
+                        {
+                            <span class="es-tag @(due < DateTime.UtcNow && last is null ? "es-tag--warn" : "")">ДО @EnglishText.Date(Local(due)).ToUpper(EnglishText.Ru)</span>
+                        }
+                        <span class="es-tag @(last is null ? "es-tag--muted" : "")">@StatusText(last)</span>
+                    </div>
+                    <h2 class="mt-2">@h.Title</h2>
+                    <p class="es-prewrap">@h.Instruction</p>
+                    @if (h.Lesson is not null)
+                    {
+                        <p class="es-small">К уроку: <a class="es-link" href="english/lessons/@h.Lesson.Id">@h.Lesson.Title</a></p>
+                    }
+                    @if (last is not null)
+                    {
+                        <div class="es-rule">
+                            <span class="es-eyebrow">Твой ответ · @EnglishText.DateAndTime(Local(last.SubmittedAt))</span>
+                            <p class="es-prewrap mt-2 mb-0">@last.Text</p>
+                        </div>
+                        @if (last.Status == EnglishSubmission.StatusReviewed)
+                        {
+                            <div class="es-rule">
+                                <b>Оценка: @last.Score/100</b>
+                                <p class="es-prewrap mt-2 mb-0">@last.Comment</p>
+                            </div>
+                        }
+                    }
+                    @if (answeringId == h.Id)
+                    {
+                        <label class="es-field mt-3">Твой ответ
+                            <textarea class="form-control" rows="8" placeholder="Last weekend I…" @bind="answer" @bind:event="oninput"></textarea>
+                        </label>
+                        <div class="es-muted es-small mb-2">@WordCount(answer) @EnglishText.Plural(WordCount(answer), "слово", "слова", "слов")</div>
+                        <EsMessages Error="@Error" />
+                        <div class="es-btn-row mt-0">
+                            <button type="button" class="es-btn" disabled="@string.IsNullOrWhiteSpace(answer)" @onclick="() => SubmitAsync(h.Id)">Отправить на проверку <i class="bi bi-arrow-right"></i></button>
+                            <button type="button" class="es-btn es-btn--secondary" @onclick="() => answeringId = null">Отмена</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button type="button" class="es-btn @(last is null ? "" : "es-btn--secondary")" @onclick="() => StartAnswer(h.Id)">
+                            @(last is null ? "Выполнить задание" : "Отправить новую версию")
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+        <aside>
+            <div class="es-panel">
+                <h3>Перед отправкой</h3>
+                <p class="mb-1">✓ Проверь формы глаголов</p>
+                <p class="mb-1">✓ Используй новую лексику</p>
+                <p class="mb-0">✓ Перечитай текст вслух</p>
+            </div>
+        </aside>
+    </div>
+}
+
+@if (editing is not null)
+{
+    <EsModal Title="@(editing.Id == Guid.Empty ? "Новое задание" : "Изменить задание")" Subtitle="Задание увидят все ваши ученики или выбранная группа." OnClose="() => editing = null">
+        <EsMessages Error="@Error" />
+        <label class="es-field">Название
+            <input class="form-control" @bind="editing.Title" maxlength="@EnglishHomeworkService.MaxTitle" />
+        </label>
+        <label class="es-field">Инструкция
+            <textarea class="form-control" rows="5" @bind="editing.Instruction" maxlength="@EnglishHomeworkService.MaxInstruction"></textarea>
+        </label>
+        <div class="es-form-grid">
+            <label class="es-field">Кому
+                <select class="form-select" @bind="groupValue">
+                    <option value="">Всем ученикам</option>
+                    @foreach (var g in groups)
+                    {
+                        <option value="@g.Id">Группа: @g.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="es-field">Срок сдачи
+                <input type="datetime-local" class="form-control" @bind="dueLocal" />
+            </label>
+        </div>
+        <label class="es-field">Урок
+            <select class="form-select" @bind="lessonValue">
+                <option value="">Без урока</option>
+                @foreach (var l in lessons)
+                {
+                    <option value="@l.Lesson.Id">@l.Unit.ToString("00") · @l.Lesson.Title</option>
+                }
+            </select>
+        </label>
+        <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+    </EsModal>
+}
+
+@code {
+    private List<EnglishHomework> teacherList = new();
+    private List<EnglishHomeworkCard> studentList = new();
+    private List<EnglishGroup> groups = new();
+    private List<EnglishLessonCard> lessons = new();
+
+    private EnglishHomework? editing;
+    private DateTime? dueLocal;
+    private Guid? confirmDeleteId, answeringId;
+    private string answer = "";
+
+    private string groupValue
+    {
+        get => editing?.GroupId?.ToString() ?? "";
+        set { if (editing is not null) editing.GroupId = Guid.TryParse(value, out var g) ? g : null; }
+    }
+
+    private string lessonValue
+    {
+        get => editing?.LessonId?.ToString() ?? "";
+        set { if (editing is not null) editing.LessonId = Guid.TryParse(value, out var g) ? g : null; }
+    }
+
+    protected override async Task LoadAsync()
+    {
+        if (IsTeacher)
+        {
+            teacherList = await Homework.ListForTeacherAsync(UserId);
+            return;
+        }
+        studentList = await Homework.ListForStudentAsync(UserId);
+    }
+
+    private async Task Edit(EnglishHomework? h)
+    {
+        ClearMessages();
+        if (groups.Count == 0) groups = await Profiles.ListGroupsAsync(UserId);
+        if (lessons.Count == 0) lessons = await Lessons.ListForTeacherAsync(UserId);
+        editing = h is null
+            ? new EnglishHomework()
+            : new EnglishHomework { Id = h.Id, Title = h.Title, Instruction = h.Instruction, GroupId = h.GroupId, LessonId = h.LessonId };
+        dueLocal = h?.DueAt is { } d ? Local(d) : NowLocal.Date.AddDays(7).AddHours(18);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editing is null) return;
+        if (!Report(await Homework.SaveAsync(UserId, editing, dueLocal, Tz), "Задание сохранено.")) return;
+        editing = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await Homework.DeleteAsync(UserId, id);
+        confirmDeleteId = null;
+        await LoadAsync();
+    }
+
+    private void StartAnswer(Guid id)
+    {
+        ClearMessages();
+        answeringId = id;
+        answer = "";
+    }
+
+    private async Task SubmitAsync(Guid id)
+    {
+        if (!Report(await Homework.SubmitAsync(UserId, id, answer), "Работа отправлена преподавателю.")) return;
+        answeringId = null;
+        answer = "";
+        await LoadAsync();
+    }
+
+    private static string StatusText(EnglishSubmission? s) => s switch
+    {
+        null => "НЕ СДАНО",
+        { Status: EnglishSubmission.StatusReviewed } => "ПРОВЕРЕНО",
+        _ => "НА ПРОВЕРКЕ",
+    };
+
+    private static int WordCount(string text) => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+}

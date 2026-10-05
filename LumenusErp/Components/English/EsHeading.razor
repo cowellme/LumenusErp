@@ -1,0 +1,22 @@
+@* Заголовок страницы кабинета: надзаголовок, заголовок, подпись и действия справа. *@
+<div class="es-heading">
+    <div>
+        @if (!string.IsNullOrEmpty(Eyebrow))
+        {
+            <div class="es-eyebrow mb-1">@Eyebrow</div>
+        }
+        <h1>@Title</h1>
+        @if (!string.IsNullOrEmpty(Text))
+        {
+            <p>@Text</p>
+        }
+    </div>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

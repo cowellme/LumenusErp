@@ -1,0 +1,163 @@
+@page "/english/review"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishHomeworkService Homework
+@inject EnglishTestService Tests
+
+<PageTitle>Проверка работ — English Studio</PageTitle>
+
+<EsHeading Title="Проверка работ" Text="Домашние задания ждут вашего отзыва, тесты проверяются автоматически." />
+
+<div class="es-tabs">
+    <button type="button" class="@(tab == "homework" ? "active" : "")" @onclick='() => tab = "homework"'>
+        Домашние задания @(newCount > 0 ? $"· {newCount}" : "")
+    </button>
+    <button type="button" class="@(tab == "tests" ? "active" : "")" @onclick='() => tab = "tests"'>Результаты тестов</button>
+</div>
+
+<EsMessages Error="@(reviewing is null ? Error : null)" Notice="@Notice" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (tab == "homework")
+{
+    <div class="es-toolbar">
+        <div class="es-seg">
+            <button type="button" class="@(onlyNew ? "active" : "")" @onclick="() => SetOnlyNew(true)">Новые</button>
+            <button type="button" class="@(onlyNew ? "" : "active")" @onclick="() => SetOnlyNew(false)">Все</button>
+        </div>
+    </div>
+    @if (submissions.Count == 0)
+    {
+        <div class="es-panel"><EsEmpty Icon="bi-check2-square" Text="@(onlyNew ? "Новых работ нет — всё проверено." : "Ученики ещё не сдавали работ.")" /></div>
+    }
+    @foreach (var s in submissions)
+    {
+        var sub = s.Submission;
+        <div class="es-panel">
+            <div class="d-flex justify-content-between gap-2 flex-wrap">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="es-avatar">@EnglishText.Initials(s.StudentName)</span>
+                    <div>
+                        <a class="es-link fw-semibold" href="english/students/@sub.StudentId">@s.StudentName</a>
+                        <div class="es-muted es-small">@sub.Homework?.Title · @EnglishText.DateAndTime(Local(sub.SubmittedAt))</div>
+                    </div>
+                </div>
+                <span class="es-tag @(sub.Status == EnglishSubmission.StatusReviewed ? "" : "es-tag--warn")">
+                    @(sub.Status == EnglishSubmission.StatusReviewed ? $"ПРОВЕРЕНО · {sub.Score}/100" : "ЖДЁТ ПРОВЕРКИ")
+                </span>
+            </div>
+            <p class="es-prewrap mt-3">@sub.Text</p>
+            @if (sub.Status == EnglishSubmission.StatusReviewed && !string.IsNullOrEmpty(sub.Comment))
+            {
+                <div class="es-rule"><span class="es-eyebrow">Ваш отзыв</span><p class="es-prewrap mt-2 mb-0">@sub.Comment</p></div>
+            }
+            <button type="button" class="es-btn @(sub.Status == EnglishSubmission.StatusReviewed ? "es-btn--secondary" : "")" @onclick="() => StartReview(sub)">
+                @(sub.Status == EnglishSubmission.StatusReviewed ? "Изменить отзыв" : "Проверить")
+            </button>
+        </div>
+    }
+}
+else
+{
+    @if (results.Count == 0)
+    {
+        <div class="es-panel"><EsEmpty Icon="bi-file-earmark-text" Text="Ученики ещё не проходили тесты." /></div>
+    }
+    else
+    {
+        <div class="es-panel es-table-wrap">
+            <table class="es-table">
+                <thead><tr><th>Ученик</th><th>Тест</th><th>Результат</th><th>Дата</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in results)
+                    {
+                        <tr>
+                            <td><a class="es-link" href="english/students/@r.Result.StudentId">@r.StudentName</a></td>
+                            <td>@r.Test.Title</td>
+                            <td><strong>@r.Result.Score%</strong> <span class="es-muted es-small">(@r.Result.CorrectCount из @r.Result.Total)</span></td>
+                            <td class="es-small">@EnglishText.DateAndTime(Local(r.Result.CreatedAt))</td>
+                            <td><button type="button" class="es-link" @onclick="() => openResult = openResult == r.Result.Id ? null : r.Result.Id">Ответы</button></td>
+                        </tr>
+                        @if (openResult == r.Result.Id)
+                        {
+                            <tr>
+                                <td colspan="5">
+                                    @for (var i = 0; i < r.Test.Questions.Count; i++)
+                                    {
+                                        var q = r.Test.Questions[i];
+                                        var a = r.Result.Answers.ElementAtOrDefault(i) ?? "";
+                                        <div class="es-answer @(a == q.Correct ? "correct" : "incorrect")">
+                                            <b>@q.Text</b>
+                                            <p>Ответ: @(a.Length == 0 ? "—" : a) · Правильный: @q.Correct</p>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@if (reviewing is not null)
+{
+    <EsModal Title="Отзыв на работу" Subtitle="@reviewing.Homework?.Title" OnClose="() => reviewing = null">
+        <EsMessages Error="@Error" />
+        <p class="es-prewrap es-small es-muted">@reviewing.Text</p>
+        <label class="es-field">Оценка, 0–100
+            <input type="number" class="form-control" min="0" max="100" @bind="score" />
+        </label>
+        <label class="es-field">Комментарий
+            <textarea class="form-control" rows="5" placeholder="Что получилось, что стоит повторить" @bind="comment" maxlength="@EnglishHomeworkService.MaxComment"></textarea>
+        </label>
+        <button type="button" class="es-btn" @onclick="SaveReviewAsync">Отправить отзыв</button>
+    </EsModal>
+}
+
+@code {
+    private string tab = "homework";
+    private bool onlyNew = true;
+    private int newCount;
+    private List<EnglishSubmissionView> submissions = new();
+    private List<EnglishResultView> results = new();
+    private Guid? openResult;
+
+    private EnglishSubmission? reviewing;
+    private int? score;
+    private string comment = "";
+
+    protected override async Task LoadAsync()
+    {
+        submissions = await Homework.ListSubmissionsAsync(UserId, onlyNew: onlyNew);
+        newCount = await Homework.CountNewSubmissionsAsync(UserId);
+        results = await Tests.RecentResultsAsync(UserId, take: 50);
+    }
+
+    private async Task SetOnlyNew(bool value)
+    {
+        onlyNew = value;
+        await LoadAsync();
+    }
+
+    private void StartReview(EnglishSubmission s)
+    {
+        ClearMessages();
+        reviewing = s;
+        score = s.Score;
+        comment = s.Comment;
+    }
+
+    private async Task SaveReviewAsync()
+    {
+        if (reviewing is null) return;
+        if (!Report(await Homework.ReviewAsync(UserId, reviewing.Id, score, comment), "Отзыв отправлен ученику.")) return;
+        reviewing = null;
+        await LoadAsync();
+    }
+}

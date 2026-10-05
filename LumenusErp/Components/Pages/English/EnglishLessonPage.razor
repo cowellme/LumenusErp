@@ -1,0 +1,297 @@
+@page "/english/lessons/{Id:guid}"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishLessonService Lessons
+@inject EnglishTestService Tests
+@inject EnglishHomeworkService Homework
+@inject EnglishLibraryService Library
+
+<PageTitle>@(lesson?.Title ?? "Урок") — English Studio</PageTitle>
+
+<a href="english/lessons" class="es-link mb-3">← Все уроки</a>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (lesson is null)
+{
+    <div class="es-panel"><EsEmpty Text="Урок не найден или ещё не опубликован." /></div>
+}
+else
+{
+    <EsHeading Title="@lesson.Title" Text="@lesson.Summary">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <span class="es-tag">@lesson.Level · @lesson.DurationMinutes минут</span>
+            @if (IsTeacher)
+            {
+                @if (!lesson.Published)
+                {
+                    <span class="es-tag es-tag--warn">Черновик</span>
+                }
+                <a href="english/lessons/@lesson.Id/edit" class="es-btn es-btn--secondary"><i class="bi bi-pencil"></i> Редактировать</a>
+            }
+        </div>
+    </EsHeading>
+
+    <div class="es-lesson-layout">
+        <div class="es-panel">
+            <div class="es-tabs" role="tablist">
+                @foreach (var (key, label) in Tabs)
+                {
+                    <button type="button" role="tab" class="@(tab == key ? "active" : "")" aria-selected="@(tab == key)" @onclick="() => tab = key">@label</button>
+                }
+            </div>
+
+            @if (tab == "theory")
+            {
+                @if (lesson.Blocks.Count == 0)
+                {
+                    <EsEmpty Text="В уроке пока нет блоков." />
+                }
+                @foreach (var b in lesson.Blocks)
+                {
+                    <div class="es-rule">
+                        <span class="es-tag">@b.Type</span>
+                        @if (b.Type == EnglishLessonBlock.Examples)
+                        {
+                            <div class="es-examples mt-3">
+                                @foreach (var line in b.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                {
+                                    <p><button type="button" class="es-speak" data-es-speak="@line" aria-label="Прослушать пример"><i class="bi bi-volume-up"></i></button>@line</p>
+                                }
+                            </div>
+                        }
+                        else if (b.Type == EnglishLessonBlock.Words)
+                        {
+                            @WordList(EnglishLessonService.ParseWords(b.Text))
+                        }
+                        else
+                        {
+                            <p class="es-prewrap mt-3 mb-0">@b.Text</p>
+                        }
+                    </div>
+                }
+                @if (testId is not null)
+                {
+                    <a href="english/tests/@testId" class="es-btn mt-2">Проверить себя <i class="bi bi-arrow-right"></i></a>
+                }
+            }
+            else if (tab == "video")
+            {
+                <h2>Запись занятия</h2>
+                @if (!IsTeacher && !Me.AllowRecordings)
+                {
+                    <EsEmpty Text="Доступ к записям закрыт преподавателем." Icon="bi-lock" />
+                }
+                else
+                {
+                    var (kind, src) = EnglishLessonService.VideoEmbed(lesson.VideoUrl);
+                    @if (kind == "youtube")
+                    {
+                        <iframe class="es-video" src="@src" title="Запись занятия" allow="encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    }
+                    else if (kind == "video")
+                    {
+                        <video class="es-video" controls src="@src"></video>
+                    }
+                    else if (kind == "link")
+                    {
+                        <p><a href="@src" target="_blank" rel="noopener" class="es-btn es-btn--secondary"><i class="bi bi-play-circle"></i> Открыть запись</a></p>
+                    }
+                    else
+                    {
+                        <div class="es-video-empty">
+                            <i class="bi bi-play-circle"></i>
+                            <h3 class="mt-2">Запись ещё не добавлена</h3>
+                            <p class="mb-0">@(IsTeacher ? "Добавьте ссылку на запись в конструкторе урока." : "Преподаватель прикрепит запись после занятия.")</p>
+                        </div>
+                    }
+                    @if (lesson.PhotoMediaId is { } photo)
+                    {
+                        <h3 class="mt-4">Фото доски / конспект</h3>
+                        <img class="es-photo" src="media/@photo" alt="Фото доски к уроку «@lesson.Title»" loading="lazy" />
+                    }
+                }
+            }
+            else if (tab == "practice")
+            {
+                <h2>Time to practise!</h2>
+                @if (testId is not null)
+                {
+                    <p class="es-muted">Короткий тест по теме урока с разбором ошибок.</p>
+                    <a href="english/tests/@testId" class="es-btn">Начать тест <i class="bi bi-play"></i></a>
+                }
+                else
+                {
+                    <p class="es-muted">К этому уроку пока нет теста. Попробуй <a class="es-link" href="english/tests">другие тесты</a> или повтори слова.</p>
+                }
+                <h3 class="mt-4">Лексика урока</h3>
+                var words = lesson.Blocks.Where(b => b.Type == EnglishLessonBlock.Words).SelectMany(b => EnglishLessonService.ParseWords(b.Text)).ToList();
+                @if (words.Count == 0)
+                {
+                    <p class="es-muted">В уроке нет блока «Новые слова».</p>
+                }
+                else
+                {
+                    @WordList(words)
+                }
+            }
+            else if (tab == "notes")
+            {
+                <h2>Твои заметки</h2>
+                <textarea class="form-control" rows="10" placeholder="Новые выражения, вопросы преподавателю…" @bind="notes"></textarea>
+                <div class="es-btn-row">
+                    <button type="button" class="es-btn" @onclick="SaveNotesAsync">Сохранить заметки</button>
+                    @if (notesSaved)
+                    {
+                        <span class="es-muted es-small">Сохранено</span>
+                    }
+                </div>
+            }
+            <EsMessages Error="@Error" Notice="@Notice" />
+        </div>
+
+        <aside>
+            <div class="es-panel">
+                <h2>План урока</h2>
+                @{
+                    var steps = lesson.Blocks.Select(b => b.Type).Distinct().Concat(["Запись занятия", "Итоговый тест", "Рефлексия"]).Distinct().ToList();
+                    var doneSteps = progress?.CompletedAt is not null ? steps.Count : progress is null ? 0 : 1;
+                }
+                @for (var i = 0; i < steps.Count; i++)
+                {
+                    <div class="es-plan-row @(i < doneSteps ? "done" : "")">
+                        <span>@if (i < doneSteps) { <i class="bi bi-check"></i> } else { @(i + 1) }</span>
+                        @steps[i]
+                    </div>
+                }
+                @if (!IsTeacher)
+                {
+                    @if (progress?.CompletedAt is not null)
+                    {
+                        <p class="es-alert es-alert--ok mt-3 mb-0">Урок завершён @EnglishText.Date(Local(progress.CompletedAt.Value)).</p>
+                    }
+                    else
+                    {
+                        <button type="button" class="es-btn mt-3" @onclick="CompleteAsync">Завершить урок <i class="bi bi-check-lg"></i></button>
+                    }
+                }
+            </div>
+            @if (homework.Count > 0)
+            {
+                <div class="es-panel">
+                    <h3>Домашнее задание</h3>
+                    @foreach (var h in homework)
+                    {
+                        <p class="mb-1">@h.Title</p>
+                    }
+                    <a href="english/homework" class="es-btn es-btn--secondary mt-2">Открыть задание</a>
+                </div>
+            }
+            @if (lesson.Program is not null)
+            {
+                <div class="es-panel">
+                    <span class="es-eyebrow">Программа</span>
+                    <h3 class="mt-1 mb-0">@lesson.Program.Title</h3>
+                </div>
+            }
+        </aside>
+    </div>
+
+    @if (showReflection)
+    {
+        <EsModal Title="Как прошёл урок?" Subtitle="Отметь ощущения после урока — ответ увидит преподаватель." OnClose="() => showReflection = false">
+            <div class="d-grid gap-2">
+                @foreach (var r in Reflections)
+                {
+                    <button type="button" class="es-btn es-btn--secondary" @onclick="() => ReflectAsync(r)">@r</button>
+                }
+            </div>
+        </EsModal>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private static readonly string[] Reflections = ["Всё понятно", "Хочу повторить", "Нужна помощь"];
+
+    private EnglishLesson? lesson;
+    private EnglishLessonProgress? progress;
+    private Guid? testId;
+    private List<EnglishHomework> homework = new();
+    private HashSet<string> myWords = new(StringComparer.OrdinalIgnoreCase);
+    private string tab = "theory";
+    private string notes = "";
+    private bool notesSaved, showReflection;
+
+    private (string Key, string Label)[] Tabs => IsTeacher
+        ? [("theory", "Теория"), ("video", "Запись занятия"), ("practice", "Практика")]
+        : [("theory", "Теория"), ("video", "Запись занятия"), ("practice", "Практика"), ("notes", "Мои заметки")];
+
+    protected override async Task LoadAsync()
+    {
+        lesson = await Lessons.GetAsync(UserId, Id);
+        if (lesson is null) return;
+        testId = await Tests.FirstForLessonAsync(lesson.Id);
+        if (IsTeacher)
+        {
+            homework = (await Homework.ListForTeacherAsync(UserId)).Where(h => h.LessonId == lesson.Id).ToList();
+            return;
+        }
+        await Lessons.MarkOpenedAsync(UserId, lesson.Id);
+        progress = await Lessons.GetProgressAsync(UserId, lesson.Id);
+        notes = progress?.Notes ?? "";
+        homework = (await Homework.ListForStudentAsync(UserId)).Where(h => h.Homework.LessonId == lesson.Id).Select(h => h.Homework).ToList();
+        myWords = (await Library.ListWordsAsync(UserId)).Select(w => w.Word).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task SaveNotesAsync()
+    {
+        await Lessons.SaveNotesAsync(UserId, Id, notes);
+        notesSaved = true;
+    }
+
+    private async Task CompleteAsync()
+    {
+        await Lessons.CompleteAsync(UserId, Id);
+        progress = await Lessons.GetProgressAsync(UserId, Id);
+        showReflection = true;
+    }
+
+    private async Task ReflectAsync(string reflection)
+    {
+        await Lessons.SaveReflectionAsync(UserId, Id, reflection);
+        showReflection = false;
+        Notice = "Ответ отправлен преподавателю в сообщения.";
+    }
+
+    private async Task AddWordAsync(string word, string translation)
+    {
+        if (Report(await Library.AddWordAsync(UserId, word, translation, null), $"«{word}» добавлено в словарь.")) myWords.Add(word);
+    }
+
+    private RenderFragment WordList(List<(string Word, string Translation)> words) =>
+        @<div class="mt-2">
+            @foreach (var (word, translation) in words)
+            {
+                <div class="es-row">
+                    <button type="button" class="es-speak" data-es-speak="@word" aria-label="Прослушать"><i class="bi bi-volume-up"></i></button>
+                    <div class="es-row__main"><h3>@word</h3><p>@translation</p></div>
+                    @if (!IsTeacher && translation.Length > 0)
+                    {
+                        @if (myWords.Contains(word))
+                        {
+                            <span class="es-tag">В словаре</span>
+                        }
+                        else
+                        {
+                            <button type="button" class="es-btn es-btn--secondary es-btn--sm" @onclick="() => AddWordAsync(word, translation)"><i class="bi bi-plus"></i> В словарь</button>
+                        }
+                    }
+                </div>
+            }
+        </div>;
+}

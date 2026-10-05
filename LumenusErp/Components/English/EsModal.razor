@@ -1,0 +1,23 @@
+@* Модальное окно: показывается, пока родитель его рендерит; закрытие — OnClose. *@
+<div class="es-modal-backdrop" @onclick="OnClose">
+    <div class="es-modal" role="dialog" aria-modal="true" aria-label="@Title" @onclick:stopPropagation="true">
+        <div class="es-modal__head">
+            <div>
+                <h2>@Title</h2>
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <p class="es-muted es-small mb-0">@Subtitle</p>
+                }
+            </div>
+            <button type="button" class="es-icon-btn" aria-label="Закрыть" @onclick="OnClose"><i class="bi bi-x-lg"></i></button>
+        </div>
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

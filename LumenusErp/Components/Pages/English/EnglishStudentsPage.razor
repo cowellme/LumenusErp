@@ -1,0 +1,130 @@
+@page "/english/students"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+
+<PageTitle>Ученики — English Studio</PageTitle>
+
+<EsHeading Title="Ученики" Text="Ученик регистрируется сам, а вы добавляете его по e-mail.">
+    <button type="button" class="es-btn" @onclick="StartAdd"><i class="bi bi-person-plus"></i> Добавить ученика</button>
+</EsHeading>
+
+<EsMessages Error="@(adding ? null : Error)" Notice="@Notice" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else
+{
+    @if (students.Count == 0)
+    {
+        <div class="es-panel"><EsEmpty Icon="bi-people" Text="Учеников пока нет. Попросите ученика зарегистрироваться на странице входа и добавьте его по e-mail." /></div>
+    }
+    else
+    {
+        <div class="es-toolbar">
+            <div class="es-search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" placeholder="Имя или e-mail" @bind="search" @bind:event="oninput" />
+            </div>
+        </div>
+        <div class="es-grid-3">
+            @foreach (var s in Filtered)
+            {
+                var percent = s.LessonsTotal == 0 ? 0 : s.LessonsCompleted * 100 / s.LessonsTotal;
+                <a class="es-panel d-flex flex-column text-decoration-none" href="english/students/@s.Profile.UserId">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="es-avatar">@EnglishText.Initials(s.Profile.DisplayName)</span>
+                        <div class="es-row__main">
+                            <div class="fw-semibold">@s.Profile.DisplayName</div>
+                            <div class="es-muted es-small text-truncate">@s.Email</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(s.Profile.Level))
+                        {
+                            <span class="es-tag">@s.Profile.Level</span>
+                        }
+                    </div>
+                    @if (s.Groups.Count > 0)
+                    {
+                        <p class="es-small es-muted mb-2">@string.Join(", ", s.Groups)</p>
+                    }
+                    <EsProgress Value="@percent" Label="@($"{s.LessonsCompleted} из {s.LessonsTotal} уроков")" />
+                    <p class="es-small es-muted mt-2 mb-0">
+                        @(s.LastActivityAt is { } at ? "Активность: " + EnglishText.DateAndTime(Local(at)) : "Ещё не занимался")
+                    </p>
+                </a>
+            }
+        </div>
+    }
+
+    <div class="es-panel">
+        <h2>Заявки с сайта</h2>
+        <p class="es-muted es-small">Заявки на пробный урок с публичной страницы English Studio.</p>
+        @if (bookings.Count == 0)
+        {
+            <EsEmpty Icon="bi-inbox" Text="Заявок нет." />
+        }
+        @foreach (var b in bookings)
+        {
+            <div class="es-row">
+                <div class="es-row__main">
+                    <h3>@b.Name <span class="es-muted fw-normal">· @b.Contact</span></h3>
+                    <p>@EnglishText.DateAndTime(Local(b.CreatedAt))@(string.IsNullOrEmpty(b.Message) ? "" : " · " + b.Message)</p>
+                </div>
+                <label class="form-check mb-0">
+                    <input type="checkbox" class="form-check-input" checked="@b.Handled" @onchange="e => SetHandledAsync(b, (bool)e.Value!)" />
+                    <span class="form-check-label es-small">обработана</span>
+                </label>
+            </div>
+        }
+    </div>
+}
+
+@if (adding)
+{
+    <EsModal Title="Добавить ученика" Subtitle="Ученик должен быть зарегистрирован в English Studio с ролью «Ученик»." OnClose="() => adding = false">
+        <EsMessages Error="@Error" />
+        <label class="es-field">E-mail ученика
+            <input type="email" class="form-control" @bind="email" placeholder="student@example.com" />
+        </label>
+        <button type="button" class="es-btn" @onclick="AddAsync">Добавить</button>
+    </EsModal>
+}
+
+@code {
+    private List<EnglishStudentCard> students = new();
+    private List<EnglishBooking> bookings = new();
+    private string search = "", email = "";
+    private bool adding;
+
+    private IEnumerable<EnglishStudentCard> Filtered => students.Where(s => search.Length == 0
+        || s.Profile.DisplayName.Contains(search, StringComparison.OrdinalIgnoreCase)
+        || s.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task LoadAsync()
+    {
+        students = await Profiles.ListStudentsAsync(UserId);
+        bookings = await Profiles.ListBookingsAsync();
+    }
+
+    private void StartAdd()
+    {
+        ClearMessages();
+        email = "";
+        adding = true;
+    }
+
+    private async Task AddAsync()
+    {
+        if (!Report(await Profiles.AddStudentByEmailAsync(UserId, email), "Ученик добавлен.")) return;
+        adding = false;
+        await LoadAsync();
+    }
+
+    private async Task SetHandledAsync(EnglishBooking b, bool handled)
+    {
+        await Profiles.SetBookingHandledAsync(b.Id, handled);
+        b.Handled = handled;
+    }
+}

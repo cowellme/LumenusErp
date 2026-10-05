@@ -1,0 +1,156 @@
+@page "/english/tests/{Id:guid}"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishTestService Tests
+
+<PageTitle>@(test?.Title ?? "Тест") — English Studio</PageTitle>
+
+<a href="english/tests" class="es-link mb-3">← Все тесты</a>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (test is null || test.Questions.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Text="Тест не найден или в нём нет вопросов." /></div>
+}
+else if (result is not null)
+{
+    <EsHeading Title="Отличная работа!" Text="Результат доступен тебе и преподавателю." />
+    <div class="es-panel es-quiz">
+        <div class="es-result-circle" style="--p:@result.Score"><b>@result.Score%</b></div>
+        <h2 class="text-center">+@EnglishProgressService.TestXp XP за практику</h2>
+        <p class="text-center es-muted">Правильных ответов: @result.CorrectCount из @result.Total</p>
+        @for (var i = 0; i < test.Questions.Count; i++)
+        {
+            var q = test.Questions[i];
+            var a = result.Answers.ElementAtOrDefault(i) ?? "";
+            <div class="es-answer @(a == q.Correct ? "correct" : "incorrect")">
+                <b>@q.Text</b>
+                <p>Твой ответ: @(a.Length == 0 ? "—" : a) · Правильный: @q.Correct</p>
+                @if (!string.IsNullOrEmpty(q.Explanation))
+                {
+                    <p class="es-muted">@q.Explanation</p>
+                }
+            </div>
+        }
+        <div class="es-btn-row">
+            <a href="english/progress" class="es-btn">Мой отчёт</a>
+            @if (Me.AllowRetakes)
+            {
+                <button type="button" class="es-btn es-btn--secondary" @onclick="Restart">Попробовать снова</button>
+            }
+        </div>
+    </div>
+}
+else if (IsTeacher)
+{
+    @* Преподаватель видит тест целиком с ответами — предпросмотр *@
+    <EsHeading Title="@test.Title" Text="Предпросмотр теста: так вопросы увидит ученик.">
+        <a href="english/tests/@test.Id/edit" class="es-btn es-btn--secondary"><i class="bi bi-pencil"></i> Редактировать</a>
+    </EsHeading>
+    <div class="es-panel es-quiz">
+        @foreach (var q in test.Questions)
+        {
+            <div class="es-rule">
+                <b>@q.Text</b>
+                <ul class="mb-1 mt-2">
+                    @foreach (var o in q.Options)
+                    {
+                        <li class="@(o == q.Correct ? "fw-semibold" : "")">@o @(o == q.Correct ? "✓" : "")</li>
+                    }
+                </ul>
+                <small class="es-muted">@q.Explanation</small>
+            </div>
+        }
+    </div>
+}
+else if (!canTake)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-lock" Text="Ты уже прошёл этот тест. Повторные попытки закрыты преподавателем." /></div>
+}
+else
+{
+    var q = test.Questions[index];
+    var answered = answers.Count > index;
+    <EsHeading Title="@test.Title" Text="Каждая ошибка — возможность научиться." />
+    <div class="es-panel es-quiz">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="es-tag">PRACTICE</span>
+            <span class="es-muted es-small">Вопрос @(index + 1) из @test.Questions.Count</span>
+        </div>
+        <EsProgress Value="@((index + 1) * 100 / test.Questions.Count)" />
+        <h2>@q.Text</h2>
+        <div class="es-options">
+            @for (var i = 0; i < q.Options.Count; i++)
+            {
+                var option = q.Options[i];
+                <button type="button" class="es-option @(choice == option ? "chosen" : "")" disabled="@answered" @onclick="() => choice = option">
+                    <span>@((char)('A' + i))</span>@option
+                    @if (choice == option)
+                    {
+                        <i class="bi bi-check-lg ms-auto"></i>
+                    }
+                </button>
+            }
+        </div>
+        @if (answered)
+        {
+            <div class="es-answer @(choice == q.Correct ? "correct" : "incorrect")">
+                <b>@(choice == q.Correct ? "Верно!" : "Разберём вместе")</b>
+                <p>@(choice == q.Correct ? q.Explanation : $"Правильный ответ: {q.Correct}. {q.Explanation}")</p>
+            </div>
+        }
+        <EsMessages Error="@Error" />
+        <button type="button" class="es-btn" disabled="@(string.IsNullOrEmpty(choice) || submitting)" @onclick="NextAsync">
+            @(!answered ? "Проверить" : index == test.Questions.Count - 1 ? "Посмотреть результат" : "Следующий вопрос") <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private EnglishTest? test;
+    private EnglishTestResult? result;
+    private List<string> answers = new();
+    private int index;
+    private string choice = "";
+    private bool canTake, submitting;
+
+    protected override async Task LoadAsync()
+    {
+        test = await Tests.GetAsync(UserId, Id);
+        if (test is not null && !IsTeacher) canTake = await Tests.CanTakeAsync(UserId, Id);
+    }
+
+    private async Task NextAsync()
+    {
+        if (test is null || string.IsNullOrEmpty(choice)) return;
+        if (answers.Count == index)
+        {
+            answers.Add(choice);
+            return;
+        }
+        if (index < test.Questions.Count - 1)
+        {
+            index++;
+            choice = "";
+            return;
+        }
+        submitting = true;
+        result = await Tests.SubmitAsync(UserId, Id, answers);
+        submitting = false;
+        if (result is null) Error = "Не удалось сохранить результат. Возможно, повторные попытки закрыты.";
+    }
+
+    private void Restart()
+    {
+        result = null;
+        answers = new();
+        index = 0;
+        choice = "";
+    }
+}

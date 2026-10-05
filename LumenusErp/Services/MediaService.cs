@@ -84,7 +84,7 @@ public class MediaService
 
     public string PathOf(MediaFile file) => Path.Combine(Root, Path.GetFileName(file.StoredName));
 
-    /// <summary>Удаляет файлы, на которые больше не ссылается ни один блок (строку и файл на диске).</summary>
+    /// <summary>Удаляет файлы, на которые больше не ссылается ни один блок или урок English Studio (строку и файл на диске).</summary>
     public async Task DeleteIfUnreferencedAsync(IEnumerable<Guid> ids)
     {
         var list = ids.Distinct().ToList();
@@ -94,7 +94,9 @@ public class MediaService
         }
         await using var db = await _factory.CreateDbContextAsync();
         var used = await db.ContentBlocks.Where(b => b.MediaFileId != null && list.Contains(b.MediaFileId.Value))
-            .Select(b => b.MediaFileId!.Value).Distinct().ToListAsync();
+            .Select(b => b.MediaFileId!.Value)
+            .Concat(db.EnglishLessons.Where(l => l.PhotoMediaId != null && list.Contains(l.PhotoMediaId.Value)).Select(l => l.PhotoMediaId!.Value))
+            .Distinct().ToListAsync();
         var files = await db.MediaFiles.Where(m => list.Contains(m.Id) && !used.Contains(m.Id)).ToListAsync();
         await RemoveAsync(db, files);
     }
@@ -105,7 +107,7 @@ public class MediaService
         var border = DateTime.UtcNow.AddHours(-1);
         await using var db = await _factory.CreateDbContextAsync();
         var files = await db.MediaFiles
-            .Where(m => m.CreatedAt < border && !db.ContentBlocks.Any(b => b.MediaFileId == m.Id))
+            .Where(m => m.CreatedAt < border && !db.ContentBlocks.Any(b => b.MediaFileId == m.Id) && !db.EnglishLessons.Any(l => l.PhotoMediaId == m.Id))
             .ToListAsync();
         await RemoveAsync(db, files);
     }

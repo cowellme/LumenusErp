@@ -1,0 +1,53 @@
+@page "/english/achievements"
+@attribute [Authorize(Roles = EnglishRoles.Student)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishProgressService Progress
+
+<PageTitle>Достижения — English Studio</PageTitle>
+
+<EsHeading Title="Достижения" Text="Небольшие победы, которые складываются в большой результат." />
+
+@if (!Loaded || stats is null)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else
+{
+    <div class="es-panel">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <span class="es-eyebrow">УРОВЕНЬ @stats.Level</span>
+                <h2 class="mb-0">@stats.Xp XP</h2>
+            </div>
+            <span class="es-muted es-small">до следующего уровня: @(EnglishStudentStats.XpPerLevel - stats.XpInLevel) XP</span>
+        </div>
+        <EsProgress Value="@(stats.XpInLevel * 100 / EnglishStudentStats.XpPerLevel)" />
+        <p class="es-muted es-small mt-2 mb-0">
+            Урок +@EnglishProgressService.LessonXp XP · тест +@EnglishProgressService.TestXp · домашнее задание +@EnglishProgressService.HomeworkXp · слово +@EnglishProgressService.WordXp
+        </p>
+    </div>
+
+    <div class="es-grid-3 es-spaced">
+        @foreach (var a in achievements)
+        {
+            <div class="es-panel es-achievement @(a.Done ? "" : "locked")">
+                <div class="es-medal"><i class="bi @a.Icon"></i></div>
+                <h2>@a.Title</h2>
+                <p class="es-muted mb-1">@a.Description</p>
+                <span class="es-tag @(a.Done ? "" : "es-tag--muted")">@(a.Done ? "ПОЛУЧЕНО" : "В ПРОЦЕССЕ")</span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private EnglishStudentStats? stats;
+    private List<EnglishAchievement> achievements = new();
+
+    protected override async Task LoadAsync()
+    {
+        stats = await Progress.GetStatsAsync(UserId);
+        achievements = await Progress.GetAchievementsAsync(UserId, stats);
+    }
+}

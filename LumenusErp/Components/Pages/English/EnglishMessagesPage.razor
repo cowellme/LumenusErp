@@ -1,0 +1,170 @@
+@page "/english/messages"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@implements IDisposable
+@inject EnglishMessageService Messages
+@inject IJSRuntime JS
+
+<PageTitle>Сообщения — English Studio</PageTitle>
+
+<EsHeading Title="Сообщения" Text="@(IsTeacher ? "Переписка с учениками." : "Вопросы преподавателю — здесь.")" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (!IsTeacher && Me.TeacherId is null)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-chat-dots" Text="Ты пока не привязан к преподавателю. Попроси его добавить тебя по e-mail." /></div>
+}
+else if (IsTeacher && contacts.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-chat-dots" Text="Учеников пока нет — переписка появится, когда вы их добавите." /></div>
+}
+else
+{
+    <div class="es-panel es-chat @(IsTeacher ? "" : "es-chat--single")">
+        @if (IsTeacher)
+        {
+            <div class="es-chat__contacts">
+                @foreach (var c in contacts)
+                {
+                    <a class="es-chat__contact @(c.UserId == otherId ? "active" : "")" href="english/messages?with=@Uri.EscapeDataString(c.UserId)">
+                        <span class="es-avatar">@EnglishText.Initials(c.Name)</span>
+                        <div class="es-row__main">
+                            <div class="fw-semibold">@c.Name</div>
+                            <div class="es-muted es-small">@(c.LastAt is { } at ? EnglishText.DateAndTime(Local(at)) : "нет сообщений")</div>
+                        </div>
+                        @if (c.Unread > 0)
+                        {
+                            <span class="es-nav__count">@c.Unread</span>
+                        }
+                    </a>
+                }
+            </div>
+        }
+        <div class="es-chat__body">
+            @if (otherId is null)
+            {
+                <EsEmpty Icon="bi-chat-left" Text="Выберите ученика слева." />
+            }
+            else
+            {
+                <div class="es-chat__head">
+                    <span class="es-avatar es-avatar--coral">@EnglishText.Initials(otherName)</span>
+                    <div>
+                        <div class="fw-semibold">@otherName</div>
+                        <div class="es-muted es-small">@(IsTeacher ? "ученик" : "преподаватель")</div>
+                    </div>
+                </div>
+                <div class="es-chat__messages" @ref="messagesEl">
+                    @if (thread.Count == 0)
+                    {
+                        <EsEmpty Icon="bi-chat-left-text" Text="Сообщений пока нет. Напишите первым!" />
+                    }
+                    @foreach (var m in thread)
+                    {
+                        <div class="es-bubble @(m.FromId == UserId ? "mine" : "")">@m.Text<small>@EnglishText.DateAndTime(Local(m.CreatedAt))</small></div>
+                    }
+                </div>
+                <div class="es-chat__compose">
+                    <textarea class="form-control" rows="2" placeholder="Сообщение" maxlength="@EnglishMessageService.MaxText" @bind="text" @bind:event="oninput"></textarea>
+                    <button type="button" class="es-btn" disabled="@string.IsNullOrWhiteSpace(text)" @onclick="SendAsync" aria-label="Отправить"><i class="bi bi-send"></i></button>
+                </div>
+                <EsMessages Error="@Error" />
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "with")] public string? With { get; set; }
+
+    private List<EnglishContact> contacts = new();
+    private List<EnglishMessage> thread = new();
+    private string? otherId;
+    private string otherName = "";
+    private string text = "";
+    private ElementReference messagesEl;
+    private bool scroll;
+    private CancellationTokenSource? cts;
+
+    protected override async Task LoadAsync()
+    {
+        if (IsTeacher)
+        {
+            contacts = await Messages.ContactsAsync(UserId);
+            otherId = contacts.FirstOrDefault(c => c.UserId == With)?.UserId;
+            otherName = contacts.FirstOrDefault(c => c.UserId == otherId)?.Name ?? "";
+        }
+        else if (Me.TeacherId is not null)
+        {
+            otherId = Me.TeacherId;
+            otherName = (await Profiles.GetTeacherProfileAsync(UserId))?.DisplayName ?? "Преподаватель";
+        }
+        await LoadThreadAsync();
+        StartPolling();
+    }
+
+    // Страница переиспользуется при переходе ?with=другой — перечитываем собеседника
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Loaded && IsTeacher && With != otherId) await LoadAsync();
+    }
+
+    private async Task LoadThreadAsync()
+    {
+        var before = thread.Count;
+        thread = otherId is null ? new() : await Messages.ThreadAsync(UserId, otherId);
+        scroll = thread.Count != before;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!scroll || otherId is null) return;
+        scroll = false;
+        await JS.InvokeVoidAsync("lmnEnglish.scrollToEnd", messagesEl);
+    }
+
+    private async Task SendAsync()
+    {
+        if (otherId is null) return;
+        if (!Report(await Messages.SendAsync(UserId, otherId, text))) return;
+        text = "";
+        await LoadThreadAsync();
+    }
+
+    // Новые сообщения подтягиваются раз в 10 секунд, пока страница открыта
+    private void StartPolling()
+    {
+        if (cts is not null) return;
+        cts = new CancellationTokenSource();
+        var token = cts.Token;
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+            try
+            {
+                while (await timer.WaitForNextTickAsync(token))
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await LoadThreadAsync();
+                        if (IsTeacher) contacts = await Messages.ContactsAsync(UserId);
+                        StateHasChanged();
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+    }
+}

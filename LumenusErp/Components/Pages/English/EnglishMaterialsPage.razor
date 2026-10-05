@@ -1,0 +1,196 @@
+@page "/english/materials"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishLibraryService Library
+
+<PageTitle>@(IsTeacher ? "Материалы" : "Библиотека") — English Studio</PageTitle>
+
+<EsHeading Title="@(IsTeacher ? "Материалы" : "Библиотека")"
+           Text="@(IsTeacher ? "Шпаргалки, ссылки и тексты, которые увидят ваши ученики." : "Полезные материалы от преподавателя: грамматика, лексика, видео и чтение.")">
+    @if (IsTeacher)
+    {
+        <button type="button" class="es-btn" @onclick="() => Edit(null)"><i class="bi bi-plus-lg"></i> Добавить материал</button>
+    }
+</EsHeading>
+
+<EsMessages Error="@(editing is null ? Error : null)" Notice="@Notice" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else
+{
+    <div class="es-toolbar">
+        <div class="es-search">
+            <i class="bi bi-search"></i>
+            <input class="form-control" placeholder="Поиск по материалам" @bind="search" @bind:event="oninput" />
+        </div>
+        <div class="es-seg">
+            <button type="button" class="@(category == "" ? "active" : "")" @onclick='() => category = ""'>Все</button>
+            @foreach (var c in EnglishMaterial.Categories)
+            {
+                <button type="button" class="@(category == c ? "active" : "")" @onclick="() => category = c">@c</button>
+            }
+            @if (!IsTeacher)
+            {
+                <button type="button" class="@(category == Favorites ? "active" : "")" @onclick="() => category = Favorites"><i class="bi bi-star"></i> Избранное</button>
+            }
+        </div>
+    </div>
+
+    @if (!Filtered.Any())
+    {
+        <div class="es-panel"><EsEmpty Icon="bi-collection" Text="@(materials.Count == 0 ? "Материалов пока нет." : "Ничего не найдено.")" /></div>
+    }
+    <div class="es-grid-3">
+        @foreach (var card in Filtered)
+        {
+            var m = card.Material;
+            <div class="es-panel d-flex flex-column">
+                <div class="es-cover es-tone-@CategoryTone(m.Category)"><i class="bi @CategoryIcon(m.Category)"></i><small>@m.Category.ToUpper(EnglishText.Ru)</small></div>
+                <div class="d-flex justify-content-between gap-2">
+                    <h2>@m.Title</h2>
+                    @if (!IsTeacher)
+                    {
+                        <button type="button" class="es-icon-btn" aria-label="Избранное" @onclick="() => ToggleAsync(m.Id)"><i class="bi @(card.Favorite ? "bi-star-fill es-star on" : "bi-star es-star")"></i></button>
+                    }
+                </div>
+                <p class="es-muted">@m.Description</p>
+                @if (!string.IsNullOrEmpty(m.Level))
+                {
+                    <span class="es-tag es-tag--muted align-self-start mb-2">@m.Level</span>
+                }
+                <div class="es-btn-row mt-auto">
+                    <button type="button" class="es-btn es-btn--secondary" @onclick="() => opened = m">Открыть</button>
+                    @if (IsTeacher)
+                    {
+                        <button type="button" class="es-icon-btn" aria-label="Изменить" @onclick="() => Edit(m)"><i class="bi bi-pencil"></i></button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (opened is not null)
+{
+    <EsModal Title="@opened.Title" Subtitle="@($"{opened.Category}{(string.IsNullOrEmpty(opened.Level) ? "" : " · " + opened.Level)}")" OnClose="() => opened = null">
+        @if (!string.IsNullOrEmpty(opened.Content))
+        {
+            <p class="es-prewrap">@opened.Content</p>
+        }
+        <div class="es-btn-row mt-0">
+            @if (!string.IsNullOrEmpty(opened.Url))
+            {
+                <a class="es-btn" href="@opened.Url" target="_blank" rel="noopener">Перейти по ссылке <i class="bi bi-box-arrow-up-right"></i></a>
+            }
+            @if (!string.IsNullOrEmpty(opened.Content) && (IsTeacher || Me.AllowDownloads))
+            {
+                <a class="es-btn es-btn--secondary" href="@DownloadHref(opened)" download="@(opened.Title).txt"><i class="bi bi-download"></i> Скачать</a>
+            }
+        </div>
+    </EsModal>
+}
+
+@if (editing is not null)
+{
+    <EsModal Title="@(editing.Id == Guid.Empty ? "Новый материал" : "Изменить материал")" OnClose="() => editing = null">
+        <EsMessages Error="@Error" />
+        <label class="es-field">Название
+            <input class="form-control" @bind="editing.Title" maxlength="200" />
+        </label>
+        <div class="es-form-grid">
+            <label class="es-field">Категория
+                <select class="form-select" @bind="editing.Category">
+                    @foreach (var c in EnglishMaterial.Categories)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </label>
+            <label class="es-field">Уровень
+                <input class="form-control" @bind="editing.Level" maxlength="50" placeholder="A2–B1" />
+            </label>
+        </div>
+        <label class="es-field">Краткое описание
+            <input class="form-control" @bind="editing.Description" maxlength="1000" />
+        </label>
+        <label class="es-field">Текст материала
+            <textarea class="form-control" rows="6" @bind="editing.Content" maxlength="20000"></textarea>
+        </label>
+        <label class="es-field">Ссылка
+            <input class="form-control" @bind="editing.Url" maxlength="1000" placeholder="https://" />
+        </label>
+        <div class="es-btn-row mt-0">
+            <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+            @if (editing.Id != Guid.Empty)
+            {
+                <button type="button" class="es-btn es-btn--danger" @onclick="DeleteAsync">Удалить</button>
+            }
+        </div>
+    </EsModal>
+}
+
+@code {
+    private const string Favorites = "*";
+
+    private List<EnglishMaterialCard> materials = new();
+    private string search = "", category = "";
+    private EnglishMaterial? opened, editing;
+
+    private IEnumerable<EnglishMaterialCard> Filtered => materials
+        .Where(c => category == "" || (category == Favorites ? c.Favorite : c.Material.Category == category))
+        .Where(c => search.Length == 0
+            || c.Material.Title.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || c.Material.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task LoadAsync()
+    {
+        materials = await Library.ListMaterialsAsync(UserId, IsTeacher);
+    }
+
+    private static string CategoryTone(string c) => Array.IndexOf(EnglishMaterial.Categories, c) switch
+    {
+        0 => "mint", 1 => "blue", 2 => "peach", 3 => "purple", _ => "yellow",
+    };
+
+    private static string CategoryIcon(string c) => Array.IndexOf(EnglishMaterial.Categories, c) switch
+    {
+        0 => "bi-diagram-3", 1 => "bi-translate", 2 => "bi-play-circle", 3 => "bi-headphones", _ => "bi-book",
+    };
+
+    private static string DownloadHref(EnglishMaterial m) =>
+        "data:text/plain;charset=utf-8;base64," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(m.Title + "\n\n" + m.Content + (m.Url.Length > 0 ? "\n\n" + m.Url : "")));
+
+    private async Task ToggleAsync(Guid id)
+    {
+        await Library.ToggleFavoriteAsync(UserId, id);
+        await LoadAsync();
+    }
+
+    private void Edit(EnglishMaterial? m)
+    {
+        ClearMessages();
+        editing = m is null
+            ? new EnglishMaterial { Category = EnglishMaterial.Categories[0] }
+            : new EnglishMaterial { Id = m.Id, Title = m.Title, Category = m.Category, Level = m.Level, Description = m.Description, Content = m.Content, Url = m.Url };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editing is null) return;
+        if (!Report(await Library.SaveMaterialAsync(UserId, editing), "Материал сохранён.")) return;
+        editing = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (editing is null) return;
+        await Library.DeleteMaterialAsync(UserId, editing.Id);
+        editing = null;
+        await LoadAsync();
+    }
+}

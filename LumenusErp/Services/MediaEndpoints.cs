@@ -1,9 +1,10 @@
 using LumenusErp.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace LumenusErp.Services;
 
-/// <summary>GET /media/{id}: отдача загруженных картинок с проверкой доступа по видимости страниц.</summary>
+/// <summary>GET /media/{id}: отдача загруженных картинок с проверкой доступа по видимости страниц и урокам English Studio.</summary>
 public static class MediaEndpoints
 {
     public static void MapMediaEndpoints(this IEndpointRouteBuilder app)
@@ -26,7 +27,8 @@ public static class MediaEndpoints
             var isPublic = visibilities.Contains(PageVisibility.Public);
             var allowed = isPublic
                 || user.IsInRole("Admin")
-                || (user.Identity?.IsAuthenticated == true && visibilities.Contains(PageVisibility.Authenticated));
+                || (user.Identity?.IsAuthenticated == true && visibilities.Contains(PageVisibility.Authenticated))
+                || await CanSeeLessonPhotoAsync(db, id, user);
             var path = media.PathOf(file);
             if (!allowed || !File.Exists(path))
             {
@@ -40,5 +42,17 @@ public static class MediaEndpoints
             headers.CacheControl = isPublic ? "public, max-age=31536000, immutable" : "private, max-age=3600";
             return Results.File(path, file.ContentType);
         });
+    }
+
+    /// <summary>Фото урока видят автор урока и его ученики (урок опубликован).</summary>
+    private static async Task<bool> CanSeeLessonPhotoAsync(ApplicationDbContext db, Guid mediaId, ClaimsPrincipal user)
+    {
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+        {
+            return false;
+        }
+        return await db.EnglishLessons.AnyAsync(l => l.PhotoMediaId == mediaId
+            && (l.TeacherId == userId || (l.Published && db.EnglishProfiles.Any(p => p.UserId == userId && p.TeacherId == l.TeacherId))));
     }
 }

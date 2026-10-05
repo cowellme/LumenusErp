@@ -1,0 +1,232 @@
+@page "/english/calendar"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishScheduleService Schedule
+
+<PageTitle>@(IsTeacher ? "Расписание" : "Календарь") — English Studio</PageTitle>
+
+<EsHeading Title="@(IsTeacher ? "Расписание" : "Календарь")"
+           Text="@(IsTeacher ? "Занятия, разговорные клубы и сроки заданий ваших учеников." : "Занятия, дедлайны и твои личные планы.")">
+    <button type="button" class="es-btn" @onclick="() => EditAsync(null, NowLocal.Date.AddHours(18))"><i class="bi bi-plus-lg"></i> Событие</button>
+</EsHeading>
+
+<EsMessages Error="@(editing is null ? Error : null)" Notice="@Notice" />
+
+<div class="es-toolbar">
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="es-icon-btn" aria-label="Предыдущий месяц" @onclick="() => MoveAsync(-1)"><i class="bi bi-chevron-left"></i></button>
+        <h2 class="mb-0">@EnglishText.Month(month)</h2>
+        <button type="button" class="es-icon-btn" aria-label="Следующий месяц" @onclick="() => MoveAsync(1)"><i class="bi bi-chevron-right"></i></button>
+    </div>
+    <div class="es-seg">
+        <button type="button" class="@(list ? "" : "active")" @onclick="() => list = false">Месяц</button>
+        <button type="button" class="@(list ? "active" : "")" @onclick="() => list = true">Список</button>
+    </div>
+</div>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (!list)
+{
+    <div class="es-panel">
+        <div class="es-calendar">
+            @foreach (var d in EnglishText.WeekDays)
+            {
+                <b>@d</b>
+            }
+            @for (var i = 0; i < Offset; i++)
+            {
+                <div></div>
+            }
+            @for (var day = 1; day <= DateTime.DaysInMonth(month.Year, month.Month); day++)
+            {
+                var date = new DateTime(month.Year, month.Month, day);
+                var dayItems = items.Where(x => Local(x.StartsAt).Date == date).ToList();
+                <div class="es-calendar__day @(date == NowLocal.Date ? "today" : "")" @onclick="() => selected = date">
+                    <span>@day</span>
+                    @foreach (var it in dayItems.Take(3))
+                    {
+                        <small class="@(it.EventId is null ? "due" : "")" title="@it.Title">@Local(it.StartsAt).ToString("HH:mm") @it.Title</small>
+                    }
+                    @if (dayItems.Count > 3)
+                    {
+                        <small>ещё @(dayItems.Count - 3)</small>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+    @if (selected is { } sel)
+    {
+        <div class="es-panel">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">@EnglishText.Capitalize(sel.ToString("dddd, d MMMM", EnglishText.Ru))</h2>
+                <button type="button" class="es-btn es-btn--secondary es-btn--sm" @onclick="() => EditAsync(null, sel.AddHours(18))"><i class="bi bi-plus-lg"></i> Добавить</button>
+            </div>
+            @ItemRows(items.Where(x => Local(x.StartsAt).Date == sel).ToList())
+        </div>
+    }
+}
+else
+{
+    <div class="es-panel">@ItemRows(items)</div>
+}
+
+@if (editing is not null)
+{
+    <EsModal Title="@(editing.Id == Guid.Empty ? "Новое событие" : "Изменить событие")" OnClose="() => editing = null">
+        <EsMessages Error="@Error" />
+        <label class="es-field">Название
+            <input class="form-control" @bind="editing.Title" maxlength="200" placeholder="Speaking club" />
+        </label>
+        <div class="es-form-grid">
+            <label class="es-field">Тип
+                <select class="form-select" @bind="editing.Kind">
+                    @foreach (var k in EnglishEvent.Kinds)
+                    {
+                        <option value="@k">@k</option>
+                    }
+                </select>
+            </label>
+            <label class="es-field">Начало
+                <input type="datetime-local" class="form-control" @bind="startLocal" />
+            </label>
+            <label class="es-field">Длительность, мин
+                <input type="number" class="form-control" min="5" max="600" @bind="editing.DurationMinutes" />
+            </label>
+            @if (IsTeacher)
+            {
+                <label class="es-field">Для кого
+                    <select class="form-select" @bind="audience">
+                        <option value="">Все ученики</option>
+                        @foreach (var g in groups)
+                        {
+                            <option value="g:@g.Id">Группа: @g.Name</option>
+                        }
+                        @foreach (var s in students)
+                        {
+                            <option value="s:@s.Profile.UserId">@s.Profile.DisplayName</option>
+                        }
+                    </select>
+                </label>
+            }
+        </div>
+        <label class="es-field">Ссылка на встречу
+            <input class="form-control" @bind="editing.Link" maxlength="1000" placeholder="https://" />
+        </label>
+        <label class="es-field">Заметки
+            <textarea class="form-control" rows="3" @bind="editing.Notes" maxlength="2000"></textarea>
+        </label>
+        <div class="es-btn-row mt-0">
+            <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+            @if (editing.Id != Guid.Empty)
+            {
+                <button type="button" class="es-btn es-btn--danger" @onclick="DeleteAsync">Удалить</button>
+            }
+        </div>
+    </EsModal>
+}
+
+@code {
+    private DateTime month;
+    private DateTime? selected;
+    private bool list;
+    private List<EnglishCalendarItem> items = new();
+
+    private EnglishEvent? editing;
+    private DateTime startLocal;
+    private string audience = "";
+    private List<EnglishGroup> groups = new();
+    private List<EnglishStudentCard> students = new();
+
+    // Сколько пустых клеток перед первым числом (неделя с понедельника)
+    private int Offset => ((int)month.DayOfWeek + 6) % 7;
+
+    protected override async Task LoadAsync()
+    {
+        if (month == default) month = new DateTime(NowLocal.Year, NowLocal.Month, 1);
+        var from = EnglishRoles.ToUtc(month, Tz);
+        var to = EnglishRoles.ToUtc(month.AddMonths(1), Tz);
+        items = await Schedule.ListAsync(UserId, IsTeacher, from, to);
+    }
+
+    private async Task MoveAsync(int delta)
+    {
+        month = month.AddMonths(delta);
+        selected = null;
+        await LoadAsync();
+    }
+
+    private RenderFragment ItemRows(List<EnglishCalendarItem> list) => @<div>
+        @if (list.Count == 0)
+        {
+            <EsEmpty Icon="bi-calendar3" Text="Событий нет." />
+        }
+        @foreach (var it in list)
+        {
+            var start = Local(it.StartsAt);
+            <div class="es-row">
+                <span class="es-icon-tile @(it.EventId is null ? "es-tone-peach" : "es-tone-mint") mb-0"><i class="bi @(it.EventId is null ? "bi-flag" : "bi-camera-video")"></i></span>
+                <div class="es-row__main">
+                    <h3>@it.Title</h3>
+                    <p>@EnglishText.DateAndTime(start)@(it.DurationMinutes > 0 ? $" · {it.DurationMinutes} мин" : "") · @it.Kind · @it.Audience</p>
+                    @if (!string.IsNullOrEmpty(it.Notes))
+                    {
+                        <p class="es-prewrap">@it.Notes</p>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(it.Link))
+                {
+                    <a class="es-btn es-btn--secondary es-btn--sm" href="@it.Link" target="_blank" rel="noopener">Подключиться</a>
+                }
+                @if (it.CanEdit && it.EventId is { } id)
+                {
+                    <button type="button" class="es-icon-btn" aria-label="Изменить" @onclick="() => OpenAsync(id)"><i class="bi bi-pencil"></i></button>
+                }
+            </div>
+        }
+    </div>;
+
+    private async Task LoadAudienceAsync()
+    {
+        if (!IsTeacher || groups.Count + students.Count > 0) return;
+        groups = await Profiles.ListGroupsAsync(UserId);
+        students = await Profiles.ListStudentsAsync(UserId);
+    }
+
+    private async Task EditAsync(EnglishEvent? e, DateTime start)
+    {
+        ClearMessages();
+        await LoadAudienceAsync();
+        editing = e ?? new EnglishEvent { Kind = EnglishEvent.Kinds[0] };
+        startLocal = start;
+        audience = e?.StudentId is { } s ? "s:" + s : e?.GroupId is { } g ? "g:" + g : "";
+    }
+
+    private async Task OpenAsync(Guid id)
+    {
+        var e = await Schedule.GetOwnAsync(UserId, id);
+        if (e is not null) await EditAsync(e, Local(e.StartsAt));
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editing is null) return;
+        editing.StudentId = audience.StartsWith("s:") ? audience[2..] : null;
+        editing.GroupId = audience.StartsWith("g:") && Guid.TryParse(audience[2..], out var g) ? g : null;
+        if (!Report(await Schedule.SaveAsync(UserId, IsTeacher, editing, startLocal, Tz), "Событие сохранено.")) return;
+        editing = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (editing is null) return;
+        await Schedule.DeleteAsync(UserId, editing.Id);
+        editing = null;
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,106 @@
+@page "/english/programs"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishLessonService Lessons
+
+<PageTitle>Учебные программы — English Studio</PageTitle>
+
+<EsHeading Title="Учебные программы" Text="Курсы, в которые собираются уроки. Программу уроку назначают в его редакторе.">
+    <button type="button" class="es-btn" @onclick="() => Edit(null)"><i class="bi bi-plus-lg"></i> Новая программа</button>
+</EsHeading>
+
+<EsMessages Error="@(editing is null ? Error : null)" Notice="@Notice" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (programs.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-journal-bookmark" Text="Программ пока нет." /></div>
+}
+else
+{
+    <div class="es-grid-2">
+        @foreach (var (p, count) in programs)
+        {
+            <div class="es-panel d-flex flex-column">
+                <div class="d-flex justify-content-between gap-2">
+                    <h2>@p.Title</h2>
+                    @if (!string.IsNullOrEmpty(p.Level))
+                    {
+                        <span class="es-tag align-self-start">@p.Level</span>
+                    }
+                </div>
+                <p class="es-muted es-prewrap">@p.Description</p>
+                <p class="es-small">@count @EnglishText.Plural(count, "урок", "урока", "уроков")</p>
+                <div class="es-btn-row mt-auto">
+                    <button type="button" class="es-btn es-btn--secondary" @onclick="() => Edit(p)"><i class="bi bi-pencil"></i> Изменить</button>
+                    <a class="es-btn es-btn--secondary" href="english/lessons/new"><i class="bi bi-plus-lg"></i> Урок</a>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (editing is not null)
+{
+    <EsModal Title="@(editing.Id == Guid.Empty ? "Новая программа" : "Изменить программу")" OnClose="() => editing = null">
+        <EsMessages Error="@Error" />
+        <div class="es-form-grid">
+            <label class="es-field">Название
+                <input class="form-control" @bind="editing.Title" maxlength="200" placeholder="General English" />
+            </label>
+            <label class="es-field">Уровень
+                <input class="form-control" @bind="editing.Level" maxlength="50" placeholder="A2 → B1" />
+            </label>
+        </div>
+        <label class="es-field">Описание
+            <textarea class="form-control" rows="4" @bind="editing.Description" maxlength="2000"></textarea>
+        </label>
+        <div class="es-btn-row mt-0">
+            <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+            @if (editing.Id != Guid.Empty)
+            {
+                <button type="button" class="es-btn es-btn--danger" @onclick="DeleteAsync">Удалить</button>
+            }
+        </div>
+        @if (editing.Id != Guid.Empty)
+        {
+            <p class="es-muted es-small mt-2 mb-0">При удалении уроки программы останутся, но без программы.</p>
+        }
+    </EsModal>
+}
+
+@code {
+    private List<(EnglishProgram Program, int Lessons)> programs = new();
+    private EnglishProgram? editing;
+
+    protected override async Task LoadAsync()
+    {
+        programs = await Lessons.ListProgramsAsync(UserId);
+    }
+
+    private void Edit(EnglishProgram? p)
+    {
+        ClearMessages();
+        editing = p is null ? new EnglishProgram() : new EnglishProgram { Id = p.Id, Title = p.Title, Level = p.Level, Description = p.Description };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editing is null) return;
+        if (!Report(await Lessons.SaveProgramAsync(UserId, editing), "Программа сохранена.")) return;
+        editing = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (editing is null) return;
+        await Lessons.DeleteProgramAsync(UserId, editing.Id);
+        editing = null;
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,77 @@
+@page "/english/tests"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishTestService Tests
+
+<PageTitle>Тесты — English Studio</PageTitle>
+
+<EsHeading Title="Тесты" Text="@(IsTeacher ? "Тесты с автопроверкой: черновики, опубликованные и обязательные." : "Проверь знания и узнай, что стоит повторить.")">
+    @if (IsTeacher)
+    {
+        <a href="english/tests/new" class="es-btn"><i class="bi bi-plus-lg"></i> Создать тест</a>
+    }
+</EsHeading>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (tests.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-file-earmark-text" Text="@(IsTeacher ? "Тестов пока нет — составьте первый в конструкторе." : "Преподаватель ещё не опубликовал тесты.")" /></div>
+}
+else
+{
+    <div class="es-grid-3">
+        @foreach (var t in tests)
+        {
+            <div class="es-panel d-flex flex-column">
+                <span class="es-icon-tile es-tone-mint"><i class="bi bi-file-earmark-text"></i></span>
+                <div class="d-flex gap-1 flex-wrap">
+                    @if (t.Test.Required)
+                    {
+                        <span class="es-tag">ОБЯЗАТЕЛЬНЫЙ</span>
+                    }
+                    @if (IsTeacher && !t.Test.Published)
+                    {
+                        <span class="es-tag es-tag--warn">ЧЕРНОВИК</span>
+                    }
+                    @if (!IsTeacher && !t.Test.Required)
+                    {
+                        <span class="es-tag">ОТ ПРЕПОДАВАТЕЛЯ</span>
+                    }
+                </div>
+                <h2 class="mt-2">@t.Test.Title</h2>
+                <p class="es-muted">@t.Questions @EnglishText.Plural(t.Questions, "вопрос", "вопроса", "вопросов") · без ограничения времени@(t.Test.Lesson is null ? "" : " · " + t.Test.Lesson.Title)</p>
+                @if (t.LastResult is { } r)
+                {
+                    <p class="es-small">Последний результат: <strong>@r.Score%</strong> · @EnglishText.Date(Local(r.CreatedAt))</p>
+                }
+                <div class="es-btn-row mt-auto">
+                    @if (IsTeacher)
+                    {
+                        <a href="english/tests/@t.Test.Id/edit" class="es-btn es-btn--secondary"><i class="bi bi-pencil"></i> Редактировать</a>
+                    }
+                    else if (t.LastResult is null || Me.AllowRetakes)
+                    {
+                        <a href="english/tests/@t.Test.Id" class="es-btn">@(t.LastResult is null ? "Начать тест" : "Пройти снова") <i class="bi bi-arrow-right"></i></a>
+                    }
+                    else
+                    {
+                        <span class="es-muted es-small">Повторные попытки закрыты преподавателем.</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<EnglishTestCard> tests = new();
+
+    protected override async Task LoadAsync()
+    {
+        tests = IsTeacher ? await Tests.ListForTeacherAsync(UserId) : await Tests.ListForStudentAsync(UserId);
+    }
+}

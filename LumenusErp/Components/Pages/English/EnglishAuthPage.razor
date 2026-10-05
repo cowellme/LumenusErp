@@ -1,0 +1,344 @@
+@page "/english/login"
+@layout LumenusErp.Components.Layout.EnglishBareLayout
+@using System.ComponentModel.DataAnnotations
+@using LumenusErp.Components.Account
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject EnglishProfileService Profiles
+@inject ApplicationDbContext Db
+@inject IConfiguration Config
+@inject ILogger<EnglishAuthPage> Logger
+@inject IdentityRedirectManager RedirectManager
+
+@* Вход и регистрация English Studio с выбором роли. Статический SSR: вход ставит cookie, нужен HttpContext. *@
+<PageTitle>@PageHeading — English Studio</PageTitle>
+<NoIndex />
+
+<main class="es-auth">
+    <div class="es-auth__wallpaper" aria-hidden="true">
+        <span class="es-auth__shape one"></span>
+        <span class="es-auth__shape two"></span>
+        <span class="es-auth__shape three"></span>
+        @foreach (var (text, top, left) in Phrases)
+        {
+            <span class="es-auth__word" style="top:@top%;left:@left%">@text</span>
+        }
+    </div>
+
+    <section class="es-auth__card">
+        <a href="english" class="es-brand p-0">
+            <span class="es-brand__mark">e.</span>
+            <span class="es-brand__name">English Studio<span class="es-brand__sub">PERSONAL LEARNING SPACE</span></span>
+        </a>
+
+        <div class="mt-4"><span class="es-tag">@(Mode == "register" ? "СОЗДАНИЕ АККАУНТА" : JoinMode ? "ПОДКЛЮЧЕНИЕ" : "ЛИЧНЫЙ КАБИНЕТ")</span></div>
+        <h1>@PageHeading</h1>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="es-alert es-alert--error" role="alert">@errorMessage</div>
+        }
+
+        @if (JoinMode)
+        {
+            @* Вошедший пользователь сайта без роли English Studio выбирает, кем подключиться *@
+            <p class="es-muted">Вы вошли как <strong>@HttpContext.User.Identity?.Name</strong>. Выберите, кем вы будете в English Studio.</p>
+            <form method="post" @formname="english-join" @onsubmit="JoinAsync">
+                <AntiforgeryToken />
+                <div class="es-role-cards">
+                    <button type="submit" name="JoinRole" value="student" class="es-role-card">
+                        <i class="bi bi-mortarboard" aria-hidden="true"></i><strong>Я ученик</strong>
+                    </button>
+                    @if (TeacherSignupAllowed)
+                    {
+                        <button type="submit" name="JoinRole" value="teacher" class="es-role-card">
+                            <i class="bi bi-person-video3" aria-hidden="true"></i><strong>Я преподаватель</strong>
+                        </button>
+                    }
+                </div>
+            </form>
+            <div class="es-auth__links">
+                <form action="Account/Logout" method="post" class="m-0">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="english/login" />
+                    <button type="submit" class="es-link">Войти под другим аккаунтом</button>
+                </form>
+            </div>
+        }
+        else if (Role is null)
+        {
+            <div class="es-role-cards">
+                <a class="es-role-card" href="@Link("student", Mode)">
+                    <i class="bi bi-mortarboard" aria-hidden="true"></i><strong>@(Mode == "register" ? "Я ученик" : "Войти как ученик")</strong>
+                </a>
+                @if (Mode != "register" || TeacherSignupAllowed)
+                {
+                    <a class="es-role-card" href="@Link("teacher", Mode)">
+                        <i class="bi bi-person-video3" aria-hidden="true"></i><strong>@(Mode == "register" ? "Я преподаватель" : "Войти как преподаватель")</strong>
+                    </a>
+                }
+            </div>
+            <div class="text-center">
+                <a class="es-link" href="@Link(null, Mode == "register" ? "login" : "register")">
+                    @(Mode == "register" ? "Уже есть аккаунт? Войти" : "Впервые у нас? Зарегистрироваться")
+                </a>
+            </div>
+        }
+        else
+        {
+            <p class="es-muted">@(Mode == "register" ? "Создайте аккаунт, чтобы открыть своё рабочее пространство." : "Введите почту и пароль, чтобы открыть своё рабочее пространство.")</p>
+            <div class="es-selected-role">
+                <i class="bi @(Role == "teacher" ? "bi-person-video3" : "bi-mortarboard")" aria-hidden="true"></i>
+                <b>@(Role == "teacher" ? "Преподаватель" : "Ученик")</b>
+                <a href="@Link(null, Mode)">изменить</a>
+            </div>
+
+            <EditForm Model="Input" method="post" OnValidSubmit="SubmitAsync" FormName="english-auth">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="es-alert es-alert--error" role="alert" />
+                @if (Mode == "register")
+                {
+                    <div class="es-form-grid">
+                        <label class="es-field">Имя
+                            <InputText @bind-Value="Input.FirstName" class="form-control" autocomplete="given-name" />
+                        </label>
+                        <label class="es-field">Фамилия
+                            <InputText @bind-Value="Input.LastName" class="form-control" autocomplete="family-name" />
+                        </label>
+                    </div>
+                }
+                <label class="es-field">Почта
+                    <InputText @bind-Value="Input.Email" type="email" class="form-control" autocomplete="username"
+                               placeholder="@(Role == "teacher" ? "teacher@example.com" : "student@example.com")" />
+                </label>
+                <label class="es-field">Пароль
+                    <InputText @bind-Value="Input.Password" type="password" class="form-control"
+                               autocomplete="@(Mode == "register" ? "new-password" : "current-password")" placeholder="@(Mode == "register" ? "6+ символов: цифра, A–Z, a–z и знак" : "")" />
+                </label>
+                <button type="submit" class="es-btn w-100">
+                    <i class="bi @(Mode == "register" ? "bi-person-plus" : "bi-key")" aria-hidden="true"></i>
+                    @(Mode == "register" ? "Создать аккаунт" : "Войти в кабинет")
+                </button>
+            </EditForm>
+
+            <div class="es-auth__links">
+                <a href="@Link(Role, Mode == "register" ? "login" : "register")">@(Mode == "register" ? "Вход" : "Регистрация")</a>
+                <a href="Account/ForgotPassword">Забыли пароль?</a>
+            </div>
+        }
+    </section>
+</main>
+
+@code {
+    private static readonly (string Text, int Top, int Left)[] Phrases =
+    [
+        ("Language opens quiet doors", 8, 6),
+        ("Practice makes confidence visible", 18, 62),
+        ("Every sentence has a story", 78, 4),
+        ("Curiosity is the best grammar teacher", 88, 48),
+        ("Speak softly and think clearly", 50, 70),
+        ("A new word can change the day", 62, 2),
+    ];
+
+    private string? errorMessage;
+    private bool JoinMode;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "english-auth")]
+    private InputModel Input { get; set; } = new();
+
+    [SupplyParameterFromForm(FormName = "english-join")]
+    private string? JoinRole { get; set; }
+
+    /// <summary>student | teacher; пусто — шаг выбора роли.</summary>
+    [SupplyParameterFromQuery]
+    private string? Role { get; set; }
+
+    /// <summary>login | register.</summary>
+    [SupplyParameterFromQuery]
+    private string? Mode { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    // Регистрацию преподавателей можно закрыть на проде: English:AllowTeacherSignup=false
+    private bool TeacherSignupAllowed => Config.GetValue("English:AllowTeacherSignup", true);
+
+    private string PageHeading => JoinMode ? "Подключение к English Studio"
+        : Role is null ? "Выберите роль"
+        : Mode == "register" ? (Role == "teacher" ? "Регистрация преподавателя" : "Регистрация ученика")
+        : Role == "teacher" ? "Вход преподавателя" : "Вход ученика";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Mode = Mode == "register" ? "register" : "login";
+        Role = Role is "student" or "teacher" ? Role : null;
+        if (Mode == "register" && Role == "teacher" && !TeacherSignupAllowed) Role = null;
+
+        var user = HttpContext.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            // Уже ученик/преподаватель — сразу в кабинет; иначе предлагаем выбрать роль
+            if (user.IsInRole(EnglishRoles.Teacher) || user.IsInRole(EnglishRoles.Student))
+            {
+                RedirectManager.RedirectTo(SafeReturnUrl());
+            }
+            JoinMode = true;
+            return;
+        }
+
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+        }
+    }
+
+    private string Link(string? role, string? mode)
+    {
+        var q = new List<string>();
+        if (role is not null) q.Add("role=" + role);
+        if (mode == "register") q.Add("mode=register");
+        if (!string.IsNullOrEmpty(ReturnUrl)) q.Add("returnUrl=" + Uri.EscapeDataString(ReturnUrl));
+        return "english/login" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
+    }
+
+    // Возврат только внутрь модуля; иначе — на главную кабинета
+    private string SafeReturnUrl()
+    {
+        if (!string.IsNullOrEmpty(ReturnUrl) && Uri.TryCreate(ReturnUrl, UriKind.RelativeOrAbsolute, out var u))
+        {
+            var path = u.IsAbsoluteUri ? u.PathAndQuery : ReturnUrl;
+            path = path.TrimStart('/');
+            if (path.StartsWith("english/", StringComparison.OrdinalIgnoreCase) && !path.StartsWith("english/login", StringComparison.OrdinalIgnoreCase))
+            {
+                return path;
+            }
+        }
+        return "english/home";
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (Role is null) return;
+        var roleName = Role == "teacher" ? EnglishRoles.Teacher : EnglishRoles.Student;
+        if (Mode == "register")
+        {
+            await RegisterAsync(roleName);
+            return;
+        }
+
+        var user = await UserManager.FindByEmailAsync(Input.Email.Trim());
+        if (user is null || !await UserManager.CheckPasswordAsync(user, Input.Password))
+        {
+            errorMessage = "Неверная почта или пароль.";
+            return;
+        }
+        if (!await UserManager.IsInRoleAsync(user, roleName))
+        {
+            errorMessage = Role == "teacher"
+                ? "Этот аккаунт не зарегистрирован как преподаватель. Войдите как ученик."
+                : "Этот аккаунт не зарегистрирован как ученик. Войдите как преподаватель.";
+            return;
+        }
+        var result = await SignInManager.PasswordSignInAsync(user, Input.Password, isPersistent: true, lockoutOnFailure: false);
+        if (result.IsLockedOut)
+        {
+            RedirectManager.RedirectTo("Account/Lockout");
+        }
+        if (!result.Succeeded)
+        {
+            errorMessage = "Не удалось войти. Попробуйте ещё раз.";
+            return;
+        }
+        Logger.LogInformation("English Studio: вход {Role}", roleName);
+        RedirectManager.RedirectTo(SafeReturnUrl());
+    }
+
+    private async Task RegisterAsync(string roleName)
+    {
+        if (Input.Password.Length < 6)
+        {
+            errorMessage = "Пароль — минимум 6 символов.";
+            return;
+        }
+        var email = Input.Email.Trim();
+        var user = new ApplicationUser { UserName = email, Email = email };
+        var created = await UserManager.CreateAsync(user, Input.Password);
+        if (!created.Succeeded)
+        {
+            errorMessage = string.Join(" ", created.Errors.Select(e => IdentityErrorText(e)).Distinct());
+            return;
+        }
+        await UserManager.AddToRoleAsync(user, roleName);
+        await SetupProfileAsync(user, roleName, Input.FirstName, Input.LastName);
+        Logger.LogInformation("English Studio: регистрация {Role}", roleName);
+        await SignInManager.SignInAsync(user, isPersistent: true);
+        RedirectManager.RedirectTo("english/home");
+    }
+
+    private async Task JoinAsync()
+    {
+        var user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null || JoinRole is not ("student" or "teacher") || (JoinRole == "teacher" && !TeacherSignupAllowed))
+        {
+            errorMessage = "Не удалось подключиться. Обновите страницу.";
+            return;
+        }
+        var roleName = JoinRole == "teacher" ? EnglishRoles.Teacher : EnglishRoles.Student;
+        await UserManager.AddToRoleAsync(user, roleName);
+        await SetupProfileAsync(user, roleName, null, null);
+        // Новая роль попадает в cookie только после перевыпуска
+        await SignInManager.RefreshSignInAsync(user);
+        RedirectManager.RedirectTo("english/home");
+    }
+
+    /// <summary>Профиль с именем; преподавателю — стартовые уроки, тест, задание и материалы.</summary>
+    private async Task SetupProfileAsync(ApplicationUser user, string roleName, string? firstName, string? lastName)
+    {
+        var profile = await Profiles.GetOrCreateAsync(user.Id);
+        if (!string.IsNullOrWhiteSpace(firstName) || !string.IsNullOrWhiteSpace(lastName))
+        {
+            profile.FirstName = firstName ?? "";
+            profile.LastName = lastName ?? "";
+            await Profiles.UpdateOwnAsync(user.Id, profile);
+        }
+        if (roleName == EnglishRoles.Teacher)
+        {
+            await EnglishSeed.EnsureSeededForTeacherAsync(Db, user.Id);
+        }
+    }
+
+    private static string IdentityErrorText(IdentityError e) => e.Code switch
+    {
+        "DuplicateUserName" or "DuplicateEmail" => "Аккаунт с такой почтой уже есть.",
+        "PasswordTooShort" => "Пароль слишком короткий.",
+        "PasswordRequiresDigit" => "В пароле нужна цифра.",
+        "PasswordRequiresUpper" => "В пароле нужна заглавная латинская буква.",
+        "PasswordRequiresLower" => "В пароле нужна строчная латинская буква.",
+        "PasswordRequiresNonAlphanumeric" => "В пароле нужен символ, например ! или #.",
+        "InvalidEmail" or "InvalidUserName" => "Некорректная почта.",
+        _ => e.Description,
+    };
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Введите почту.")]
+        [EmailAddress(ErrorMessage = "Некорректная почта.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Введите пароль.")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [StringLength(100)]
+        public string? FirstName { get; set; }
+
+        [StringLength(100)]
+        public string? LastName { get; set; }
+    }
+}

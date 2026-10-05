@@ -1,0 +1,136 @@
+@page "/english/groups"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+
+<PageTitle>Группы — English Studio</PageTitle>
+
+<EsHeading Title="Группы" Text="Объединяйте учеников, чтобы назначать задания и события сразу нескольким.">
+    <button type="button" class="es-btn" @onclick="() => Edit(null)"><i class="bi bi-plus-lg"></i> Новая группа</button>
+</EsHeading>
+
+<EsMessages Error="@(editing is null ? Error : null)" Notice="@Notice" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (groups.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-mortarboard" Text="Групп пока нет." /></div>
+}
+else
+{
+    <div class="es-grid-3">
+        @foreach (var g in groups)
+        {
+            <div class="es-panel d-flex flex-column">
+                <div class="d-flex justify-content-between gap-2">
+                    <h2>@g.Name</h2>
+                    @if (!string.IsNullOrEmpty(g.Level))
+                    {
+                        <span class="es-tag align-self-start">@g.Level</span>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(g.Schedule))
+                {
+                    <p class="es-small mb-1"><i class="bi bi-clock"></i> @g.Schedule</p>
+                }
+                <p class="es-muted">@g.Description</p>
+                <p class="es-small">
+                    @g.Members.Count @EnglishText.Plural(g.Members.Count, "ученик", "ученика", "учеников")@(g.Members.Count > 0 ? ": " + string.Join(", ", g.Members.Select(m => NameOf(m.StudentId))) : "")
+                </p>
+                <div class="es-btn-row mt-auto">
+                    <button type="button" class="es-btn es-btn--secondary" @onclick="() => Edit(g)"><i class="bi bi-pencil"></i> Изменить</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (editing is not null)
+{
+    <EsModal Title="@(editing.Id == Guid.Empty ? "Новая группа" : "Изменить группу")" OnClose="() => editing = null">
+        <EsMessages Error="@Error" />
+        <div class="es-form-grid">
+            <label class="es-field">Название
+                <input class="form-control" @bind="editing.Name" maxlength="200" placeholder="Pre-Intermediate, вечер" />
+            </label>
+            <label class="es-field">Уровень
+                <input class="form-control" @bind="editing.Level" maxlength="50" placeholder="A2" />
+            </label>
+        </div>
+        <label class="es-field">Расписание
+            <input class="form-control" @bind="editing.Schedule" maxlength="200" placeholder="Вт и Чт, 19:00" />
+        </label>
+        <label class="es-field">Описание
+            <textarea class="form-control" rows="2" @bind="editing.Description" maxlength="1000"></textarea>
+        </label>
+        <div class="es-field">Ученики
+            @if (students.Count == 0)
+            {
+                <p class="es-muted es-small mb-0">Сначала добавьте учеников на странице «Ученики».</p>
+            }
+            @foreach (var s in students)
+            {
+                <label class="form-check">
+                    <input type="checkbox" class="form-check-input" checked="@members.Contains(s.Profile.UserId)" @onchange="e => Toggle(s.Profile.UserId, (bool)e.Value!)" />
+                    <span class="form-check-label">@s.Profile.DisplayName</span>
+                </label>
+            }
+        </div>
+        <div class="es-btn-row mt-0">
+            <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+            @if (editing.Id != Guid.Empty)
+            {
+                <button type="button" class="es-btn es-btn--danger" @onclick="DeleteAsync">Удалить группу</button>
+            }
+        </div>
+    </EsModal>
+}
+
+@code {
+    private List<EnglishGroup> groups = new();
+    private List<EnglishStudentCard> students = new();
+    private EnglishGroup? editing;
+    private HashSet<string> members = new();
+
+    protected override async Task LoadAsync()
+    {
+        groups = await Profiles.ListGroupsAsync(UserId);
+        students = await Profiles.ListStudentsAsync(UserId);
+    }
+
+    private string NameOf(string id) => students.FirstOrDefault(s => s.Profile.UserId == id)?.Profile.DisplayName ?? "…";
+
+    private void Edit(EnglishGroup? g)
+    {
+        ClearMessages();
+        editing = g is null
+            ? new EnglishGroup()
+            : new EnglishGroup { Id = g.Id, Name = g.Name, Level = g.Level, Schedule = g.Schedule, Description = g.Description };
+        members = g?.Members.Select(m => m.StudentId).ToHashSet() ?? new();
+    }
+
+    private void Toggle(string id, bool on)
+    {
+        if (on) members.Add(id);
+        else members.Remove(id);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editing is null) return;
+        if (!Report(await Profiles.SaveGroupAsync(UserId, editing, members), "Группа сохранена.")) return;
+        editing = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (editing is null) return;
+        await Profiles.DeleteGroupAsync(UserId, editing.Id);
+        editing = null;
+        await LoadAsync();
+    }
+}

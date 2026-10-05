@@ -1,0 +1,184 @@
+@page "/english/tests/new"
+@page "/english/tests/{Id:guid}/edit"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishTestService Tests
+@inject EnglishLessonService Lessons
+
+<PageTitle>Конструктор тестов — English Studio</PageTitle>
+
+<a href="english/tests" class="es-link mb-3">← Все тесты</a>
+<EsHeading Title="Конструктор тестов" Text="Создай тест по пройденному уроку и опубликуй его для учеников." />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (notFound)
+{
+    <div class="es-panel"><EsEmpty Text="Тест не найден." /></div>
+}
+else
+{
+    <div class="es-panel">
+        <EsMessages Error="@Error" Notice="@Notice" />
+        <div class="es-form-grid">
+            <label class="es-field">Название теста
+                <input class="form-control" @bind="test.Title" maxlength="200" placeholder="Past Simple — повторение" />
+            </label>
+            <label class="es-field">Урок
+                <select class="form-select" @bind="lessonValue">
+                    <option value="">Без урока</option>
+                    @foreach (var l in lessons)
+                    {
+                        <option value="@l.Lesson.Id">@l.Unit.ToString("00") · @l.Lesson.Title</option>
+                    }
+                </select>
+            </label>
+        </div>
+        <label class="es-field">Описание
+            <input class="form-control" @bind="test.Description" maxlength="1000" placeholder="Что проверяет тест" />
+        </label>
+        <div class="d-flex flex-wrap gap-4 mb-2">
+            <label class="form-check"><input type="checkbox" class="form-check-input" @bind="test.Required" /> <span class="form-check-label">Обязательный</span></label>
+            <label class="form-check"><input type="checkbox" class="form-check-input" @bind="test.Published" /> <span class="form-check-label">Опубликован — виден ученикам</span></label>
+        </div>
+
+        <div class="es-btn-row mb-3">
+            <button type="button" class="es-btn es-btn--secondary" @onclick="AddQuestion"><i class="bi bi-plus-lg"></i> Добавить вопрос</button>
+        </div>
+
+        @for (var i = 0; i < questions.Count; i++)
+        {
+            var index = i;
+            var q = questions[index];
+            <div class="es-rule">
+                <label class="es-field">Вопрос @(index + 1)
+                    <input class="form-control" @bind="q.Text" maxlength="1000" />
+                </label>
+                <label class="es-field">Варианты ответа, по одному на строку
+                    <textarea class="form-control" rows="4" @bind="optionsText[index]"></textarea>
+                </label>
+                <div class="es-form-grid">
+                    <label class="es-field">Правильный ответ
+                        <select class="form-select" @bind="q.Correct">
+                            <option value="">— выберите —</option>
+                            @foreach (var o in SplitOptions(optionsText[index]))
+                            {
+                                <option value="@o">@o</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="es-field">Объяснение
+                        <input class="form-control" @bind="q.Explanation" maxlength="1000" placeholder="Почему этот ответ верный" />
+                    </label>
+                </div>
+                <button type="button" class="es-link" @onclick="() => RemoveQuestion(index)"><i class="bi bi-trash"></i> Удалить вопрос</button>
+            </div>
+        }
+
+        <div class="es-btn-row">
+            <button type="button" class="es-btn" disabled="@saving" @onclick="SaveAsync">@(test.Published ? "Опубликовать тест" : "Сохранить черновик")</button>
+            @if (test.Id != Guid.Empty)
+            {
+                <a href="english/tests/@test.Id" class="es-btn es-btn--secondary">Предпросмотр</a>
+                @if (confirmDelete)
+                {
+                    <span class="es-small">Удалить тест вместе с результатами?</span>
+                    <button type="button" class="es-btn es-btn--danger es-btn--sm" @onclick="DeleteAsync">Да</button>
+                    <button type="button" class="es-btn es-btn--secondary es-btn--sm" @onclick="() => confirmDelete = false">Нет</button>
+                }
+                else
+                {
+                    <button type="button" class="es-btn es-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private EnglishTest test = new();
+    private List<EnglishQuestion> questions = new();
+    // Варианты редактируются текстом (строка = вариант) и разбираются при сохранении
+    private List<string> optionsText = new();
+    private List<EnglishLessonCard> lessons = new();
+    private bool notFound, saving, confirmDelete;
+
+    private string lessonValue
+    {
+        get => test.LessonId?.ToString() ?? "";
+        set => test.LessonId = Guid.TryParse(value, out var g) ? g : null;
+    }
+
+    protected override async Task LoadAsync()
+    {
+        lessons = await Lessons.ListForTeacherAsync(UserId);
+        if (Id is null)
+        {
+            test = new EnglishTest { Published = true };
+            AddQuestion();
+            return;
+        }
+        var existing = await Tests.GetAsync(UserId, Id.Value);
+        if (existing is null || existing.TeacherId != UserId)
+        {
+            notFound = true;
+            return;
+        }
+        test = existing;
+        questions = existing.Questions.Select(q => new EnglishQuestion { Text = q.Text, Options = q.Options, Correct = q.Correct, Explanation = q.Explanation }).ToList();
+        optionsText = questions.Select(q => string.Join("\n", q.Options)).ToList();
+    }
+
+    private static List<string> SplitOptions(string text) =>
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    private void AddQuestion()
+    {
+        questions.Add(new EnglishQuestion { Text = "" });
+        optionsText.Add("");
+    }
+
+    private void RemoveQuestion(int index)
+    {
+        questions.RemoveAt(index);
+        optionsText.RemoveAt(index);
+    }
+
+    private async Task SaveAsync()
+    {
+        ClearMessages();
+        for (var i = 0; i < questions.Count; i++) questions[i].Options = SplitOptions(optionsText[i]);
+        saving = true;
+        try
+        {
+            var (id, error) = await Tests.SaveAsync(UserId, test, questions);
+            if (error is not null)
+            {
+                Error = error;
+                return;
+            }
+            if (test.Id == Guid.Empty)
+            {
+                // Тот же компонент остаётся на странице: запоминаем Id, чтобы следующее сохранение обновляло, а не создавало заново
+                test.Id = id!.Value;
+                Navigation.NavigateTo($"english/tests/{id}/edit", replace: true);
+            }
+            Notice = test.Published ? "Тест сохранён и доступен ученикам." : "Черновик сохранён.";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        await Tests.DeleteAsync(UserId, test.Id);
+        Navigation.NavigateTo("english/tests");
+    }
+}

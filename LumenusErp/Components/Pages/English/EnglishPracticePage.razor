@@ -1,0 +1,112 @@
+@page "/english/practice"
+@attribute [Authorize(Roles = EnglishRoles.Student)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishLibraryService Library
+
+<PageTitle>Практика — English Studio</PageTitle>
+
+<EsHeading Title="Практика" Text="Короткие упражнения на каждый навык. Десять минут в день лучше, чем час раз в неделю." />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else
+{
+    <div class="es-grid-3">
+        @foreach (var (title, text, icon, tone, href) in Tiles)
+        {
+            <a class="es-panel d-flex flex-column text-decoration-none" href="@href">
+                <span class="es-icon-tile es-tone-@tone"><i class="bi @icon"></i></span>
+                <h2 class="mt-2">@title</h2>
+                <p class="es-muted mb-0">@text</p>
+            </a>
+        }
+    </div>
+
+    <div class="es-panel">
+        <h2>Аудирование: диктант</h2>
+        @if (dictation.Count == 0)
+        {
+            <EsEmpty Icon="bi-headphones" Text="Добавь слова в словарь — и здесь появится диктант из них." />
+        }
+        else if (dictIndex >= dictation.Count)
+        {
+            <p>Готово: правильно @dictCorrect из @dictation.Count.</p>
+            <button type="button" class="es-btn" @onclick="StartDictation">Ещё раз</button>
+        }
+        else
+        {
+            var w = dictation[dictIndex];
+            <p class="es-muted">Послушай слово и напиши его. @(dictIndex + 1) из @dictation.Count</p>
+            <div class="es-btn-row mt-0 mb-3">
+                <button type="button" class="es-btn es-btn--secondary" data-es-speak="@w.Word"><i class="bi bi-volume-up"></i> Прослушать</button>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <input class="form-control" style="max-width:320px" @bind="dictAnswer" @bind:event="oninput" disabled="@dictChecked" placeholder="Напиши, что услышал" />
+                @if (!dictChecked)
+                {
+                    <button type="button" class="es-btn" disabled="@string.IsNullOrWhiteSpace(dictAnswer)" @onclick="Check">Проверить</button>
+                }
+                else
+                {
+                    <button type="button" class="es-btn" @onclick="NextWord">Дальше <i class="bi bi-arrow-right"></i></button>
+                }
+            </div>
+            @if (dictChecked)
+            {
+                <div class="es-answer @(IsRight(w) ? "correct" : "incorrect") mt-3">
+                    <b>@(IsRight(w) ? "Верно!" : "Почти")</b>
+                    <p>@w.Word — @w.Translation</p>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private static readonly (string Title, string Text, string Icon, string Tone, string Href)[] Tiles =
+    [
+        ("Слова", "Карточки по словам из твоего словаря.", "bi-translate", "mint", "english/vocabulary"),
+        ("Грамматика", "Тесты с объяснением каждой ошибки.", "bi-diagram-3", "blue", "english/tests"),
+        ("Чтение", "Тексты и статьи из библиотеки.", "bi-book", "peach", "english/materials"),
+        ("Письмо", "Домашние задания с отзывом преподавателя.", "bi-pencil", "purple", "english/homework"),
+        ("Говорение", "Разговорные практики в расписании.", "bi-mic", "yellow", "english/calendar"),
+        ("Уроки", "Вернись к пройденному и повтори теорию.", "bi-play-circle", "mint", "english/lessons"),
+    ];
+
+    private List<EnglishWord> words = new(), dictation = new();
+    private int dictIndex, dictCorrect;
+    private string dictAnswer = "";
+    private bool dictChecked;
+
+    protected override async Task LoadAsync()
+    {
+        words = await Library.ListWordsAsync(UserId);
+        StartDictation();
+    }
+
+    private void StartDictation()
+    {
+        dictation = words.OrderBy(_ => Random.Shared.Next()).Take(10).ToList();
+        dictIndex = dictCorrect = 0;
+        dictAnswer = "";
+        dictChecked = false;
+    }
+
+    private bool IsRight(EnglishWord w) => string.Equals(dictAnswer.Trim(), w.Word.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private void Check()
+    {
+        dictChecked = true;
+        if (IsRight(dictation[dictIndex])) dictCorrect++;
+    }
+
+    private void NextWord()
+    {
+        dictIndex++;
+        dictAnswer = "";
+        dictChecked = false;
+    }
+}

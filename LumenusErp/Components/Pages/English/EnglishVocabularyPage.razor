@@ -1,0 +1,196 @@
+@page "/english/vocabulary"
+@attribute [Authorize(Roles = EnglishRoles.Student)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishLibraryService Library
+@inject EnglishProgressService Progress
+
+<PageTitle>Мой словарь — English Studio</PageTitle>
+
+<EsHeading Title="Мой словарь" Text="Слова из уроков и те, что ты добавил сам. Повторяй карточками — каждое «знаю» приносит XP.">
+    <button type="button" class="es-btn" @onclick="StartAdd"><i class="bi bi-plus-lg"></i> Добавить слово</button>
+</EsHeading>
+
+<EsMessages Error="@(adding ? null : Error)" Notice="@Notice" />
+
+<div class="es-tabs">
+    <button type="button" class="@(cards ? "" : "active")" @onclick="() => cards = false">Список</button>
+    <button type="button" class="@(cards ? "active" : "")" @onclick="StartCards">Карточки</button>
+</div>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (words.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-translate" Text="Словарь пуст. Добавляй слова из уроков кнопкой «+» или вручную." /></div>
+}
+else if (!cards)
+{
+    <div class="es-toolbar">
+        <div class="es-search">
+            <i class="bi bi-search"></i>
+            <input class="form-control" placeholder="Найти слово" @bind="search" @bind:event="oninput" />
+        </div>
+        <div class="es-seg">
+            <button type="button" class="@(filter == "all" ? "active" : "")" @onclick='() => filter = "all"'>Все · @words.Count</button>
+            <button type="button" class="@(filter == "new" ? "active" : "")" @onclick='() => filter = "new"'>Учу · @words.Count(w => !w.Learned)</button>
+            <button type="button" class="@(filter == "learned" ? "active" : "")" @onclick='() => filter = "learned"'>Выучено · @words.Count(w => w.Learned)</button>
+        </div>
+    </div>
+    <div class="es-panel">
+        @foreach (var w in Filtered)
+        {
+            <div class="es-row">
+                <button type="button" class="es-icon-btn" aria-label="Произнести" data-es-speak="@w.Word"><i class="bi bi-volume-up"></i></button>
+                <div class="es-row__main">
+                    <h3>@w.Word <span class="es-muted fw-normal">— @w.Translation</span></h3>
+                    @if (!string.IsNullOrEmpty(w.Example))
+                    {
+                        <p><i>@w.Example</i></p>
+                    }
+                </div>
+                <label class="form-check mb-0">
+                    <input type="checkbox" class="form-check-input" checked="@w.Learned" @onchange="e => SetLearnedAsync(w, (bool)e.Value!)" />
+                    <span class="form-check-label es-small">выучено</span>
+                </label>
+                <button type="button" class="es-icon-btn" aria-label="Удалить слово" @onclick="() => DeleteAsync(w.Id)"><i class="bi bi-trash"></i></button>
+            </div>
+        }
+        @if (!Filtered.Any())
+        {
+            <EsEmpty Text="Ничего не найдено." />
+        }
+    </div>
+}
+else if (deck.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-emoji-smile" Text="Все слова выучены! Добавь новые или сними отметку «выучено», чтобы повторить." /></div>
+}
+else if (cardIndex >= deck.Count)
+{
+    <div class="es-panel es-quiz text-center">
+        <h2>Колода пройдена</h2>
+        <p class="es-muted">Знаю: @known из @deck.Count · +@(known * EnglishProgressService.WordXp) XP</p>
+        <button type="button" class="es-btn" @onclick="StartCards">Ещё раз</button>
+    </div>
+}
+else
+{
+    var w = deck[cardIndex];
+    <div class="es-panel es-quiz">
+        <div class="d-flex justify-content-between mb-2">
+            <span class="es-tag">FLASHCARDS</span>
+            <span class="es-muted es-small">@(cardIndex + 1) из @deck.Count</span>
+        </div>
+        <EsProgress Value="@((cardIndex + 1) * 100 / deck.Count)" />
+        <button type="button" class="es-flashcard mt-3" @onclick="() => flipped = !flipped">
+            @if (!flipped)
+            {
+                <h2>@w.Word</h2>
+                <span class="es-muted es-small">нажми, чтобы увидеть перевод</span>
+            }
+            else
+            {
+                <h2>@w.Translation</h2>
+                @if (!string.IsNullOrEmpty(w.Example))
+                {
+                    <i class="es-small">@w.Example</i>
+                }
+            }
+        </button>
+        <div class="es-btn-row justify-content-center">
+            <button type="button" class="es-btn es-btn--secondary" data-es-speak="@w.Word"><i class="bi bi-volume-up"></i> Произнести</button>
+            <button type="button" class="es-btn es-btn--secondary" @onclick="() => Next(false)">Повторить позже</button>
+            <button type="button" class="es-btn" @onclick="() => KnowAsync(w)">Знаю</button>
+        </div>
+    </div>
+}
+
+@if (adding)
+{
+    <EsModal Title="Новое слово" Subtitle="Слово попадёт в словарь и в карточки." OnClose="() => adding = false">
+        <EsMessages Error="@Error" />
+        <div class="es-form-grid">
+            <label class="es-field">Слово или выражение
+                <input class="form-control" @bind="newWord" maxlength="200" placeholder="look forward to" />
+            </label>
+            <label class="es-field">Перевод
+                <input class="form-control" @bind="newTranslation" maxlength="200" placeholder="с нетерпением ждать" />
+            </label>
+        </div>
+        <label class="es-field">Пример
+            <input class="form-control" @bind="newExample" maxlength="500" placeholder="I'm looking forward to the weekend." />
+        </label>
+        <button type="button" class="es-btn" @onclick="AddAsync">Добавить</button>
+    </EsModal>
+}
+
+@code {
+    private List<EnglishWord> words = new();
+    private string search = "", filter = "all";
+    private bool cards, adding, flipped;
+    private string newWord = "", newTranslation = "", newExample = "";
+
+    private List<EnglishWord> deck = new();
+    private int cardIndex, known;
+
+    private IEnumerable<EnglishWord> Filtered => words
+        .Where(w => filter == "all" || (filter == "learned") == w.Learned)
+        .Where(w => search.Length == 0
+            || w.Word.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || w.Translation.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task LoadAsync()
+    {
+        words = await Library.ListWordsAsync(UserId);
+    }
+
+    private void StartAdd()
+    {
+        ClearMessages();
+        newWord = newTranslation = newExample = "";
+        adding = true;
+    }
+
+    private async Task AddAsync()
+    {
+        if (!Report(await Library.AddWordAsync(UserId, newWord, newTranslation, newExample), "Слово добавлено.")) return;
+        adding = false;
+        await LoadAsync();
+    }
+
+    private async Task SetLearnedAsync(EnglishWord w, bool learned)
+    {
+        await Library.SetLearnedAsync(UserId, w.Id, learned);
+        w.Learned = learned;
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await Library.DeleteWordAsync(UserId, id);
+        await LoadAsync();
+    }
+
+    private void StartCards()
+    {
+        cards = true;
+        deck = words.Where(w => !w.Learned).OrderBy(_ => Random.Shared.Next()).Take(20).ToList();
+        cardIndex = known = 0;
+        flipped = false;
+    }
+
+    private void Next(bool knew)
+    {
+        if (knew) known++;
+        cardIndex++;
+        flipped = false;
+    }
+
+    private async Task KnowAsync(EnglishWord w)
+    {
+        await Progress.LogWordReviewAsync(UserId);
+        Next(true);
+    }
+}

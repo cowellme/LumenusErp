@@ -1,0 +1,11 @@
+<div class="es-empty">
+    <i class="bi @Icon" aria-hidden="true"></i>
+    <p class="mb-0">@Text</p>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "bi-book";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

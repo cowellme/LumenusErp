@@ -2,6 +2,7 @@ using LumenusErp.Components;
 using LumenusErp.Components.Account;
 using LumenusErp.Data;
 using LumenusErp.Services;
+using LumenusErp.Services.English;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
@@ -82,6 +83,16 @@ builder.Services.AddHttpClient(CallProcessor.HttpClientName, client =>
     if (!string.IsNullOrWhiteSpace(token)) client.DefaultRequestHeaders.Authorization = new("Bearer", token.Trim());
 });
 
+// English Studio: scoped — EnglishProfileService использует UserManager
+builder.Services.AddScoped<EnglishProfileService>();
+builder.Services.AddScoped<EnglishProgressService>();
+builder.Services.AddScoped<EnglishLessonService>();
+builder.Services.AddScoped<EnglishTestService>();
+builder.Services.AddScoped<EnglishHomeworkService>();
+builder.Services.AddScoped<EnglishLibraryService>();
+builder.Services.AddScoped<EnglishScheduleService>();
+builder.Services.AddScoped<EnglishMessageService>();
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
@@ -116,7 +127,7 @@ using (var scope = app.Services.CreateScope())
     await AiPromptSeed.EnsureSeededAsync(dbContext);
 
     // ── Засидировать роли ────────────────────────────────────────────
-    var roles = new[] { "Admin", "Manager", "User", "Ghost", "Aos" };
+    var roles = new[] { "Admin", "Manager", "User", "Ghost", "Aos", EnglishRoles.Teacher, EnglishRoles.Student };
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))

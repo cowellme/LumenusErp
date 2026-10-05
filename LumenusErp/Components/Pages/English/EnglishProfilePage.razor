@@ -1,0 +1,122 @@
+@page "/english/profile"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+
+<PageTitle>@(IsTeacher ? "Настройки" : "Мой профиль") — English Studio</PageTitle>
+
+<EsHeading Title="@(IsTeacher ? "Настройки" : "Мой профиль")" Text="Расскажи о себе — так занятия станут точнее." />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else
+{
+    <div class="es-lesson-layout">
+        <div class="es-panel">
+            <EsMessages Error="@Error" Notice="@Notice" />
+            <div class="es-form-grid">
+                <label class="es-field">Имя
+                    <input class="form-control" @bind="form.FirstName" maxlength="@EnglishProfileService.MaxName" />
+                </label>
+                <label class="es-field">Фамилия
+                    <input class="form-control" @bind="form.LastName" maxlength="@EnglishProfileService.MaxName" />
+                </label>
+                <label class="es-field">Город
+                    <input class="form-control" @bind="form.City" maxlength="@EnglishProfileService.MaxName" />
+                </label>
+                <label class="es-field">Часовой пояс
+                    <select class="form-select" @bind="form.TimeZone">
+                        @foreach (var tz in TimeZones)
+                        {
+                            <option value="@tz.Id">@tz.DisplayName</option>
+                        }
+                    </select>
+                </label>
+                <label class="es-field">@(IsTeacher ? "Уровни, с которыми работаете" : "Мой уровень")
+                    <input class="form-control" @bind="form.Level" maxlength="50" placeholder="@(IsTeacher ? "A1–C1" : "A2")" disabled="@(!IsTeacher && Me.TeacherId is not null)" />
+                </label>
+                @if (!IsTeacher)
+                {
+                    <label class="es-field">Цель на неделю, минут
+                        <input type="number" class="form-control" min="10" max="2000" @bind="form.WeeklyGoalMinutes" />
+                    </label>
+                }
+            </div>
+            @if (!IsTeacher)
+            {
+                <label class="es-field">Зачем мне английский
+                    <input class="form-control" @bind="form.Goal" maxlength="@EnglishProfileService.MaxText" placeholder="Путешествия, работа, экзамен…" />
+                </label>
+                <label class="es-field">Интересы
+                    <input class="form-control" @bind="form.Interests" maxlength="@EnglishProfileService.MaxText" placeholder="Кино, спорт, IT…" />
+                </label>
+            }
+            <label class="es-field">@(IsTeacher ? "О себе — увидят ученики" : "О себе")
+                <textarea class="form-control" rows="4" @bind="form.Bio" maxlength="@EnglishProfileService.MaxBio"></textarea>
+            </label>
+            <label class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" @bind="form.Reminders" />
+                <span class="form-check-label">Напоминания о занятиях и дедлайнах</span>
+            </label>
+            <button type="button" class="es-btn" @onclick="SaveAsync">Сохранить</button>
+        </div>
+        <aside>
+            <div class="es-panel text-center">
+                <span class="es-avatar es-avatar--lg mb-2">@EnglishText.Initials(Me.DisplayName)</span>
+                <h2 class="mb-1">@Me.DisplayName</h2>
+                <p class="es-muted es-small">@Me.User?.Email</p>
+                <span class="es-tag">@(IsTeacher ? "ПРЕПОДАВАТЕЛЬ" : "УЧЕНИК")</span>
+                <p class="es-muted es-small mt-3 mb-0">В English Studio с @EnglishText.Date(Local(Me.CreatedAt)) @Local(Me.CreatedAt).Year</p>
+            </div>
+            @if (!IsTeacher)
+            {
+                <div class="es-panel">
+                    <h3>Мой преподаватель</h3>
+                    @if (teacher is null)
+                    {
+                        <p class="es-muted mb-0">Пока не назначен. Преподаватель добавит тебя по e-mail <b>@Me.User?.Email</b>.</p>
+                    }
+                    else
+                    {
+                        <p class="fw-semibold mb-1">@teacher.DisplayName</p>
+                        <p class="es-prewrap es-small es-muted">@teacher.Bio</p>
+                        <a class="es-link" href="english/messages">Написать <i class="bi bi-arrow-right"></i></a>
+                    }
+                </div>
+            }
+            <div class="es-panel">
+                <a class="es-link" href="Account/Manage/ChangePassword">Сменить пароль</a>
+            </div>
+        </aside>
+    </div>
+}
+
+@code {
+    private static readonly IReadOnlyList<TimeZoneInfo> TimeZones = TimeZoneInfo.GetSystemTimeZones();
+
+    private EnglishProfile form = new();
+    private EnglishProfile? teacher;
+
+    protected override async Task LoadAsync()
+    {
+        form = new EnglishProfile
+        {
+            FirstName = Me.FirstName, LastName = Me.LastName, City = Me.City, TimeZone = Me.TimeZone, Level = Me.Level,
+            Goal = Me.Goal, Interests = Me.Interests, Bio = Me.Bio, WeeklyGoalMinutes = Me.WeeklyGoalMinutes, Reminders = Me.Reminders,
+        };
+        if (!IsTeacher) teacher = await Profiles.GetTeacherProfileAsync(UserId);
+    }
+
+    private async Task SaveAsync()
+    {
+        // Уровень ученика, у которого есть преподаватель, задаёт преподаватель
+        if (!IsTeacher && Me.TeacherId is not null) form.Level = Me.Level;
+        if (!Report(await Profiles.UpdateOwnAsync(UserId, form), "Профиль сохранён.")) return;
+        Me.FirstName = form.FirstName;
+        Me.LastName = form.LastName;
+        Me.TimeZone = form.TimeZone;
+        Tz = EnglishRoles.FindTimeZone(form.TimeZone);
+    }
+}

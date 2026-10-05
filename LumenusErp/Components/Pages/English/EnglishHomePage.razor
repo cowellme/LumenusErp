@@ -1,0 +1,304 @@
+@page "/english/home"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishProgressService Progress
+@inject EnglishLessonService Lessons
+@inject EnglishHomeworkService Homework
+@inject EnglishTestService Tests
+@inject EnglishScheduleService Schedule
+
+<PageTitle>@(IsTeacher ? "Обзор" : "Главная") — English Studio</PageTitle>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (IsTeacher)
+{
+    <EsHeading Eyebrow="@EnglishText.TodayHeader(NowLocal)" Title="Кабинет преподавателя ✦"
+               Text="Создание уроков, проверка работ, расписание и аналитика учеников собраны в одном месте.">
+        <div class="es-streak"><i class="bi bi-fire fs-4"></i><strong>@todayEvents</strong><small>@EnglishText.Plural(todayEvents, "занятие", "занятия", "занятий") сегодня</small></div>
+    </EsHeading>
+
+    <div class="es-dashboard">
+        <div>
+            <section class="es-continue">
+                <div>
+                    <span class="es-tag">ГЛАВНОЕ СЕГОДНЯ</span>
+                    <h2>Проверить работы
+и обновить уроки.</h2>
+                    <p>@newSubmissions @EnglishText.Plural(newSubmissions, "новая работа", "новые работы", "новых работ") · @lessons.Count @EnglishText.Plural(lessons.Count, "урок", "урока", "уроков") в библиотеке · @todayEvents @EnglishText.Plural(todayEvents, "занятие", "занятия", "занятий") сегодня</p>
+                    <a href="english/review" class="es-btn">Открыть проверку <i class="bi bi-arrow-right"></i></a>
+                </div>
+                <div class="es-hero-type"><span>teach</span><span>better</span><small>PLAN. TEACH. REVIEW.</small></div>
+            </section>
+
+            <div class="es-grid-4 my-4">
+                @StatTile(0, "bi-people", students.Count.ToString(), "Активных учеников", inactive.Count > 0 ? $"{inactive.Count} {EnglishText.Plural(inactive.Count, "требует", "требуют", "требуют")} внимания" : "Все на связи")
+                @StatTile(1, "bi-clipboard-check", newSubmissions.ToString(), "Работ на проверку", "Новые ответы")
+                @StatTile(2, "bi-calendar3", todayEvents.ToString(), "Занятия сегодня", next is null ? "Нет запланированных" : Local(next.StartsAt).ToString("HH:mm") + " ближайшее")
+                @StatTile(3, "bi-bar-chart", averageProgress + "%", "Средний прогресс", "По всем ученикам")
+            </div>
+
+            <div class="es-grid-3">
+                <div class="es-panel">
+                    <span class="es-icon-tile es-tone-mint"><i class="bi bi-plus-lg"></i></span>
+                    <h2>Создать урок</h2>
+                    <p class="es-muted">Теория, задания, запись занятия, фото и материалы урока.</p>
+                    <a href="english/lessons/new" class="es-btn es-btn--secondary">Открыть конструктор</a>
+                </div>
+                <div class="es-panel">
+                    <span class="es-icon-tile es-tone-peach"><i class="bi bi-file-earmark-text"></i></span>
+                    <h2>Составить тест</h2>
+                    <p class="es-muted">Вопросы по пройденной теме и отчёт по результатам ученика.</p>
+                    <a href="english/tests/new" class="es-btn es-btn--secondary">Создать тест</a>
+                </div>
+                <div class="es-panel">
+                    <span class="es-icon-tile es-tone-blue"><i class="bi bi-calendar3"></i></span>
+                    <h2>Расписание</h2>
+                    <p class="es-muted">Занятия, переносы, дедлайны и учебные события.</p>
+                    <a href="english/calendar" class="es-btn es-btn--secondary">Открыть календарь</a>
+                </div>
+            </div>
+        </div>
+
+        <aside>
+            @NextEventPanel("Ближайшее занятие", "После занятия прикрепи запись, фото доски и домашнее задание.")
+            <div class="es-panel">
+                <h2>Быстрые действия</h2>
+                @TaskRow("english/review", "bi-clipboard-check", "Проверить домашние работы", $"{newSubmissions} на проверке", "es-tone-peach")
+                @TaskRow("english/lessons/new", "bi-book", "Создать урок", "Конструктор урока", "es-tone-mint")
+                @TaskRow("english/tests/new", "bi-file-earmark-text", "Составить тест", "Конструктор тестов", "es-tone-blue")
+                @TaskRow("english/students", "bi-person-plus", "Добавить ученика", "По e-mail ученика", "es-tone-purple")
+            </div>
+            <div class="es-panel">
+                <h2>Мониторинг</h2>
+                <p class="mb-2"><strong class="fs-3">@inactive.Count</strong> <span class="es-muted">@EnglishText.Plural(inactive.Count, "ученик", "ученика", "учеников") без активности 5+ дней</span></p>
+                @foreach (var s in inactive.Take(4))
+                {
+                    <div class="es-small"><a class="es-link" href="english/students/@s.Profile.UserId">@s.Profile.DisplayName</a></div>
+                }
+                <a href="english/students" class="es-link mt-2">Открыть учеников <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </aside>
+    </div>
+}
+else
+{
+    <EsHeading Eyebrow="@EnglishText.TodayHeader(NowLocal)" Title="@($"Кабинет ученика: {Me.FirstName} ✦")"
+               Text="Твой прогресс, последние занятия, задания и регулярность обучения.">
+        <div class="es-streak"><i class="bi bi-fire fs-4"></i><strong>@stats!.Streak @EnglishText.Plural(stats.Streak, "день", "дня", "дней")</strong><small>серия занятий</small></div>
+    </EsHeading>
+
+    @if (Me.TeacherId is null)
+    {
+        <div class="es-alert es-alert--ok">Вы ещё не привязаны к преподавателю. Сообщите ему свою почту <strong>@Me.User?.Email</strong> — он добавит вас в список учеников, и здесь появятся уроки и задания.</div>
+    }
+
+    <div class="es-dashboard">
+        <div>
+            <section class="es-continue">
+                <div>
+                    <span class="es-tag">ПРОДОЛЖИМ С ТОГО ЖЕ МЕСТА</span>
+                    <h2>Your next chapter
+starts here.</h2>
+                    @if (current is not null)
+                    {
+                        <p>Урок @current.Unit.ToString("00") · @current.Lesson.Title</p>
+                        <a href="english/lessons/@current.Lesson.Id" class="es-btn">@(current.Percent > 0 ? "Продолжить урок" : "Начать урок") <i class="bi bi-arrow-right"></i></a>
+                    }
+                    else
+                    {
+                        <p>@(lessons.Count > 0 ? "Все уроки пройдены — отличная работа!" : "Уроки появятся, когда преподаватель их опубликует.")</p>
+                        <a href="english/lessons" class="es-btn">Все уроки <i class="bi bi-arrow-right"></i></a>
+                    }
+                </div>
+                <div class="es-hero-type"><span>hello</span><span>world</span><small>YOUR ENGLISH. YOUR WORLD.</small></div>
+            </section>
+
+            <div class="es-grid-4 my-4">
+                @StatTile(0, "bi-book", stats!.LessonsCompleted.ToString(), "Уроков пройдено", $"из {stats.LessonsTotal}")
+                @StatTile(1, "bi-clock", EnglishText.Duration(stats.MinutesThisMonth), "Время с английским", "В этом месяце")
+                @StatTile(2, "bi-translate", stats.Words.ToString(), "Слов в копилке", "Личный словарь")
+                @StatTile(3, "bi-bullseye", stats.AverageScore + "%", "Средний результат", "По тестам")
+            </div>
+
+            <EsHeatmap Stats="stats" Today="DateOnly.FromDateTime(NowLocal)" />
+
+            <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+                <h2 class="fs-5 mb-0">Последние занятия</h2>
+                <a href="english/lessons" class="es-link">Все уроки <i class="bi bi-arrow-right"></i></a>
+            </div>
+            @if (lessons.Count == 0)
+            {
+                <div class="es-panel"><EsEmpty Text="Пока нет опубликованных уроков." /></div>
+            }
+            else
+            {
+                <div class="es-lesson-grid">
+                    @foreach (var l in RecentLessons)
+                    {
+                        <EsLessonCard Card="l" Href="@($"english/lessons/{l.Lesson.Id}")" />
+                    }
+                </div>
+            }
+        </div>
+
+        <aside>
+            @NextEventPanel("Следующее занятие", null)
+            <div class="es-panel">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="mb-0">На этой неделе</h2>
+                    <span class="es-tag">@todo.Count @EnglishText.Plural(todo.Count, "задание", "задания", "заданий")</span>
+                </div>
+                @if (todo.Count == 0)
+                {
+                    <p class="es-muted mb-0">Всё сделано. Можно повторить слова!</p>
+                }
+                @foreach (var (href, icon, title, sub, tone) in todo)
+                {
+                    @TaskRow(href, icon, title, sub, tone)
+                }
+            </div>
+            <div class="es-panel">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="mb-0">Недельная цель</h2><i class="bi bi-bullseye fs-5"></i>
+                </div>
+                <p class="mb-2"><strong class="fs-3">@stats.MinutesThisWeek</strong> <span class="es-muted">/ @Me.WeeklyGoalMinutes минут</span></p>
+                <EsProgress Value="@(Me.WeeklyGoalMinutes == 0 ? 0 : stats.MinutesThisWeek * 100 / Me.WeeklyGoalMinutes)" />
+                <p class="es-muted es-small mt-2">
+                    @(stats.MinutesThisWeek >= Me.WeeklyGoalMinutes ? "Цель недели выполнена!" : $"Ещё {Me.WeeklyGoalMinutes - stats.MinutesThisWeek} минут — и цель твоя!")
+                </p>
+                <button type="button" class="es-link" @onclick="() => { goalInput = Me.WeeklyGoalMinutes; showGoal = true; }">Изменить цель <i class="bi bi-arrow-right"></i></button>
+            </div>
+        </aside>
+    </div>
+
+    @if (showGoal)
+    {
+        <EsModal Title="Недельная цель" Subtitle="Сколько минут в неделю ты хочешь уделять английскому?" OnClose="() => showGoal = false">
+            <EsMessages Error="@Error" />
+            <label class="es-field">Минут в неделю
+                <input type="number" class="form-control" min="10" max="2000" @bind="goalInput" />
+            </label>
+            <button type="button" class="es-btn" @onclick="SaveGoalAsync">Сохранить</button>
+        </EsModal>
+    }
+}
+
+@code {
+    // Ученик
+    private EnglishStudentStats? stats;
+    private List<EnglishLessonCard> lessons = new();
+    private EnglishLessonCard? current;
+    private List<(string Href, string Icon, string Title, string Sub, string Tone)> todo = new();
+    private bool showGoal;
+    private int goalInput;
+
+    // Преподаватель
+    private List<EnglishStudentCard> students = new();
+    private List<EnglishStudentCard> inactive = new();
+    private int newSubmissions, todayEvents, averageProgress;
+
+    private EnglishCalendarItem? next;
+
+    private IEnumerable<EnglishLessonCard> RecentLessons
+    {
+        get
+        {
+            // Текущий урок и соседние: два пройденных до него и следующий
+            var i = current is null ? lessons.Count - 1 : lessons.IndexOf(current);
+            var start = Math.Clamp(i - 1, 0, Math.Max(0, lessons.Count - 3));
+            return lessons.Skip(start).Take(3);
+        }
+    }
+
+    protected override async Task LoadAsync()
+    {
+        var upcoming = await Schedule.UpcomingAsync(UserId, IsTeacher, 10);
+        next = upcoming.FirstOrDefault(e => e.StartsAt >= DateTime.UtcNow.AddMinutes(-30));
+        var today = DateOnly.FromDateTime(NowLocal);
+        todayEvents = upcoming.Count(e => DateOnly.FromDateTime(Local(e.StartsAt)) == today);
+
+        if (IsTeacher)
+        {
+            students = await Profiles.ListStudentsAsync(UserId);
+            lessons = await Lessons.ListForTeacherAsync(UserId);
+            newSubmissions = await Homework.CountNewSubmissionsAsync(UserId);
+            var border = DateTime.UtcNow.AddDays(-5);
+            inactive = students.Where(s => s.LastActivityAt is null || s.LastActivityAt < border).ToList();
+            averageProgress = students.Count == 0 ? 0
+                : (int)Math.Round(students.Average(s => s.LessonsTotal == 0 ? 0 : s.LessonsCompleted * 100.0 / s.LessonsTotal));
+            return;
+        }
+
+        stats = await Progress.GetStatsAsync(UserId);
+        lessons = await Lessons.ListForStudentAsync(UserId);
+        current = lessons.FirstOrDefault(l => !l.Completed && l.Percent > 0) ?? lessons.FirstOrDefault(l => !l.Completed);
+
+        todo = new();
+        foreach (var h in (await Homework.ListForStudentAsync(UserId)).Where(h => h.LastSubmission is null).Take(3))
+        {
+            var due = h.Homework.DueAt is { } d ? "До " + EnglishText.Date(Local(d)) : "Без срока";
+            todo.Add(("english/homework", "bi-clipboard-check", h.Homework.Title, $"Домашняя работа · {due}", "es-tone-peach"));
+        }
+        foreach (var t in (await Tests.ListForStudentAsync(UserId)).Where(t => t.LastResult is null).Take(3))
+        {
+            todo.Add(($"english/tests/{t.Test.Id}", "bi-file-earmark-text", t.Test.Title, $"Тест · {t.Questions} {EnglishText.Plural(t.Questions, "вопрос", "вопроса", "вопросов")}", "es-tone-mint"));
+        }
+    }
+
+    private async Task SaveGoalAsync()
+    {
+        if (!Report(await Profiles.SetWeeklyGoalAsync(UserId, goalInput))) return;
+        Me.WeeklyGoalMinutes = goalInput;
+        showGoal = false;
+    }
+
+    private RenderFragment StatTile(int tone, string icon, string value, string label, string sub) =>
+        @<div class="es-panel es-stat">
+            <span class="es-stat__icon es-tone-@tone"><i class="bi @icon"></i></span>
+            <strong>@value</strong>
+            <span>@label</span>
+            <small>@sub</small>
+        </div>;
+
+    private RenderFragment TaskRow(string href, string icon, string title, string sub, string tone) =>
+        @<a class="es-task-row" href="@href">
+            <span class="es-task-row__icon @tone"><i class="bi @icon"></i></span>
+            <span class="flex-grow-1"><strong>@title</strong><small>@sub</small></span>
+            <i class="bi bi-chevron-right es-muted"></i>
+        </a>;
+
+    private RenderFragment NextEventPanel(string title, string? hint) =>
+        @<div class="es-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="mb-0">@title</h2><i class="bi bi-calendar3"></i>
+            </div>
+            @if (next is null)
+            {
+                <p class="es-muted">Ближайших занятий нет.</p>
+            }
+            else
+            {
+                var local = Local(next.StartsAt);
+                <div class="es-date-line">
+                    <strong>@local.Day</strong>
+                    <div>@EnglishText.Capitalize(local.ToString("MMMM, dddd", EnglishText.Ru))<br /><span class="es-muted es-small">@local.ToString("HH:mm") – @local.AddMinutes(next.DurationMinutes).ToString("HH:mm")</span></div>
+                </div>
+                <hr />
+                <span class="es-tag">@next.Kind.ToUpper(EnglishText.Ru)</span>
+                <h3 class="mt-2">@next.Title</h3>
+                @if (!string.IsNullOrEmpty(next.Link))
+                {
+                    <p><a href="@next.Link" target="_blank" rel="noopener" class="es-link">Ссылка на занятие <i class="bi bi-box-arrow-up-right"></i></a></p>
+                }
+                @if (hint is not null)
+                {
+                    <p class="es-muted es-small">@hint</p>
+                }
+            }
+            <a href="english/calendar" class="es-btn es-btn--secondary">Открыть расписание <i class="bi bi-arrow-up-right"></i></a>
+        </div>;
+}

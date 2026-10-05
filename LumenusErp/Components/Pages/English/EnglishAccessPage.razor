@@ -1,0 +1,65 @@
+@page "/english/access"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+
+<PageTitle>Права доступа — English Studio</PageTitle>
+
+<EsHeading Title="Права доступа" Text="Что разрешено каждому ученику. Изменения сохраняются сразу." />
+
+<EsMessages Error="@Error" Notice="@Notice" />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (students.Count == 0)
+{
+    <div class="es-panel"><EsEmpty Icon="bi-shield-lock" Text="Учеников пока нет." /></div>
+}
+else
+{
+    <div class="es-panel es-table-wrap">
+        <table class="es-table">
+            <thead>
+                <tr>
+                    <th>Ученик</th>
+                    <th title="Видео и фото в уроках">Записи уроков</th>
+                    <th title="Скачивание материалов библиотеки">Скачивание</th>
+                    <th title="Повторное прохождение тестов">Пересдача тестов</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in students)
+                {
+                    var p = s.Profile;
+                    <tr>
+                        <td><a class="es-link" href="english/students/@p.UserId">@p.DisplayName</a></td>
+                        <td>@Switch(p, () => p.AllowRecordings, v => p.AllowRecordings = v)</td>
+                        <td>@Switch(p, () => p.AllowDownloads, v => p.AllowDownloads = v)</td>
+                        <td>@Switch(p, () => p.AllowRetakes, v => p.AllowRetakes = v)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<EnglishStudentCard> students = new();
+
+    protected override async Task LoadAsync()
+    {
+        students = await Profiles.ListStudentsAsync(UserId);
+    }
+
+    private RenderFragment Switch(EnglishProfile p, Func<bool> get, Action<bool> set) => @<div class="form-check form-switch mb-0">
+        <input type="checkbox" class="form-check-input" role="switch" checked="@get()" @onchange="e => SaveAsync(p, set, (bool)e.Value!)" />
+    </div>;
+
+    private async Task SaveAsync(EnglishProfile p, Action<bool> set, bool value)
+    {
+        set(value);
+        Report(await Profiles.UpdateStudentByTeacherAsync(UserId, p), $"Права ученика {p.DisplayName} обновлены.");
+    }
+}

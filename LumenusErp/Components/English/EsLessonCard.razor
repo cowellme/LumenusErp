@@ -1,0 +1,34 @@
+@* Карточка урока с цветной обложкой, как в библиотеке прототипа. *@
+<a class="es-lesson-card" href="@Href">
+    <div class="es-lesson-art es-tone-@Card.Lesson.Color">
+        <span class="es-lesson-art__unit">UNIT @Card.Unit.ToString("00")</span>
+        <span class="es-lesson-art__word">@ArtWord</span>
+        <i class="bi bi-book es-lesson-art__icon" aria-hidden="true"></i>
+        @if (!string.IsNullOrEmpty(Card.Lesson.Topic))
+        {
+            <span class="es-lesson-art__tag">@Card.Lesson.Topic</span>
+        }
+    </div>
+    <div class="es-lesson-body">
+        <div class="es-eyebrow">@Card.Lesson.Level <span class="ms-2">@Card.Lesson.DurationMinutes мин</span></div>
+        <h3>@Card.Lesson.Title</h3>
+        <p>@Card.Lesson.Summary</p>
+        @if (ShowProgress)
+        {
+            <EsProgress Value="Card.Percent" Label="@(Card.Completed ? "✓" : Card.Percent + "%")" />
+        }
+        else if (!Card.Lesson.Published)
+        {
+            <div><span class="es-tag es-tag--muted">Черновик</span></div>
+        }
+    </div>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public EnglishLessonCard Card { get; set; } = default!;
+    [Parameter] public string Href { get; set; } = "";
+    [Parameter] public bool ShowProgress { get; set; } = true;
+
+    // Первые два слова названия крупно на обложке
+    private string ArtWord => string.Join(" ", Card.Lesson.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2));
+}

@@ -1,0 +1,180 @@
+@page "/english/progress"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishProgressService Progress
+@inject EnglishTestService Tests
+
+<PageTitle>@(IsTeacher ? "Аналитика" : "Мой прогресс") — English Studio</PageTitle>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (IsTeacher)
+{
+    <EsHeading Title="Аналитика" Text="Как занимаются ваши ученики: уроки, время, тесты и регулярность." />
+    @if (overview.Count == 0)
+    {
+        <div class="es-panel"><EsEmpty Icon="bi-people" Text="Учеников пока нет — добавьте их на странице «Ученики»." /></div>
+    }
+    else
+    {
+        <div class="es-grid-4">
+            <div class="es-panel es-stat"><span class="es-stat__icon es-tone-mint"><i class="bi bi-people"></i></span><strong>@overview.Count</strong><span>учеников</span></div>
+            <div class="es-panel es-stat"><span class="es-stat__icon es-tone-blue"><i class="bi bi-clock"></i></span><strong>@EnglishText.Duration(overview.Sum(o => o.Stats.MinutesThisWeek))</strong><span>занятий за 7 дней</span></div>
+            <div class="es-panel es-stat"><span class="es-stat__icon es-tone-peach"><i class="bi bi-bullseye"></i></span><strong>@AverageScore%</strong><span>средний балл тестов</span></div>
+            <div class="es-panel es-stat"><span class="es-stat__icon es-tone-purple"><i class="bi bi-fire"></i></span><strong>@overview.Count(o => o.Stats.MinutesThisWeek > 0)</strong><span>активны на неделе</span></div>
+        </div>
+        <div class="es-panel es-table-wrap">
+            <table class="es-table">
+                <thead><tr><th>Ученик</th><th>Уроки</th><th>Неделя</th><th>Месяц</th><th>Тесты</th><th>Серия</th><th>Уровень</th></tr></thead>
+                <tbody>
+                    @foreach (var (card, stats) in overview)
+                    {
+                        <tr>
+                            <td><a class="es-link" href="english/students/@card.Profile.UserId">@card.Profile.DisplayName</a></td>
+                            <td>@stats.LessonsCompleted / @stats.LessonsTotal</td>
+                            <td>@EnglishText.Duration(stats.MinutesThisWeek)</td>
+                            <td>@EnglishText.Duration(stats.MinutesThisMonth)</td>
+                            <td>@(stats.AverageScore > 0 ? stats.AverageScore + "%" : "—")</td>
+                            <td>@stats.Streak дн.</td>
+                            <td>@(string.IsNullOrEmpty(card.Profile.Level) ? "—" : card.Profile.Level)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+else if (stats is not null)
+{
+    <EsHeading Title="Мой прогресс" Text="Смотри, как растут навыки, и не теряй регулярность.">
+        <a class="es-btn es-btn--secondary" href="@ReportHref" download="@($"english-progress-{NowLocal:yyyy-MM-dd}.txt")"><i class="bi bi-download"></i> Скачать отчёт</a>
+    </EsHeading>
+    <div class="es-grid-4">
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-mint"><i class="bi bi-book"></i></span><strong>@stats.LessonsCompleted / @stats.LessonsTotal</strong><span>уроков пройдено</span></div>
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-blue"><i class="bi bi-clock"></i></span><strong>@EnglishText.Duration(stats.MinutesThisMonth)</strong><span>в этом месяце</span></div>
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-peach"><i class="bi bi-translate"></i></span><strong>@stats.Words</strong><span>слов в словаре</span></div>
+        <div class="es-panel es-stat"><span class="es-stat__icon es-tone-purple"><i class="bi bi-bullseye"></i></span><strong>@(stats.AverageScore)%</strong><span>средний балл тестов</span></div>
+    </div>
+
+    <div class="es-grid-2 es-spaced">
+        <div class="es-panel">
+            <h2>Навыки</h2>
+            @foreach (var (name, value) in Skills(Me))
+            {
+                <div class="es-skill">
+                    <div><span>@name</span><b>@value%</b></div>
+                    <EsProgress Value="@value" />
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(Me.TeacherComment))
+            {
+                <div class="es-rule"><span class="es-eyebrow">Комментарий преподавателя</span><p class="es-prewrap mt-2 mb-0">@Me.TeacherComment</p></div>
+            }
+        </div>
+        <div class="es-panel">
+            <h2>Последние 7 дней</h2>
+            <div class="es-chart">
+                @for (var i = 0; i < 7; i++)
+                {
+                    var minutes = week[i];
+                    <div>
+                        <small>@minutes</small>
+                        <span style="height:@(Math.Max(2, minutes * 100 / Math.Max(1, week.Max())))%"></span>
+                        <small>@EnglishText.WeekDays[i]</small>
+                    </div>
+                }
+            </div>
+            <p class="es-muted es-small mt-2 mb-0">Цель недели: @EnglishText.Duration(Me.WeeklyGoalMinutes) · сделано @EnglishText.Duration(stats.MinutesThisWeek)</p>
+        </div>
+    </div>
+
+    <div class="es-spaced"><EsHeatmap Stats="stats" Today="DateOnly.FromDateTime(NowLocal)" /></div>
+
+    <div class="es-panel">
+        <h2>Результаты тестов</h2>
+        @if (results.Count == 0)
+        {
+            <EsEmpty Icon="bi-file-earmark-text" Text="Ты ещё не проходил тесты." />
+        }
+        @foreach (var r in results)
+        {
+            <div class="es-row">
+                <div class="es-row__main">
+                    <h3>@r.Test?.Title</h3>
+                    <p>@EnglishText.DateAndTime(Local(r.CreatedAt)) · @r.CorrectCount из @r.Total</p>
+                </div>
+                <strong>@r.Score%</strong>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private EnglishStudentStats? stats;
+    private int[] week = new int[7];
+    private List<EnglishTestResult> results = new();
+    private List<(EnglishStudentCard Card, EnglishStudentStats Stats)> overview = new();
+
+    private int AverageScore
+    {
+        get
+        {
+            var scored = overview.Where(o => o.Stats.AverageScore > 0).ToList();
+            return scored.Count == 0 ? 0 : (int)Math.Round(scored.Average(o => o.Stats.AverageScore));
+        }
+    }
+
+    protected override async Task LoadAsync()
+    {
+        if (IsTeacher)
+        {
+            overview = new();
+            foreach (var card in await Profiles.ListStudentsAsync(UserId))
+            {
+                overview.Add((card, await Progress.GetStatsAsync(card.Profile.UserId)));
+            }
+            return;
+        }
+        stats = await Progress.GetStatsAsync(UserId);
+        week = EnglishProgressService.LastWeek(stats, DateOnly.FromDateTime(NowLocal));
+        results = await Tests.ResultsOfStudentAsync(UserId);
+    }
+
+    private static IEnumerable<(string, int)> Skills(EnglishProfile p) =>
+    [
+        ("Speaking", p.SkillSpeaking), ("Listening", p.SkillListening), ("Reading", p.SkillReading),
+        ("Writing", p.SkillWriting), ("Grammar", p.SkillGrammar), ("Vocabulary", p.SkillVocabulary),
+    ];
+
+    // Текстовый отчёт отдаётся как data:-ссылка — без отдельного эндпоинта
+    private string ReportHref
+    {
+        get
+        {
+            if (stats is null) return "";
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"English Studio — отчёт о прогрессе, {EnglishText.Full(NowLocal)}");
+            sb.AppendLine($"Ученик: {Me.DisplayName}");
+            sb.AppendLine($"Уровень: {(string.IsNullOrEmpty(Me.Level) ? "—" : Me.Level)}, XP: {stats.Xp} (уровень {stats.Level})");
+            sb.AppendLine($"Уроков пройдено: {stats.LessonsCompleted} из {stats.LessonsTotal}");
+            sb.AppendLine($"Время за месяц: {EnglishText.Duration(stats.MinutesThisMonth)}, за неделю: {EnglishText.Duration(stats.MinutesThisWeek)}");
+            sb.AppendLine($"Слов в словаре: {stats.Words}, средний балл тестов: {stats.AverageScore}%, серия: {stats.Streak} дн.");
+            sb.AppendLine();
+            sb.AppendLine("Навыки:");
+            foreach (var (name, value) in Skills(Me)) sb.AppendLine($"  {name}: {value}%");
+            sb.AppendLine();
+            sb.AppendLine("Тесты:");
+            foreach (var r in results) sb.AppendLine($"  {EnglishText.Full(Local(r.CreatedAt))}  {r.Test?.Title}: {r.Score}%");
+            if (!string.IsNullOrEmpty(Me.TeacherComment))
+            {
+                sb.AppendLine();
+                sb.AppendLine("Комментарий преподавателя:");
+                sb.AppendLine(Me.TeacherComment);
+            }
+            return "data:text/plain;charset=utf-8;base64," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(sb.ToString()));
+        }
+    }
+}

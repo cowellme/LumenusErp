@@ -126,6 +126,23 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   (повтор не плодит дубли), `SourceText` = цитата + пустая строка + «Созвон: <имя файла>».
 - Caddy: лимитов тела запроса (`request_body`) и таймаутов в `deploy/Caddyfile` нет, загрузка 2 ГБ проходит.
 
+## English Studio (`/english`)
+
+Образовательная платформа преподавателя английского и учеников: тот же стек (Blazor Server, Identity, PostgreSQL).
+Подробности — `docs/english-studio/README.md`.
+
+- Роли Identity `Teacher` и `Student` (сидятся в `Program.cs`). Ученик привязан к одному преподавателю
+  (`EnglishProfile.TeacherId`) и видит только опубликованный контент этого преподавателя.
+- Регистрация и вход — `/english/login` (static SSR, нужен `HttpContext`), публичный лендинг с заявкой — `/english`.
+  `English:AllowTeacherSignup` (по умолчанию `true`) закрывает регистрацию преподавателей.
+- Кабинет: уроки и конструктор, тесты и конструктор, домашние задания и проверка, календарь, прогресс и достижения,
+  словарь и практика, библиотека материалов, чат, ученики, группы, программы, права доступа, профиль. Все пути под `noindex`.
+- Модели — `Data/English/Models.cs`, конфигурация в `ConfigureEnglish` (`ApplicationDbContext`), миграция `EnglishStudio`.
+  Сервисы — `Services/English/*` (scoped, через `IDbContextFactory`), страницы наследуют `Components/English/EnglishPageBase`.
+- Стили — `wwwroot/english.css` (префикс `es-`), озвучивание слов — `wwwroot/js/english.js`.
+  Фото уроков хранятся как `MediaFile` и отдаются через `/media/{id}` с проверкой прав.
+- Папки для материалов: `wwwroot/english/images/`, `wwwroot/english/backgrounds/`.
+
 ## Конфигурация
 
 | Ключ | Назначение |
@@ -145,6 +162,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |
 | `AiLimits:CalculatorPerHour`, `CalculatorPerDay`, `FaqPerHour`, `FaqPerDay` | лимиты ИИ на IP клиента (по умолчанию 5/15 и 20/60); админы без лимита |
 | `AiLimits:CalculatorGlobalPerDay`, `FaqGlobalPerDay` | суточный потолок на весь сервис (по умолчанию 300 и 1000) |
+| `English:AllowTeacherSignup` | разрешена ли самостоятельная регистрация преподавателей (по умолчанию `true`) |
 | `Media:Path` | каталог загрузок (в Docker `/app/uploads`, том `uploads`; локально `<ContentRoot>/uploads`) |
 | `Media:MaxBytes` | максимум размера картинки, по умолчанию 10 МБ |
 | `DisableHttpsRedirection` | `true` за reverse proxy, где TLS снимает nginx |

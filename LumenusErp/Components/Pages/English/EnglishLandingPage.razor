@@ -1,0 +1,148 @@
+@page "/english"
+@layout LumenusErp.Components.Layout.EnglishBareLayout
+@using System.ComponentModel.DataAnnotations
+@inject EnglishProfileService Profiles
+
+@* Публичная страница English Studio: о платформе, форматы, FAQ и заявка на знакомство (видна преподавателям). *@
+<PageTitle>English Studio — английский для жизни, путешествий и работы</PageTitle>
+<HeadContent>
+    <meta name="description" content="English Studio: персональные занятия английским, уроки, домашние задания, тесты и прогресс в личном кабинете." />
+</HeadContent>
+
+<div class="es-landing">
+    <nav class="es-landing__nav">
+        <a href="english" class="es-brand p-0">
+            <span class="es-brand__mark">e.</span>
+            <span class="es-brand__name">english studio</span>
+        </a>
+        <a href="english/login" class="es-btn">Войти в кабинет <i class="bi bi-arrow-right"></i></a>
+    </nav>
+
+    <section class="es-landing__hero">
+        <span class="es-tag">АНГЛИЙСКИЙ С ПЕРСОНАЛЬНЫМ ПРЕПОДАВАТЕЛЕМ</span>
+        <h1>Your English.<br /><em>Your world.</em></h1>
+        <p>Английский для жизни, путешествий и новых возможностей. Персональные занятия и поддержка на каждом шаге.</p>
+        <div class="es-btn-row justify-content-center">
+            <a href="english#booking" class="es-btn">Записаться на знакомство <i class="bi bi-arrow-up-right"></i></a>
+            <a href="english/login?mode=register" class="es-btn es-btn--secondary">Создать аккаунт</a>
+        </div>
+    </section>
+
+    <div class="es-grid-3">
+        @foreach (var (n, title, text) in Steps)
+        {
+            <div class="es-panel">
+                <span class="es-big-score">@n</span>
+                <h2 class="mt-2">@title</h2>
+                <p class="es-muted mb-0">@text</p>
+            </div>
+        }
+    </div>
+
+    <div class="es-panel es-spaced">
+        <h2>Всё обучение в одном кабинете</h2>
+        <p class="es-muted">Уроки с теорией и записью занятия, домашние задания с обратной связью, тесты с разбором ошибок,
+            личный словарь с карточками, расписание, сообщения преподавателю и наглядный прогресс.</p>
+    </div>
+
+    <div class="es-heading mt-5"><div><h1>Форматы занятий</h1><p>Выбери подходящий ритм.</p></div></div>
+    <div class="es-grid-3">
+        @foreach (var f in Formats)
+        {
+            <div class="es-panel">
+                <h2>@f</h2>
+                <p class="es-muted">Персональная программа, материалы и обратная связь.</p>
+                <span class="es-tag">СТОИМОСТЬ ПО ЗАПРОСУ</span>
+            </div>
+        }
+    </div>
+
+    <div class="es-panel es-spaced">
+        <h2>Частые вопросы</h2>
+        @foreach (var (q, a) in Faq)
+        {
+            <details>
+                <summary>@q</summary>
+                <p class="es-muted mt-2 mb-0">@a</p>
+            </details>
+        }
+    </div>
+
+    <div class="es-panel es-spaced" id="booking">
+        <h2>Знакомство с преподавателем</h2>
+        <p class="es-muted">Оставьте контакт — преподаватель свяжется и предложит время первой встречи.</p>
+        @if (sent)
+        {
+            <div class="es-alert es-alert--ok" role="status">Спасибо! Заявка отправлена, мы свяжемся с вами.</div>
+        }
+        else
+        {
+            @if (error is not null)
+            {
+                <div class="es-alert es-alert--error" role="alert">@error</div>
+            }
+            <EditForm Model="Booking" method="post" OnValidSubmit="SendAsync" FormName="english-booking" Enhance>
+                <DataAnnotationsValidator />
+                <div class="es-form-grid">
+                    <label class="es-field">Имя
+                        <InputText @bind-Value="Booking.Name" class="form-control" autocomplete="name" />
+                        <ValidationMessage For="() => Booking.Name" />
+                    </label>
+                    <label class="es-field">Контакт для связи
+                        <InputText @bind-Value="Booking.Contact" class="form-control" placeholder="Телефон, e-mail или Telegram" />
+                        <ValidationMessage For="() => Booking.Contact" />
+                    </label>
+                </div>
+                <label class="es-field">Цель и удобное время
+                    <InputTextArea @bind-Value="Booking.Message" class="form-control" rows="3" />
+                </label>
+                <button type="submit" class="es-btn">Отправить заявку</button>
+            </EditForm>
+        }
+    </div>
+
+    <footer>English Studio · Учиться, чтобы жить свободнее.</footer>
+</div>
+
+@code {
+    private static readonly (string N, string Title, string Text)[] Steps =
+    [
+        ("01", "Твоя цель", "Определяем уровень и составляем личный маршрут."),
+        ("02", "Живое общение", "Практикуемся на темах, которые интересны тебе."),
+        ("03", "Видимый прогресс", "Закрепляем материал и замечаем каждую победу."),
+    ];
+
+    private static readonly string[] Formats = ["Индивидуальные занятия", "Разговорная практика", "Английский для работы"];
+
+    private static readonly (string Q, string A)[] Faq =
+    [
+        ("Как проходят занятия?", "Онлайн, с разговорной практикой и материалами в личном кабинете."),
+        ("Останутся ли материалы?", "Уроки, задания и заметки доступны в твоём кабинете."),
+        ("Можно ли перенести урок?", "Условия переноса согласовываются с преподавателем заранее."),
+    ];
+
+    [SupplyParameterFromForm(FormName = "english-booking")]
+    private BookingModel Booking { get; set; } = new();
+
+    private bool sent;
+    private string? error;
+
+    private async Task SendAsync()
+    {
+        var r = await Profiles.AddBookingAsync(Booking.Name, Booking.Contact, Booking.Message);
+        error = r.Error;
+        sent = r.Ok;
+    }
+
+    private sealed class BookingModel
+    {
+        [Required(ErrorMessage = "Укажите имя."), StringLength(200)]
+        public string Name { get; set; } = "";
+
+        [Required(ErrorMessage = "Укажите контакт."), StringLength(200)]
+        public string Contact { get; set; } = "";
+
+        [StringLength(2000)]
+        public string? Message { get; set; }
+    }
+}

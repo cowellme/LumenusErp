@@ -1,0 +1,264 @@
+@page "/english/lessons/new"
+@page "/english/lessons/{Id:guid}/edit"
+@attribute [Authorize(Roles = EnglishRoles.Teacher)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishLessonService Lessons
+@inject LumenusErp.Services.MediaService Media
+
+<PageTitle>Конструктор урока — English Studio</PageTitle>
+
+<a href="@(Id is null ? "english/lessons" : $"english/lessons/{Id}")" class="es-link mb-3">← Назад</a>
+<EsHeading Title="Конструктор урока" Text="Создай урок, прикрепи запись занятия, фото доски и материалы после встречи." />
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (notFound)
+{
+    <div class="es-panel"><EsEmpty Text="Урок не найден." /></div>
+}
+else
+{
+    <EsMessages Error="@Error" Notice="@Notice" />
+    <div class="es-lesson-layout">
+        <div class="es-panel">
+            <label class="es-field">Название
+                <input class="form-control" @bind="lesson.Title" maxlength="@EnglishLessonService.MaxTitle" placeholder="Название урока" />
+            </label>
+            <label class="es-field">Краткое описание
+                <textarea class="form-control" rows="2" @bind="lesson.Summary" maxlength="@EnglishLessonService.MaxSummary" placeholder="Цели урока"></textarea>
+            </label>
+            <div class="es-form-grid">
+                <label class="es-field">Тема
+                    <input class="form-control" @bind="lesson.Topic" list="es-topics" placeholder="Grammar, Speaking…" />
+                    <datalist id="es-topics"><option>Grammar</option><option>Speaking</option><option>Vocabulary</option><option>Listening</option><option>Reading</option><option>Writing</option></datalist>
+                </label>
+                <label class="es-field">Уровень
+                    <input class="form-control" @bind="lesson.Level" placeholder="A2 → B1" />
+                </label>
+                <label class="es-field">Длительность, минут
+                    <input type="number" class="form-control" min="5" max="300" @bind="lesson.DurationMinutes" />
+                </label>
+                <label class="es-field">Номер юнита
+                    <input type="number" class="form-control" min="0" @bind="lesson.Order" />
+                </label>
+                <label class="es-field">Программа
+                    <select class="form-select" @bind="programValue">
+                        <option value="">Без программы</option>
+                        @foreach (var (p, _) in programs)
+                        {
+                            <option value="@p.Id">@p.Title</option>
+                        }
+                    </select>
+                </label>
+                <label class="es-field">Цвет обложки
+                    <select class="form-select" @bind="lesson.Color">
+                        @foreach (var c in EnglishLesson.Colors)
+                        {
+                            <option value="@c">@ColorName(c)</option>
+                        }
+                    </select>
+                </label>
+            </div>
+            <label class="es-field">Запись встречи — ссылка (YouTube, прямой .mp4 или облако)
+                <input class="form-control" @bind="lesson.VideoUrl" placeholder="https://…" />
+            </label>
+
+            @for (var i = 0; i < blocks.Count; i++)
+            {
+                var index = i;
+                <div class="es-rule">
+                    <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+                        <select class="form-select form-select-sm w-auto" @bind="blocks[index].Type">
+                            @foreach (var t in EnglishLessonBlock.Types)
+                            {
+                                <option value="@t">@t</option>
+                            }
+                        </select>
+                        <div class="d-flex gap-1">
+                            <button type="button" class="es-icon-btn" aria-label="Выше" disabled="@(index == 0)" @onclick="() => Move(index, -1)"><i class="bi bi-arrow-up"></i></button>
+                            <button type="button" class="es-icon-btn" aria-label="Ниже" disabled="@(index == blocks.Count - 1)" @onclick="() => Move(index, 1)"><i class="bi bi-arrow-down"></i></button>
+                            <button type="button" class="es-icon-btn" aria-label="Удалить блок" @onclick="() => blocks.RemoveAt(index)"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                    <textarea class="form-control" rows="5" @bind="blocks[index].Text" placeholder="@Hint(blocks[index].Type)"></textarea>
+                </div>
+            }
+
+            <label class="form-check mt-3">
+                <input type="checkbox" class="form-check-input" @bind="lesson.Published" />
+                <span class="form-check-label">Опубликовать — урок увидят ученики</span>
+            </label>
+            <div class="es-btn-row">
+                <button type="button" class="es-btn" disabled="@saving" @onclick="SaveAsync">@(lesson.Published ? "Сохранить и опубликовать" : "Сохранить черновик")</button>
+                @if (lesson.Id != Guid.Empty)
+                {
+                    <a href="english/lessons/@lesson.Id" class="es-btn es-btn--secondary">Предпросмотр</a>
+                    @if (confirmDelete)
+                    {
+                        <span class="es-small">Удалить урок?</span>
+                        <button type="button" class="es-btn es-btn--danger es-btn--sm" @onclick="DeleteAsync">Да</button>
+                        <button type="button" class="es-btn es-btn--secondary es-btn--sm" @onclick="() => confirmDelete = false">Нет</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="es-btn es-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
+                    }
+                }
+            </div>
+        </div>
+
+        <aside>
+            <div class="es-panel">
+                <h2>Блоки урока</h2>
+                @foreach (var t in EnglishLessonBlock.Types)
+                {
+                    <button type="button" class="es-block-btn" @onclick="() => blocks.Add(new EnglishLessonBlock { Type = t })">@t <i class="bi bi-plus-lg"></i></button>
+                }
+                <p class="es-muted es-small mb-0">В «Новых словах» пиши по строке «word — перевод»: ученик сможет добавить слово в словарь. Строки «Примеров» озвучиваются.</p>
+            </div>
+            <div class="es-panel">
+                <h2>Фото доски или конспекта</h2>
+                @if (lesson.Id == Guid.Empty)
+                {
+                    <p class="es-muted es-small mb-0">Сохраните урок, чтобы прикрепить фото.</p>
+                }
+                else
+                {
+                    @if (lesson.PhotoMediaId is { } photo)
+                    {
+                        <img class="es-photo mb-2" src="media/@photo" alt="Фото к уроку" />
+                        <button type="button" class="es-link" @onclick="RemovePhotoAsync">Убрать фото</button>
+                    }
+                    <label class="es-field mt-2">@(lesson.PhotoMediaId is null ? "Загрузить" : "Заменить") (JPEG, PNG, WebP, GIF)
+                        <InputFile class="form-control" accept="image/jpeg,image/png,image/webp,image/gif" OnChange="UploadPhotoAsync" />
+                    </label>
+                    @if (uploading)
+                    {
+                        <p class="es-muted es-small">Загрузка…</p>
+                    }
+                }
+            </div>
+        </aside>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private EnglishLesson lesson = new();
+    private List<EnglishLessonBlock> blocks = new();
+    private List<(EnglishProgram Program, int Lessons)> programs = new();
+    private bool notFound, saving, uploading, confirmDelete;
+
+    private string programValue
+    {
+        get => lesson.ProgramId?.ToString() ?? "";
+        set => lesson.ProgramId = Guid.TryParse(value, out var g) ? g : null;
+    }
+
+    protected override async Task LoadAsync()
+    {
+        programs = await Lessons.ListProgramsAsync(UserId);
+        if (Id is null)
+        {
+            lesson = new EnglishLesson { Order = await Lessons.NextOrderAsync(UserId), Level = Me.Level, Published = true, ProgramId = programs.FirstOrDefault().Program?.Id };
+            blocks = [new() { Type = "Теория" }, new() { Type = EnglishLessonBlock.Words }, new() { Type = EnglishLessonBlock.Examples }];
+            return;
+        }
+        var existing = await Lessons.GetAsync(UserId, Id.Value);
+        if (existing is null || existing.TeacherId != UserId)
+        {
+            notFound = true;
+            return;
+        }
+        lesson = existing;
+        blocks = existing.Blocks.Select(b => new EnglishLessonBlock { Type = b.Type, Text = b.Text }).ToList();
+    }
+
+    private void Move(int index, int delta)
+    {
+        var target = index + delta;
+        if (target < 0 || target >= blocks.Count) return;
+        (blocks[index], blocks[target]) = (blocks[target], blocks[index]);
+    }
+
+    private async Task SaveAsync()
+    {
+        ClearMessages();
+        saving = true;
+        try
+        {
+            var (id, error) = await Lessons.SaveAsync(UserId, lesson, blocks);
+            if (error is not null)
+            {
+                Error = error;
+                return;
+            }
+            if (lesson.Id == Guid.Empty)
+            {
+                // Тот же компонент остаётся на странице: запоминаем Id, чтобы следующее сохранение обновляло, а не создавало заново
+                lesson.Id = id!.Value;
+                Navigation.NavigateTo($"english/lessons/{id}/edit", replace: true);
+            }
+            Notice = lesson.Published ? "Урок сохранён и опубликован." : "Черновик сохранён.";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task UploadPhotoAsync(InputFileChangeEventArgs e)
+    {
+        ClearMessages();
+        uploading = true;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(Media.MaxBytes);
+            if (Report(await Lessons.SetPhotoAsync(UserId, lesson.Id, stream, e.File.Name), "Фото прикреплено."))
+            {
+                lesson = (await Lessons.GetAsync(UserId, lesson.Id))!;
+            }
+        }
+        catch (IOException)
+        {
+            Error = $"Файл больше {Media.MaxBytes / 1024 / 1024} МБ.";
+        }
+        finally
+        {
+            uploading = false;
+        }
+    }
+
+    private async Task RemovePhotoAsync()
+    {
+        await Lessons.RemovePhotoAsync(UserId, lesson.Id);
+        lesson.PhotoMediaId = null;
+    }
+
+    private async Task DeleteAsync()
+    {
+        await Lessons.DeleteAsync(UserId, lesson.Id);
+        Navigation.NavigateTo("english/lessons");
+    }
+
+    private static string ColorName(string c) => c switch
+    {
+        "mint" => "Мятный",
+        "blue" => "Голубой",
+        "peach" => "Персиковый",
+        "purple" => "Лавандовый",
+        "yellow" => "Песочный",
+        _ => c,
+    };
+
+    private static string Hint(string type) => type switch
+    {
+        "Новые слова" => "journey — путешествие\nmemorable — запоминающийся",
+        "Примеры" => "I visited London last summer.\nDid you visit London?",
+        _ => "Содержимое блока…",
+    };
+}

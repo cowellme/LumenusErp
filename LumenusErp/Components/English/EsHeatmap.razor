@@ -1,0 +1,46 @@
+@* Тепловая карта регулярности: месяц (дни с числами) или год (53 недели). Уровень клетки — по минутам за день. *@
+<div class="es-panel">
+    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">
+        <h2 class="mb-0">@Title <span class="d-block es-muted es-small fw-normal mt-1">делает разницу</span></h2>
+        <div class="es-seg">
+            <button type="button" class="@(year ? "" : "active")" @onclick="() => year = false">Месяц</button>
+            <button type="button" class="@(year ? "active" : "")" @onclick="() => year = true">Год</button>
+        </div>
+    </div>
+    <div class="es-eyebrow mb-2">@(year ? "ПОСЛЕДНИЕ 12 МЕСЯЦЕВ" : EnglishText.Month(Today.ToDateTime(TimeOnly.MinValue)).ToUpper(EnglishText.Ru))</div>
+    <div class="es-heatmap @(year ? "es-heatmap--year" : "")">
+        @foreach (var day in Days)
+        {
+            var minutes = Stats.MinutesByDay.GetValueOrDefault(day);
+            <div class="es-heat es-level@(EnglishProgressService.HeatLevel(minutes))" title="@day.ToString("d MMMM", EnglishText.Ru): @minutes мин">
+                @(year ? "" : day.Day.ToString())
+            </div>
+        }
+    </div>
+    <div class="es-heat-footer">
+        <span><strong>@Stats.ActiveDaysThisMonth</strong> @EnglishText.Plural(Stats.ActiveDaysThisMonth, "активный день", "активных дня", "активных дней") в этом месяце</span>
+        <span>Меньше <i class="es-level0"></i><i class="es-level1"></i><i class="es-level2"></i><i class="es-level3"></i><i class="es-level4"></i> Больше</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EnglishStudentStats Stats { get; set; } = default!;
+    [Parameter] public DateOnly Today { get; set; }
+    [Parameter] public string Title { get; set; } = "Твоя регулярность";
+
+    private bool year;
+
+    private IEnumerable<DateOnly> Days
+    {
+        get
+        {
+            if (!year)
+            {
+                var first = new DateOnly(Today.Year, Today.Month, 1);
+                return Enumerable.Range(0, DateTime.DaysInMonth(Today.Year, Today.Month)).Select(first.AddDays);
+            }
+            var start = Today.AddDays(-370);
+            return Enumerable.Range(0, 371).Select(start.AddDays);
+        }
+    }
+}

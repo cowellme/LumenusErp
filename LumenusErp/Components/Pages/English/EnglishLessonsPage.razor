@@ -1,0 +1,75 @@
+@page "/english/lessons"
+@attribute [Authorize(Roles = EnglishRoles.Any)]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inherits EnglishPageBase
+@inject EnglishLessonService Lessons
+
+<PageTitle>@(IsTeacher ? "Уроки" : "Мои уроки") — English Studio</PageTitle>
+
+<EsHeading Title="@(IsTeacher ? "Библиотека уроков" : "Мои уроки")"
+           Text="@(IsTeacher ? "Уроки, черновики и опубликованные юниты для ваших учеников." : "Твоя программа: шаг за шагом к свободному английскому.")">
+    @if (IsTeacher)
+    {
+        <a href="english/lessons/new" class="es-btn"><i class="bi bi-plus-lg"></i> Создать урок</a>
+    }
+</EsHeading>
+
+<div class="es-toolbar">
+    <label class="es-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input class="form-control" placeholder="Найти…" aria-label="Поиск урока" @bind="query" @bind:event="oninput" />
+    </label>
+    <div class="es-seg">
+        @foreach (var f in IsTeacher ? TeacherFilters : StudentFilters)
+        {
+            <button type="button" class="@(filter == f ? "active" : "")" @onclick="() => filter = f">@f</button>
+        }
+    </div>
+</div>
+
+@if (!Loaded)
+{
+    <p class="es-muted">Загрузка…</p>
+}
+else if (Shown.Count == 0)
+{
+    <div class="es-panel">
+        <EsEmpty Text="@(all.Count == 0 ? (IsTeacher ? "Уроков пока нет — создайте первый." : "Преподаватель ещё не опубликовал уроки.") : "Ничего не найдено.")" />
+    </div>
+}
+else
+{
+    <div class="es-lesson-grid">
+        @foreach (var l in Shown)
+        {
+            <EsLessonCard Card="l" Href="@($"english/lessons/{l.Lesson.Id}")" ShowProgress="!IsTeacher" />
+        }
+    </div>
+}
+
+@code {
+    private static readonly string[] StudentFilters = ["Все", "В процессе", "Завершённые", "Не начаты"];
+    private static readonly string[] TeacherFilters = ["Все", "Опубликованные", "Черновики"];
+
+    private List<EnglishLessonCard> all = new();
+    private string query = "";
+    private string filter = "Все";
+
+    private List<EnglishLessonCard> Shown => all
+        .Where(l => (l.Lesson.Title + " " + l.Lesson.Summary + " " + l.Lesson.Topic).Contains(query.Trim(), StringComparison.OrdinalIgnoreCase))
+        .Where(l => filter switch
+        {
+            "В процессе" => l.Percent > 0 && !l.Completed,
+            "Завершённые" => l.Completed,
+            "Не начаты" => l.Percent == 0,
+            "Опубликованные" => l.Lesson.Published,
+            "Черновики" => !l.Lesson.Published,
+            _ => true,
+        })
+        .ToList();
+
+    protected override async Task LoadAsync()
+    {
+        all = IsTeacher ? await Lessons.ListForTeacherAsync(UserId) : await Lessons.ListForStudentAsync(UserId);
+    }
+}

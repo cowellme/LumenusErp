@@ -1,0 +1,158 @@
+@using System.Security.Claims
+@using LumenusErp.Services.English
+@inherits LayoutComponentBase
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject EnglishProfileService Profiles
+@inject EnglishHomeworkService Homework
+@inject EnglishMessageService Messages
+
+@* Каркас кабинета English Studio: боковое меню по роли, верхняя панель, своя светлая тема (data-bs-theme="light"). *@
+<NoIndex />
+
+<div class="es-app" data-bs-theme="light">
+    <input type="checkbox" id="es-nav-toggle" class="es-nav-toggle" aria-hidden="true" />
+    <div class="es-shell">
+        <label for="es-nav-toggle" class="es-backdrop" aria-hidden="true"></label>
+        <aside class="es-sidebar" aria-label="Меню English Studio">
+            <a href="english/home" class="es-brand">
+                <span class="es-brand__mark">e.</span>
+                <span class="es-brand__name">english<span class="es-brand__sub">STUDIO</span></span>
+            </a>
+            <div class="es-workspace">@(isTeacher ? "КАБИНЕТ ПРЕПОДАВАТЕЛЯ" : "ТВОЁ ПРОСТРАНСТВО РОСТА")</div>
+            <nav>
+                <ul class="es-nav">
+                    @foreach (var (href, label, icon, divider) in isTeacher ? TeacherNav : StudentNav)
+                    {
+                        <li>
+                            <NavLink class="es-nav__link" href="@href" Match="@(href == "english/home" ? NavLinkMatch.All : NavLinkMatch.Prefix)">
+                                <i class="bi @icon" aria-hidden="true"></i>
+                                <span>@label</span>
+                                @if (Badge(href) is > 0 and var n)
+                                {
+                                    <b class="es-nav__count">@n</b>
+                                }
+                            </NavLink>
+                            @if (divider)
+                            {
+                                <div class="es-nav__divider"></div>
+                            }
+                        </li>
+                    }
+                </ul>
+            </nav>
+            <div class="es-sidebar__note">
+                <i class="bi bi-stars" aria-hidden="true"></i>
+                <strong>A little every day.</strong>
+                Большие перемены начинаются с маленьких шагов.
+            </div>
+            <a href="english/profile" class="es-me">
+                <span class="es-avatar @(isTeacher ? "es-avatar--coral" : "")">@initials</span>
+                <span>
+                    <strong>@displayName</strong>
+                    <small>@(isTeacher ? "Преподаватель" : "Ученик")</small>
+                </span>
+            </a>
+        </aside>
+
+        <div class="es-main">
+            <header class="es-topbar">
+                <div class="es-topbar__crumb">
+                    <label for="es-nav-toggle" class="es-burger" aria-label="Открыть меню"><i class="bi bi-list"></i></label>
+                    <span>@(isTeacher ? "Кабинет преподавателя" : "Кабинет ученика")</span>
+                </div>
+                <div class="es-topbar__actions">
+                    <span class="es-topbar__who">@email</span>
+                    <a href="english/messages" class="es-icon-btn" aria-label="Сообщения" title="Сообщения">
+                        <i class="bi bi-bell"></i>
+                        @if (unread > 0)
+                        {
+                            <span class="es-dot"></span>
+                        }
+                    </a>
+                    <a href="english/profile" class="es-avatar" title="Профиль">@initials</a>
+                    <form action="Account/Logout" method="post" class="m-0">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="english" />
+                        <button type="submit" class="es-icon-btn" aria-label="Выйти" title="Выйти"><i class="bi bi-box-arrow-right"></i></button>
+                    </form>
+                </div>
+            </header>
+            <main class="es-page">
+                @Body
+            </main>
+            <footer class="es-footer">
+                <span>ENGLISH STUDIO</span>
+                <span>A little progress, every day.</span>
+                <a href="english" class="es-link">О платформе</a>
+            </footer>
+        </div>
+    </div>
+</div>
+
+<div id="blazor-error-ui" class="position-fixed bottom-0 end-0 m-3 p-3 bg-body border border-danger border-2 font-monospace small text-danger d-none">
+    An unhandled error has occurred.
+    <a href="." class="fw-bold text-body">Reload</a>
+    <span class="ms-2 text-muted" style="cursor:pointer" onclick="this.parentElement.style.display='none'">✕</span>
+</div>
+
+@code {
+    private static readonly (string Href, string Label, string Icon, bool Divider)[] StudentNav =
+    [
+        ("english/home", "Главная", "bi-grid", false),
+        ("english/lessons", "Мои уроки", "bi-book", false),
+        ("english/homework", "Домашние задания", "bi-clipboard-check", false),
+        ("english/tests", "Тесты", "bi-file-earmark-text", false),
+        ("english/vocabulary", "Мой словарь", "bi-translate", false),
+        ("english/practice", "Практика", "bi-stars", true),
+        ("english/calendar", "Календарь", "bi-calendar3", false),
+        ("english/progress", "Мой прогресс", "bi-bar-chart", false),
+        ("english/achievements", "Достижения", "bi-trophy", false),
+        ("english/materials", "Библиотека", "bi-collection", false),
+        ("english/messages", "Сообщения", "bi-chat-dots", false),
+        ("english/profile", "Мой профиль", "bi-gear", false),
+    ];
+
+    private static readonly (string Href, string Label, string Icon, bool Divider)[] TeacherNav =
+    [
+        ("english/home", "Обзор", "bi-grid", false),
+        ("english/students", "Ученики", "bi-people", false),
+        ("english/groups", "Группы", "bi-mortarboard", false),
+        ("english/programs", "Учебные программы", "bi-journal-bookmark", false),
+        ("english/lessons", "Уроки", "bi-book", false),
+        ("english/homework", "Домашние задания", "bi-clipboard-check", true),
+        ("english/tests", "Тесты", "bi-file-earmark-text", false),
+        ("english/review", "Проверка работ", "bi-check2-square", false),
+        ("english/calendar", "Расписание", "bi-calendar3", false),
+        ("english/materials", "Материалы", "bi-collection", false),
+        ("english/progress", "Аналитика", "bi-bar-chart", false),
+        ("english/messages", "Сообщения", "bi-chat-dots", false),
+        ("english/access", "Права доступа", "bi-shield-lock", false),
+        ("english/profile", "Настройки", "bi-gear", false),
+    ];
+
+    private bool isTeacher;
+    private string displayName = "", email = "", initials = "";
+    private int newSubmissions, unread;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        var userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null) return;
+        isTeacher = state.User.IsInRole(EnglishRoles.Teacher);
+        var profile = await Profiles.GetOrCreateAsync(userId);
+        email = profile.User?.Email ?? "";
+        displayName = profile.DisplayName;
+        initials = EnglishText.Initials(displayName);
+        unread = await Messages.UnreadAsync(userId);
+        newSubmissions = isTeacher ? await Homework.CountNewSubmissionsAsync(userId) : 0;
+    }
+
+    private int Badge(string href) => href switch
+    {
+        "english/review" => newSubmissions,
+        "english/messages" => unread,
+        _ => 0,
+    };
+}
