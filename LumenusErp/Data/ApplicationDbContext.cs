@@ -14,6 +14,8 @@ namespace LumenusErp.Data
         public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
         public DbSet<TaskItem> TaskItems => Set<TaskItem>();
         public DbSet<UserApiToken> UserApiTokens => Set<UserApiToken>();
+        public DbSet<CallRecording> CallRecordings => Set<CallRecording>();
+        public DbSet<CallTaskSuggestion> CallTaskSuggestions => Set<CallTaskSuggestion>();
 
         // Добавьте этот метод, если нужно переопределить конфигурацию
         protected override void OnModelCreating(ModelBuilder builder)
@@ -91,6 +93,25 @@ namespace LumenusErp.Data
                 e.Property(t => t.Name).HasMaxLength(100);
                 e.Property(t => t.TokenHash).HasMaxLength(64);
                 e.Property(t => t.Prefix).HasMaxLength(20);
+            });
+
+            builder.Entity<CallRecording>(e =>
+            {
+                e.HasOne(c => c.Owner).WithMany().HasForeignKey(c => c.OwnerId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(c => new { c.OwnerId, c.CreatedAt });
+                e.Property(c => c.FileName).HasMaxLength(255);
+                e.Property(c => c.Status).HasMaxLength(20);
+                e.Property(c => c.Stage).HasMaxLength(200);
+                e.Property(c => c.Error).HasMaxLength(2000);
+            });
+
+            builder.Entity<CallTaskSuggestion>(e =>
+            {
+                e.HasOne(s => s.CallRecording).WithMany(c => c.Suggestions).HasForeignKey(s => s.CallRecordingId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(s => s.TaskItem).WithMany().HasForeignKey(s => s.TaskItemId).OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(s => new { s.CallRecordingId, s.Order });
+                e.Property(s => s.Title).HasMaxLength(300);
+                e.Property(s => s.SourceText).HasMaxLength(2000);
             });
         }
     }

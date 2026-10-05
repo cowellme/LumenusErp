@@ -17,7 +17,7 @@ public record TaskInput(string? Title, string? SourceText, string? Source, strin
 public class TaskService(IDbContextFactory<ApplicationDbContext> dbFactory)
 {
     public const int MaxTitle = 300, MaxSourceText = 20000, MaxSource = 50, MaxExternalId = 100;
-    public const string WebSource = "web";
+    public const string WebSource = "web", CallSource = "call";
 
     public static bool IsStatus(string? s) => s is TaskItem.StatusOpen or TaskItem.StatusDone;
 

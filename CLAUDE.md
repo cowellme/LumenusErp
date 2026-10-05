@@ -52,7 +52,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 - ИИ-функции (`/calculator`, `/faq`) публичные и платные: `AiRateLimiter` (в памяти, скользящие окна) считает
   вызовы по IP клиента. IP берётся из `HttpContext` при пререндере (после `UseForwardedHeaders`) и переносится в
   интерактивную фазу через `PersistentComponentState` (`Components/Tools/AiPageBase.cs`). Лимиты задаются в `AiLimits`.
-- Системные промпты ИИ лежат в таблице `AiPrompts` (ключи `estimate`, `faq`), правятся в `/admin/prompts`;
+- Системные промпты ИИ лежат в таблице `AiPrompts` (ключи `estimate`, `faq`, `call-tasks`), правятся в `/admin/prompts`;
   читаются через `AiPromptStore` (кэш 30 с). Тексты по умолчанию — `Services/DefaultPrompts.cs`: сидятся только
   при отсутствии ключа и служат запасным вариантом.
 - Секреты только из конфигурации/переменных окружения, никогда не в коде.
@@ -98,6 +98,34 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 не затрагиваются, поэтому myasi работает с `app:8080`. Пусто — без ограничений (локальная разработка). В `deploy/Caddyfile` — блок `app.{$SITE_DOMAIN}`
 (нужна DNS-запись) и HTTP→HTTPS редирект на тот же хост.
 
+## Вкладка «Созвоны» (`/tasks/calls`)
+
+Вкладки трекера (`Components/Tools/TasksTabs.razor`): Задачи, Созвоны, API-токены и (только Admin) «Промпты ИИ» → `/admin/prompts`
+(`/admin` на хосте `Tasks:Host` не блокируется, middleware трогает только `/tasks*`).
+Поток: пользователь грузит видео/аудио → ffmpeg (в образе) извлекает аудио → myasi распознаёт речь → LLM (OpenRouter) выделяет
+задачи → на `/tasks/calls/{id}` пользователь отмечает найденные и добавляет в свой трекер.
+- Загрузка: `POST /tasks/calls/upload` (`Services/CallEndpoints.cs`, cookie-авторизация, путь под `/tasks` — действует `Tasks:Host`).
+  `multipart/form-data`, поле `file`; тело читается потоком `MultipartReader` прямо на диск (в память не буферизуется), лимит Kestrel
+  поднимается только для этого запроса (`IHttpMaxRequestBodySizeFeature` = `Calls:MaxBytes` + 1 МБ), глобальный остаётся 30 МБ.
+  Расширение из белого списка (webm, mp4, mkv, mov, avi, m4a, mp3, ogg, oga, opus, wav, flac, aac, wma, 3gp), остальное проверяет ffmpeg.
+  Antiforgery: страница без пререндера не имеет `HttpContext`, поэтому `calls.js` (XMLHttpRequest, нужен прогресс) сначала берёт токен у
+  `GET /tasks/calls/antiforgery` и шлёт его в заголовке `X-CSRF-TOKEN` (`AddAntiforgery(HeaderName)`, проверка `IAntiforgery.ValidateRequestAsync`).
+  Не больше 2 записей пользователя в `queued/processing` (иначе 429). Ответ 201 `{"id"}`.
+- Обработка (`Services/CallProcessor.cs`, `BackgroundService` + `CallQueue` на `Channel<Guid>`) — по одной записи за раз. ffmpeg режет аудио
+  на WAV 16 кГц моно s16 по 10 минут (лимит myasi ~60 МБ на запрос); куски по очереди идут в `POST {Myasi:BaseUrl}/api/audio?extract=false`
+  (таймаут 15 минут на кусок), тексты склеиваются пробелом. Транскрипт сохраняется сразу после распознавания (виден и при сбое LLM).
+  Задачи — промпт `call-tasks` (`/admin/prompts`), ответ — JSON-массив `[{"title","quote"}]`, разбор в `CallTaskParser`; транскрипт длиннее
+  120 000 символов обрезается для модели. Нет ключа OpenRouter → статус `done` с `Error` «ИИ не настроен — задачи не выделены».
+- Рабочий каталог — `Calls:WorkPath` (по умолчанию `<Media:Path>/calls-tmp`, то есть том `uploads`; в нём подкаталог на запись). Исходный файл
+  удаляется после конвертации, каталог записи — всегда в `finally`.
+- Рестарт: очередь в памяти, поэтому при старте все `queued/processing` помечаются `failed` («Обработка прервана перезапуском сервера»),
+  а содержимое рабочего каталога удаляется.
+- Модель: `CallRecording` (статусы `queued/processing/done/failed`, `Stage` — шаг для UI) и `CallTaskSuggestion` (`TaskItemId` — созданная задача,
+  FK SetNull). Удаление записи физическое (подсказки каскадом, задачи трекера остаются); `processing` удалить нельзя.
+- Добавление в трекер (`CallService.AddToTrackerAsync`): `Source = "call"` (`TaskService.CallSource`), `ExternalId = "<callId>:<suggestionId>"`
+  (повтор не плодит дубли), `SourceText` = цитата + пустая строка + «Созвон: <имя файла>».
+- Caddy: лимитов тела запроса (`request_body`) и таймаутов в `deploy/Caddyfile` нет, загрузка 2 ГБ проходит.
+
 ## Конфигурация
 
 | Ключ | Назначение |
@@ -108,6 +136,9 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 | `DataProtection:KeysPath` | каталог ключей Data Protection (куки переживают рестарт) |
 | `Api:Token` | Bearer-токен для `api/lumenus`; для `api/tasks` — переходный (задачи пишутся администратору) |
 | `Tasks:Host` | хост трекера (`app.lumenustech.ru`); пусто = без ограничений по хосту |
+| `Myasi:BaseUrl` | сервис распознавания речи myasi для «Созвонов» (по умолчанию `http://myasi:8000`; env `MYASI_URL`) |
+| `Calls:MaxBytes` | максимум размера записи созвона, по умолчанию 2 ГБ (env `CALLS_MAX_BYTES`) |
+| `Calls:WorkPath` | каталог временных файлов созвонов, по умолчанию `<Media:Path>/calls-tmp` |
 | `Ai:OpenRouterApiKey`, `Ai:DeepSeekApiKey` | ключи LLM |
 | `Ai:OpenRouterModel` | модель OpenRouter для калькулятора и FAQ (пусто = `anthropic/claude-sonnet-5.5`) |
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |
@@ -119,7 +150,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 
 Переменные `.env` для compose: `APP_PORT`, `APP_BIND` (адрес публикации порта приложения;
 `127.0.0.1` на проде за Caddy), `SITE_DOMAIN`, `ACME_EMAIL` (пусто = `info@lumenustech.ru`),
-`TASKS_HOST` (хост трекера; пусто локально, на проде `app.lumenustech.ru`), `COMPOSE_PROFILES=proxy` (включает сервис `caddy`).
+`TASKS_HOST` (хост трекера; пусто локально, на проде `app.lumenustech.ru`), `MYASI_URL`, `CALLS_MAX_BYTES`, `COMPOSE_PROFILES=proxy` (включает сервис `caddy`).
 
 ## SEO
 

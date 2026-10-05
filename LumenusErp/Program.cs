@@ -65,6 +65,20 @@ builder.Services.AddSingleton<MediaService>();
 builder.Services.AddSingleton<TaskService>();
 builder.Services.AddSingleton<UserApiTokenService>();
 
+// Вкладка «Созвоны»: загрузка → ffmpeg → myasi → LLM, обработка по одной записи в фоне
+builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
+builder.Services.AddSingleton<CallSettings>();
+builder.Services.AddSingleton<CallQueue>();
+builder.Services.AddSingleton<CallService>();
+builder.Services.AddHostedService<CallProcessor>();
+// Распознавание медленное (кусок 10 минут аудио), поэтому таймаут большой
+builder.Services.AddHttpClient(CallProcessor.HttpClientName, client =>
+{
+    var baseUrl = builder.Configuration["Myasi:BaseUrl"];
+    client.BaseAddress = new Uri((string.IsNullOrWhiteSpace(baseUrl) ? "http://myasi:8000" : baseUrl.Trim()).TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromMinutes(15);
+});
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
@@ -207,6 +221,7 @@ app.UseAntiforgery();
 app.MapControllers();
 app.MapSeoEndpoints();
 app.MapMediaEndpoints();
+app.MapCallEndpoints();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

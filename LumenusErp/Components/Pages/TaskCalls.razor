@@ -1,0 +1,255 @@
+@page "/tasks/calls"
+@using System.Security.Claims
+@using LumenusErp.Data
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
+
+@inject CallService Calls
+@inject CallSettings Settings
+@inject AuthenticationStateProvider AuthProvider
+@inject IJSRuntime JS
+
+<PageTitle>Созвоны — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">TASKS</p>
+        <h1 class="hero__title mb-2">Созвоны</h1>
+        <p class="text-muted mb-0">Загрузите запись созвона: сервер распознает речь и найдёт в ней задачи.</p>
+        <TasksTabs Active="calls" />
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container" style="max-width: 820px;">
+        @if (error is not null)
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+
+        <div class="card-x p-3 mb-4">
+            <label class="form-label small fw-bold" for="call-file">Видео или аудио (до @(Settings.MaxBytes / (1024 * 1024)) МБ)</label>
+            <div class="d-flex flex-wrap gap-2">
+                <input id="call-file" type="file" class="form-control flex-grow-1" style="min-width:200px;width:auto;"
+                       accept="video/*,audio/*" @ref="fileInput" disabled="@uploading" />
+                <button type="button" class="btn btn-dark text-nowrap" disabled="@uploading" @onclick="UploadAsync">
+                    @(uploading ? "Загрузка…" : "Загрузить")
+                </button>
+            </div>
+            @if (uploading)
+            {
+                <div class="progress mt-3" role="progressbar" aria-label="Прогресс загрузки" aria-valuenow="@progress" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar bg-dark" style="width:@(progress)%">@progress%</div>
+                </div>
+            }
+        </div>
+
+        @if (!loaded)
+        {
+            <p class="text-muted">Загрузка…</p>
+        }
+        else if (items.Count == 0)
+        {
+            <p class="text-muted">Записей пока нет.</p>
+        }
+        else
+        {
+            <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                @foreach (var c in items)
+                {
+                    <li class="card-x p-3" @key="c.Id">
+                        <div class="d-flex flex-wrap align-items-start gap-2">
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <a class="fw-semibold text-dark" style="overflow-wrap:anywhere;" href="/tasks/calls/@c.Id">@c.FileName</a>
+                                <div class="small text-muted font-monospace mt-1">
+                                    @FormatLocal(c.CreatedAt) · @FormatSize(c.SizeBytes)
+                                    @if (c.DurationSeconds is { } d)
+                                    {
+                                        <text> · @FormatDuration(d)</text>
+                                    }
+                                </div>
+                                <div class="small mt-1">
+                                    <span class="pill @(c.Status == CallRecording.StatusFailed ? "pill--solid" : "pill--outline")">@StatusLabel(c)</span>
+                                    @if (c.Status == CallRecording.StatusDone)
+                                    {
+                                        <span class="text-muted ms-1">Найдено задач: @c.SuggestionCount</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(c.Error))
+                                {
+                                    <div class="small text-danger mt-1" style="overflow-wrap:anywhere;">@c.Error</div>
+                                }
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                @if (confirmDeleteId == c.Id)
+                                {
+                                    <span class="small">Удалить?</span>
+                                    <button type="button" class="btn btn-dark btn-sm" @onclick="() => DeleteAsync(c)">Да</button>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmDeleteId = null">Нет</button>
+                                }
+                                else
+                                {
+                                    <a href="/tasks/calls/@c.Id" class="btn btn-outline-dark btn-sm">Открыть</a>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" disabled="@(c.Status == CallRecording.StatusProcessing)"
+                                            title="@(c.Status == CallRecording.StatusProcessing ? "Идёт обработка" : null)"
+                                            @onclick="() => confirmDeleteId = c.Id">Удалить</button>
+                                }
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</section>
+
+@code {
+    private string? ownerId;
+    private List<CallSummary> items = new();
+    private string? error;
+    private bool loaded, uploading;
+    private int progress;
+    private Guid? confirmDeleteId;
+    private int utcOffsetMinutes;
+    private ElementReference fileInput;
+    private DotNetObjectReference<TaskCalls>? self;
+    private Timer? timer;
+    private bool disposed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        ownerId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        await ReloadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        utcOffsetMinutes = await JS.InvokeAsync<int>("lmnTasks.utcOffsetMinutes");
+        StateHasChanged();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (ownerId is null) return;
+        items = await Calls.ListAsync(ownerId);
+        loaded = true;
+        UpdatePolling();
+    }
+
+    // Пока есть записи в очереди/обработке — опрос раз в 3 с; без них таймер не нужен
+    private void UpdatePolling()
+    {
+        var active = items.Any(c => CallService.IsActive(c.Status));
+        if (active && timer is null && !disposed)
+        {
+            timer = new Timer(_ => _ = InvokeAsync(PollAsync), null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        }
+        else if (!active && timer is not null)
+        {
+            timer.Dispose();
+            timer = null;
+        }
+    }
+
+    private async Task PollAsync()
+    {
+        if (disposed) return;
+        try
+        {
+            await ReloadAsync();
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            // Цепь могла закрыться или БД мигнула: следующий тик попробует снова
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        error = null;
+        if (uploading) return;
+        uploading = true;
+        progress = 0;
+        self ??= DotNetObjectReference.Create(this);
+        try
+        {
+            // Загрузка длится дольше стандартного таймаута JS-interop (1 мин): CancellationToken.None его отключает
+            var result = await JS.InvokeAsync<UploadResult>("lmnCalls.upload", CancellationToken.None, [fileInput, self]);
+            if (result.Error is not null)
+            {
+                error = result.Error;
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("lmnCalls.clear", fileInput);
+            }
+        }
+        catch (JSException ex)
+        {
+            error = "Не удалось загрузить файл: " + ex.Message;
+        }
+        finally
+        {
+            uploading = false;
+        }
+        await ReloadAsync();
+    }
+
+    [JSInvokable]
+    public void OnUploadProgress(int percent)
+    {
+        progress = percent;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DeleteAsync(CallSummary c)
+    {
+        error = null;
+        confirmDeleteId = null;
+        if (ownerId is null) return;
+        if (!await Calls.DeleteAsync(ownerId, c.Id)) error = "Запись нельзя удалить: она уже обрабатывается или не найдена.";
+        await ReloadAsync();
+    }
+
+    private static string StatusLabel(CallSummary c) => c.Status switch
+    {
+        CallRecording.StatusQueued => "В очереди",
+        CallRecording.StatusProcessing => string.IsNullOrEmpty(c.Stage) ? "Обработка" : c.Stage,
+        CallRecording.StatusDone => "Готово",
+        _ => "Ошибка",
+    };
+
+    private string FormatLocal(DateTime utc) => utc.AddMinutes(utcOffsetMinutes).ToString("dd.MM.yyyy HH:mm") + (utcOffsetMinutes == 0 ? " UTC" : "");
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.0} ГБ",
+        >= 1L << 20 => $"{bytes / (double)(1L << 20):0.0} МБ",
+        _ => $"{Math.Max(1, bytes / 1024)} КБ",
+    };
+
+    private static string FormatDuration(double seconds)
+    {
+        var t = TimeSpan.FromSeconds(Math.Round(seconds));
+        return t.TotalHours >= 1 ? $"{(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}" : $"{t.Minutes}:{t.Seconds:00}";
+    }
+
+    private class UploadResult
+    {
+        public string? Id { get; set; }
+        public string? Error { get; set; }
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+        timer?.Dispose();
+        self?.Dispose();
+    }
+}

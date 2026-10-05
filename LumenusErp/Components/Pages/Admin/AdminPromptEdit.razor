@@ -55,6 +55,14 @@
                 </div>
             }
 
+            @if (entity.Key == DefaultPrompts.CallTasksKey)
+            {
+                <div class="alert alert-warning" role="alert">
+                    Ответ модели должен оставаться JSON-массивом объектов <code>title</code> и <code>quote</code>:
+                    по нему список задач на странице созвона. Если формат нарушить, задачи не будут выделены.
+                </div>
+            }
+
             <EditForm Model="entity" OnSubmit="SaveAsync" FormName="prompt-edit">
                 <div class="mb-4">
                     <label class="form-label small fw-bold" for="f-prompt">Системный промпт</label>
@@ -141,9 +149,12 @@
         systemPrompt = entity.SystemPrompt;
         model = entity.Model;
         temperature = entity.Temperature;
-        testQuestion = entity.Key == DefaultPrompts.EstimateKey
-            ? "Нужен Telegram-бот, который отвечает на вопросы сотрудников по внутренней базе знаний."
-            : "Какие требования к серверу для развёртывания системы?";
+        testQuestion = entity.Key switch
+        {
+            DefaultPrompts.EstimateKey => "Нужен Telegram-бот, который отвечает на вопросы сотрудников по внутренней базе знаний.",
+            DefaultPrompts.CallTasksKey => "ну значит договорились иван ты до пятницы готовишь договор для клиента а я завтра отправлю им смету потом ещё надо созвониться с бухгалтерией но это пока не срочно",
+            _ => "Какие требования к серверу для развёртывания системы?",
+        };
     }
 
     private void ResetToDefault()

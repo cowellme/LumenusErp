@@ -14,13 +14,11 @@
 <PageTitle>Задачи — LumenusTech</PageTitle>
 
 <section class="hero hero--sm">
-    <div class="container d-flex flex-wrap align-items-end gap-3">
-        <div>
-            <p class="eyebrow">TASKS</p>
-            <h1 class="hero__title mb-2">Мои задачи</h1>
-            <p class="text-muted mb-0">Открытых: <strong>@openCount</strong>, выполненных: <strong>@doneCount</strong></p>
-        </div>
-        <a href="/tasks/tokens" class="btn btn-outline-dark ms-auto">API-токены</a>
+    <div class="container">
+        <p class="eyebrow">TASKS</p>
+        <h1 class="hero__title mb-2">Мои задачи</h1>
+        <p class="text-muted mb-0">Открытых: <strong>@openCount</strong>, выполненных: <strong>@doneCount</strong></p>
+        <TasksTabs Active="tasks" />
     </div>
 </section>
 

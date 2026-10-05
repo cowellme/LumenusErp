@@ -33,6 +33,17 @@ public static class AiPromptSeed
             });
         }
 
+        if (!existing.Contains(DefaultPrompts.CallTasksKey))
+        {
+            db.AiPrompts.Add(new AiPrompt
+            {
+                Key = DefaultPrompts.CallTasksKey,
+                Title = DefaultPrompts.CallTasksTitle,
+                SystemPrompt = DefaultPrompts.CallTasks,
+                UpdatedAt = now,
+            });
+        }
+
         await db.SaveChangesAsync();
     }
 }

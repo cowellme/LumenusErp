@@ -20,6 +20,7 @@ namespace LumenusErp.Services
         // Потолок длины ответа модели: калькулятор выдаёт JSON со сметой, FAQ — 1-6 предложений
         private const int EstimateMaxTokens = 3000;
         private const int FaqMaxTokens = 600;
+        private const int CallTasksMaxTokens = 4000;
 
         private static Task<AiPromptSettings> GetPromptAsync(string key) =>
             _prompts?.GetAsync(key)
@@ -81,6 +82,25 @@ namespace LumenusErp.Services
         }
 
         /// <summary>
+        /// Выделение задач из транскрипта созвона (промпт "call-tasks"). Возвращает сырой текст ответа модели
+        /// (ожидается JSON-массив, разбирает <see cref="CallTaskParser"/>). Исключения — как у <see cref="EstimateProjectAsync"/>.
+        /// </summary>
+        public static async Task<string> ExtractCallTasksAsync(string transcript)
+        {
+            var apiKey = GetKey("Ai:OpenRouterApiKey")
+                ?? throw new AiNotConfiguredException("Не задан ключ Ai:OpenRouterApiKey");
+            var settings = await GetPromptAsync(DefaultPrompts.CallTasksKey);
+            var client = new OpenRouterClient(apiKey);
+            var response = await client.SendChatCompletionAsync(
+                settings.Model ?? GetOpenRouterModel(), transcript, settings.SystemPrompt, CallTasksMaxTokens, settings.Temperature);
+            var parsed = JsonConvert.DeserializeObject<AiResponse>(response);
+            var content = parsed?.Choices?.FirstOrDefault()?.Message?.Content;
+            if (string.IsNullOrWhiteSpace(content))
+                throw new InvalidOperationException("Пустой ответ от OpenRouter");
+            return content;
+        }
+
+        /// <summary>
         /// Пробный вызов для админки: промпт, модель и температура берутся из формы, а не из БД.
         /// Бросает <see cref="AiNotConfiguredException"/>, если нет ключа. Возвращает сырой ответ модели.
         /// </summary>
@@ -89,7 +109,12 @@ namespace LumenusErp.Services
             var apiKey = GetKey("Ai:OpenRouterApiKey")
                 ?? throw new AiNotConfiguredException("Не задан ключ Ai:OpenRouterApiKey");
             var client = new OpenRouterClient(apiKey);
-            var maxTokens = key == DefaultPrompts.EstimateKey ? EstimateMaxTokens : FaqMaxTokens;
+            var maxTokens = key switch
+            {
+                DefaultPrompts.EstimateKey => EstimateMaxTokens,
+                DefaultPrompts.CallTasksKey => CallTasksMaxTokens,
+                _ => FaqMaxTokens,
+            };
             var response = await client.SendChatCompletionAsync(
                 string.IsNullOrWhiteSpace(model) ? GetOpenRouterModel() : model.Trim(), question, systemPrompt, maxTokens, temperature);
             var parsed = JsonConvert.DeserializeObject<AiResponse>(response);
