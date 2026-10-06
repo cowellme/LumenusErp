@@ -50,6 +50,16 @@
                     </NavLink>
                 </div>
             </AuthorizeView>
+            <AuthorizeView Roles="Creator" Context="creatorCtx">
+                @if (!creatorCtx.User.IsInRole("Admin"))
+                {
+                    <div class="mobile-link-box">
+                        <NavLink class="mobile-link" href="admin/pages">
+                            Страницы
+                        </NavLink>
+                    </div>
+                }
+            </AuthorizeView>
             <div class="mobile-link-box">
                 <NavLink class="mobile-link" href="Account/Manage">
                     Аккаунт @* @context.User.Identity?.Name *@

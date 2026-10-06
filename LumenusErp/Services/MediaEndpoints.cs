@@ -17,16 +17,15 @@ public static class MediaEndpoints
                 return Results.NotFound();
             }
 
-            var visibilities = await db.ContentBlocks.AsNoTracking()
+            var pages = await db.ContentBlocks.AsNoTracking()
                 .Where(b => b.MediaFileId == id)
-                .Select(b => b.Page!.Visibility)
+                .Select(b => new { b.Page!.Visibility, b.Page.CreatedById })
                 .Distinct()
                 .ToListAsync();
-            var user = ctx.User;
+            var visibilities = pages.Select(p => p.Visibility).Distinct().ToList();
             var isPublic = visibilities.Contains(PageVisibility.Public);
-            var allowed = isPublic
-                || user.IsInRole("Admin")
-                || (user.Identity?.IsAuthenticated == true && visibilities.Contains(PageVisibility.Authenticated));
+            var allowed = ContentPageAccess.CanSeeMedia(
+                ctx.User, visibilities, pages.Select(p => p.CreatedById).ToList(), file.UploadedById);
             var path = media.PathOf(file);
             if (!allowed || !File.Exists(path))
             {

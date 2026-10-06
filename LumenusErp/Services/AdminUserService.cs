@@ -18,7 +18,7 @@ public sealed record AdminRoleRow(string Name, int UserCount, bool IsSystem);
 public sealed class AdminUserService(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
 {
     /// <summary>Системные роли: сидятся при старте, удалить нельзя.</summary>
-    public static readonly string[] SystemRoles = ["Admin", "Manager", "User", "Ghost", "Aos"];
+    public static readonly string[] SystemRoles = ["Admin", "Manager", "User", "Ghost", "Aos", ContentPageAccess.CreatorRole];
 
     // Identity сравнивает имена ролей по нормализованному виду, поэтому и здесь без учёта регистра.
     public static bool IsSystemRole(string name) => SystemRoles.Contains(name, StringComparer.OrdinalIgnoreCase);

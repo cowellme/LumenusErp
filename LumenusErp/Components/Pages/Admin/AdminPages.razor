@@ -3,7 +3,7 @@
 @using LumenusErp.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = "Admin, Creator")]
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
@@ -30,6 +30,10 @@
                     <tr>
                         <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Страница</th>
                         <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Доступ</th>
+                        @if (isAdmin)
+                        {
+                            <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Автор</th>
+                        }
                         <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Блоков</th>
                         <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Обновлена</th>
                         <th scope="col" class="px-3 py-3"><span class="visually-hidden">Действия</span></th>
@@ -46,6 +50,10 @@
                             <td class="px-3 py-3">
                                 <span class="pill @(p.Visibility == PageVisibility.Public ? "pill--solid" : "pill--outline")">@VisibilityLabel(p.Visibility)</span>
                             </td>
+                            @if (isAdmin)
+                            {
+                                <td class="small px-3 py-3">@(p.Author ?? "—")</td>
+                            }
                             <td class="font-monospace small px-3 py-3">@p.BlockCount</td>
                             <td class="font-monospace small px-3 py-3">@p.UpdatedAt.ToString("dd.MM.yyyy HH:mm")</td>
                             <td class="px-3 py-3 text-end text-nowrap">
@@ -66,7 +74,7 @@
                     }
                     @if (pages.Count == 0)
                     {
-                        <tr><td colspan="5" class="text-center text-muted small py-4">Страниц пока нет</td></tr>
+                        <tr><td colspan="@(isAdmin ? 6 : 5)" class="text-center text-muted small py-4">Страниц пока нет</td></tr>
                     }
                 </tbody>
             </table>
@@ -75,7 +83,12 @@
 </section>
 
 @code {
-    private sealed record Row(int Id, string Slug, string Title, PageVisibility Visibility, int BlockCount, DateTime UpdatedAt);
+    private sealed record Row(int Id, string Slug, string Title, PageVisibility Visibility, int BlockCount, DateTime UpdatedAt, string? Author);
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private System.Security.Claims.ClaimsPrincipal? user;
+    private bool isAdmin;
 
     private List<Row> pages = new();
     private int? confirmDeleteId;
@@ -87,15 +100,27 @@
         _ => "ЧЕРНОВИК",
     };
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        user = AuthState is null ? null : (await AuthState).User;
+        isAdmin = ContentPageAccess.IsAdmin(user);
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        pages = await db.ContentPages.AsNoTracking()
+        var query = db.ContentPages.AsNoTracking();
+        if (!isAdmin)
+        {
+            // Creator видит только свои страницы
+            var userId = ContentPageAccess.UserId(user);
+            query = query.Where(p => userId != null && p.CreatedById == userId);
+        }
+        pages = await query
             .OrderBy(p => p.SortOrder)
             .ThenBy(p => p.Id)
-            .Select(p => new Row(p.Id, p.Slug, p.Title, p.Visibility, p.Blocks.Count, p.UpdatedAt))
+            .Select(p => new Row(p.Id, p.Slug, p.Title, p.Visibility, p.Blocks.Count, p.UpdatedAt, p.CreatedBy!.Email))
             .ToListAsync();
     }
 
@@ -104,6 +129,14 @@
         List<Guid> mediaIds;
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
+            // Права проверяем по данным из БД, а не по строке списка
+            var owner = await db.ContentPages.Where(x => x.Id == p.Id).Select(x => new { x.CreatedById }).FirstOrDefaultAsync();
+            if (owner is null || !ContentPageAccess.CanEdit(user, owner.CreatedById))
+            {
+                confirmDeleteId = null;
+                await LoadAsync();
+                return;
+            }
             mediaIds = await db.ContentBlocks.Where(b => b.PageId == p.Id && b.MediaFileId != null)
                 .Select(b => b.MediaFileId!.Value).ToListAsync();
             await db.ContentPages.Where(x => x.Id == p.Id).ExecuteDeleteAsync();

@@ -5,7 +5,7 @@
 @using LumenusErp.Services
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = "Admin, Creator")]
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
@@ -62,7 +62,7 @@
                 <div class="col-md-8">
                     <label class="form-label small fw-bold" for="f-visibility">Доступ</label>
                     <select id="f-visibility" class="form-select" @bind="model.Visibility">
-                        <option value="@PageVisibility.Draft">Черновик — только администратор</option>
+                        <option value="@PageVisibility.Draft">Черновик — только автор и администратор</option>
                         <option value="@PageVisibility.Authenticated">Только для вошедших пользователей</option>
                         <option value="@PageVisibility.Public">Публичная — видна всем и поисковикам</option>
                     </select>
@@ -216,6 +216,11 @@
 
     [Parameter] public int? Id { get; set; }
 
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal?> CurrentUserAsync() =>
+        AuthState is null ? null : (await AuthState).User;
+
     // ?saved=1 — после создания страницы редирект на её редактор с сообщением об успехе
     [SupplyParameterFromQuery(Name = "saved")] public bool JustCreated { get; set; }
 
@@ -239,17 +244,23 @@
         blocks.Clear();
         savedMediaIds = new();
 
+        var user = await CurrentUserAsync();
         await using var db = await DbFactory.CreateDbContextAsync();
         if (IsNew)
         {
             var maxOrder = await db.ContentPages.Select(p => (int?)p.SortOrder).MaxAsync() ?? 0;
-            model = new ContentPage { SortOrder = maxOrder + 10 };
+            model = new ContentPage { SortOrder = maxOrder + 10, CreatedById = ContentPageAccess.UserId(user) };
             return;
         }
 
         model = await db.ContentPages.AsNoTracking()
             .Include(p => p.Blocks.OrderBy(b => b.Order))
             .FirstOrDefaultAsync(p => p.Id == Id);
+        // Чужая страница для Creator выглядит как несуществующая
+        if (model is not null && !ContentPageAccess.CanEdit(user, model.CreatedById))
+        {
+            model = null;
+        }
         notFound = model is null;
         if (model is null)
         {
@@ -326,7 +337,7 @@
         {
             // maxAllowedSize задан явно (по умолчанию 500 КБ), файл потоком уходит на диск
             await using var stream = file.OpenReadStream(Media.MaxBytes);
-            var media = await Media.SaveAsync(stream, file.Name);
+            var media = await Media.SaveAsync(stream, file.Name, ContentPageAccess.UserId(await CurrentUserAsync()));
 
             var old = b.MediaFileId;
             b.MediaFileId = media.Id;
@@ -374,15 +385,15 @@
             ContentPage entity;
             if (IsNew)
             {
-                entity = new ContentPage { CreatedAt = now };
+                entity = new ContentPage { CreatedAt = now, CreatedById = ContentPageAccess.UserId(await CurrentUserAsync()) };
                 db.ContentPages.Add(entity);
             }
             else
             {
                 var existing = await db.ContentPages.Include(p => p.Blocks).FirstOrDefaultAsync(p => p.Id == Id);
-                if (existing is null)
+                if (existing is null || !ContentPageAccess.CanEdit(await CurrentUserAsync(), existing.CreatedById))
                 {
-                    errors.Add("Страница уже удалена.");
+                    errors.Add("Страница не найдена.");
                     return;
                 }
                 entity = existing;

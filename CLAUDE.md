@@ -6,7 +6,7 @@ ERP/сайт компании Lumenus (lumenustech.ru): лендинг, FAQ и �
 ## Стек
 
 - .NET 9, ASP.NET Core, **Blazor Server** (Interactive Server render mode, не WASM)
-- ASP.NET Core Identity (cookie), роли: `Admin`, `Manager`, `User`, `Ghost`, `Aos`
+- ASP.NET Core Identity (cookie), роли: `Admin`, `Manager`, `User`, `Ghost`, `Aos`, `Creator`
 - EF Core 9 + **PostgreSQL** (Npgsql), две БД:
   - `lumenuserp` — `ApplicationDbContext` (Identity)
   - `tracker` — `AosDbContext` (блогеры, настройки AOS, пользователи бота)
@@ -177,9 +177,13 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 
 ## Контентные страницы (/p/{slug})
 
-Администратор собирает страницы из блоков (текст markdown, BPMN-диаграмма, фото) в `/admin/pages`.
-Модели `ContentPage`/`ContentBlock`/`MediaFile` в `ApplicationDbContext`. Видимость: Draft (только Admin, остальным
+Администратор (и Creator) собирает страницы из блоков (текст markdown, BPMN-диаграмма, фото) в `/admin/pages`.
+Модели `ContentPage`/`ContentBlock`/`MediaFile` в `ApplicationDbContext`. Видимость: Draft (только автор и Admin, остальным
 404), Authenticated (анониму редирект на логин), Public (попадает в sitemap.xml, llms.txt, llms-full.txt).
+- Роль `Creator`: доступ только к `/admin/pages`; правит, публикует (любая видимость), меняет `SortOrder` и удаляет только свои страницы
+  (`ContentPage.CreatedById`, у старых страниц null — их правит только Admin). Чужая страница в редакторе = «не найдена», в списке не видна,
+  сохранение/удаление на сервере отклоняется. Права — в одном месте, `Services/ContentPageAccess.cs` (юнит-тесты в `LumenusErp.Tests`).
+  Черновик на `/p/{slug}` видят автор и Admin. Превью несохранённых картинок для автора — по `MediaFile.UploadedById`. В меню Creator видит «Страницы».
 - Картинки: JPEG/PNG/WebP/GIF, тип проверяется по сигнатуре, SVG запрещён; на диске под именем Guid+расширение.
   Отдаёт `GET /media/{id}` (nosniff, immutable-кэш для публичных; закрытые файлы по правам страницы, иначе 404).
   Удаление блока/страницы удаляет файл, если на него больше нет ссылок; забытые загрузки старше часа чистятся при сохранении.
@@ -208,6 +212,10 @@ docker run --rm --user $(id -u):$(id -g) -e HOME=/tmp -v "$PWD":/src -w /src/Lum
   mcr.microsoft.com/dotnet/sdk:9.0 sh -c \
   "dotnet tool restore && dotnet ef migrations add <Name> --context ApplicationDbContext -o Data/Migrations/App"
 # для AOS: --context AosDbContext -o Data/Migrations/Aos
+
+# юнит-тесты (проект LumenusErp.Tests)
+docker run --rm --user $(id -u):$(id -g) -e HOME=/tmp -e DOTNET_CLI_HOME=/tmp -v "$PWD":/src -w /src \
+  mcr.microsoft.com/dotnet/sdk:9.0 dotnet test LumenusErp.Tests/LumenusErp.Tests.csproj
 
 # psql
 docker compose exec db psql -U "$POSTGRES_USER" -d lumenuserp

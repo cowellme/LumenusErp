@@ -3,7 +3,7 @@ namespace LumenusErp.Data;
 /// <summary>Кто видит страницу /p/{Slug}.</summary>
 public enum PageVisibility
 {
-    /// <summary>Черновик: только администратор.</summary>
+    /// <summary>Черновик: только автор и администратор.</summary>
     Draft,
     /// <summary>Любой вошедший пользователь.</summary>
     Authenticated,
@@ -18,7 +18,7 @@ public enum BlockType
     Image,
 }
 
-/// <summary>Страница из блоков; собирается администратором в /admin/pages.</summary>
+/// <summary>Страница из блоков; собирается администратором или Creator в /admin/pages.</summary>
 public class ContentPage
 {
     public int Id { get; set; }
@@ -33,6 +33,10 @@ public class ContentPage
     public int SortOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>Автор страницы; null у старых страниц (правит только Admin). Creator правит только свои.</summary>
+    public string? CreatedById { get; set; }
+    public ApplicationUser? CreatedBy { get; set; }
 
     public List<ContentBlock> Blocks { get; set; } = new();
 }
@@ -75,4 +79,7 @@ public class MediaFile
     /// <summary>Имя на диске: Guid + расширение, никогда не берётся у пользователя.</summary>
     public string StoredName { get; set; } = "";
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>Кто загрузил: нужен, чтобы автор видел превью до сохранения страницы.</summary>
+    public string? UploadedById { get; set; }
 }

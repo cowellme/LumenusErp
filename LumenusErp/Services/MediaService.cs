@@ -32,7 +32,7 @@ public class MediaService
     }
 
     /// <summary>Сохраняет картинку на диск и в БД. Бросает <see cref="MediaException"/>, если файл не подходит.</summary>
-    public async Task<MediaFile> SaveAsync(Stream input, string originalName, CancellationToken ct = default)
+    public async Task<MediaFile> SaveAsync(Stream input, string originalName, string? uploadedById = null, CancellationToken ct = default)
     {
         var header = new byte[16];
         var read = await input.ReadAtLeastAsync(header, header.Length, throwOnEndOfStream: false, ct);
@@ -69,6 +69,7 @@ public class MediaService
                 Size = size,
                 StoredName = storedName,
                 CreatedAt = DateTime.UtcNow,
+                UploadedById = uploadedById,
             };
             await using var db = await _factory.CreateDbContextAsync(ct);
             db.MediaFiles.Add(file);

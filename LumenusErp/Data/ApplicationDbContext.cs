@@ -51,6 +51,8 @@ namespace LumenusErp.Data
                 e.Property(p => p.Title).HasMaxLength(300);
                 e.Property(p => p.Summary).HasMaxLength(1000);
                 e.Property(p => p.Visibility).HasConversion<string>().HasMaxLength(20);
+                e.HasOne(p => p.CreatedBy).WithMany().HasForeignKey(p => p.CreatedById).OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(p => p.CreatedById);
             });
 
             builder.Entity<ContentBlock>(e =>
@@ -70,6 +72,7 @@ namespace LumenusErp.Data
                 e.Property(m => m.OriginalName).HasMaxLength(255);
                 e.Property(m => m.ContentType).HasMaxLength(100);
                 e.Property(m => m.StoredName).HasMaxLength(100);
+                e.HasOne<ApplicationUser>().WithMany().HasForeignKey(m => m.UploadedById).OnDelete(DeleteBehavior.SetNull);
             });
 
             builder.Entity<TaskItem>(e =>

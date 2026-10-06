@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using System.Text.Unicode
 @using LumenusErp.Data
+@using LumenusErp.Services
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager Navigation
@@ -35,7 +36,8 @@ else
 
     <section class="hero hero--sm" aria-labelledby="page-title">
         <div class="container">
-            <AuthorizeView Roles="Admin">
+            @if (canEdit)
+            {
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                     @if (pg.Visibility != PageVisibility.Public)
                     {
@@ -43,7 +45,7 @@ else
                     }
                     <a href="/admin/pages/@pg.Id" class="btn btn-outline-dark btn-sm ms-auto">Редактировать</a>
                 </div>
-            </AuthorizeView>
+            }
             <h1 id="page-title" class="hero__title mb-3">@pg.Title</h1>
             @if (!string.IsNullOrWhiteSpace(pg.Summary))
             {
@@ -98,6 +100,7 @@ else
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
 
     private ContentPage? pg;
+    private bool canEdit;
 
     // Кириллица читаема, а <, >, & экранируются: закрыть тег script изнутри XML нельзя
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -115,7 +118,6 @@ else
             .FirstOrDefaultAsync(p => p.Slug == Slug);
 
         var user = HttpContext?.User;
-        var isAdmin = user?.IsInRole("Admin") == true;
         var isAuth = user?.Identity?.IsAuthenticated == true;
 
         if (found is not null && found.Visibility == PageVisibility.Authenticated && !isAuth)
@@ -125,7 +127,8 @@ else
         }
 
         // Черновик для остальных выглядит как несуществующая страница
-        pg = found is not null && (found.Visibility != PageVisibility.Draft || isAdmin) ? found : null;
+        pg = found is not null && (found.Visibility != PageVisibility.Draft || ContentPageAccess.CanViewDraft(user, found.CreatedById)) ? found : null;
+        canEdit = pg is not null && ContentPageAccess.CanEdit(user, pg.CreatedById);
 
         if (pg is null && HttpContext is { Response.HasStarted: false })
         {
