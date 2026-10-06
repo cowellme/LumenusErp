@@ -44,6 +44,17 @@ public static class AiPromptSeed
             });
         }
 
+        if (!existing.Contains(DefaultPrompts.MyasiTasksKey))
+        {
+            db.AiPrompts.Add(new AiPrompt
+            {
+                Key = DefaultPrompts.MyasiTasksKey,
+                Title = DefaultPrompts.MyasiTasksTitle,
+                SystemPrompt = DefaultPrompts.MyasiTasks,
+                UpdatedAt = now,
+            });
+        }
+
         await db.SaveChangesAsync();
     }
 }

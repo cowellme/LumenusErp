@@ -9,6 +9,7 @@ namespace LumenusErp.Data
     {
         public DbSet<Project> Projects => Set<Project>();
         public DbSet<AiPrompt> AiPrompts => Set<AiPrompt>();
+        public DbSet<UserAiPrompt> UserAiPrompts => Set<UserAiPrompt>();
         public DbSet<ContentPage> ContentPages => Set<ContentPage>();
         public DbSet<ContentBlock> ContentBlocks => Set<ContentBlock>();
         public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
@@ -42,6 +43,14 @@ namespace LumenusErp.Data
                 e.Property(p => p.Key).HasMaxLength(50);
                 e.Property(p => p.Title).HasMaxLength(200);
                 e.Property(p => p.Model).HasMaxLength(200);
+            });
+
+            builder.Entity<UserAiPrompt>(e =>
+            {
+                e.HasIndex(p => new { p.OwnerId, p.Key }).IsUnique();
+                e.Property(p => p.Key).HasMaxLength(50);
+                e.Property(p => p.Model).HasMaxLength(200);
+                e.HasOne(p => p.Owner).WithMany().HasForeignKey(p => p.OwnerId).OnDelete(DeleteBehavior.Cascade);
             });
 
             builder.Entity<ContentPage>(e =>
@@ -106,6 +115,7 @@ namespace LumenusErp.Data
                 e.Property(c => c.Status).HasMaxLength(20);
                 e.Property(c => c.Stage).HasMaxLength(200);
                 e.Property(c => c.Error).HasMaxLength(2000);
+                e.Property(c => c.PromptSource).HasMaxLength(20);
             });
 
             builder.Entity<CallTaskSuggestion>(e =>

@@ -52,10 +52,14 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 - ИИ-функции (`/calculator`, `/faq`) публичные и платные: `AiRateLimiter` (в памяти, скользящие окна) считает
   вызовы по IP клиента. IP берётся из `HttpContext` при пререндере (после `UseForwardedHeaders`) и переносится в
   интерактивную фазу через `PersistentComponentState` (`Components/Tools/AiPageBase.cs`). Лимиты задаются в `AiLimits`.
-- Системные промпты ИИ лежат в таблице `AiPrompts` (ключи `estimate`, `faq`, `call-tasks`), правятся в `/admin/prompts`;
+- Системные промпты ИИ лежат в таблице `AiPrompts` (ключи `estimate`, `faq`, `call-tasks`, `myasi-tasks`), правятся в `/admin/prompts`;
   читаются через `AiPromptStore` (кэш 30 с). Тексты по умолчанию — `Services/DefaultPrompts.cs`: сидятся только
   при отсутствии ключа и служат запасным вариантом.
 - Системные роли — `AdminUserService.SystemRoles`, их нельзя удалить; с себя и с последнего администратора роль Admin не снимается.
+- Личные промпты: для `myasi-tasks` (задачи с устройства через myasi) и `call-tasks` (созвоны) у пользователя может быть свой промпт
+  (таблица `UserAiPrompts`, уникально `(OwnerId, Key)`, модель/температура необязательны), он перекрывает общий; «сбросить к общему» = удалить свой.
+  Правится на `/tasks/prompts` («Мои промпты»), логика выбора — `Services/UserPromptService.cs` (`UserPromptRules.Resolve`: свой → общий → `DefaultPrompts`).
+  `estimate` и `faq` только общие. Созвоны берут промпт **владельца записи**; в `CallRecording` пишутся `PromptSource` (`user|default`) и `PromptUpdatedAt`.
 - Секреты только из конфигурации/переменных окружения, никогда не в коде.
   `MySec.Configure` и `AiModule.Configure` вызываются в `Program.cs` после `Build()`.
   Пустой `Api:Token` = API закрыт; пустой ключ LLM = метод возвращает сообщение без вызова API.
@@ -77,6 +81,9 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   `api/lumenus` по-прежнему только на общем токене. Общий токен для api/tasks планируется отключить (см. `TODO.md`).
 - Чужая задача для GET/PATCH/DELETE = **404**; список, поиск дублей и `externalId` — только среди задач владельца
   (уникальный индекс `(OwnerId, Source, ExternalId)`, индекс дублей `(OwnerId, Source, Status, TitleNormalized)`).
+- `GET /api/prompts/myasi-tasks` (тот же `[ApiToken]`) → `{"key","text","model","temperature","updatedAt","source"}`: действующий промпт владельца токена
+  (`source` = `user` — личный, `default` — общий; `updatedAt` UTC с `Z` или null, если текст взят из кода). Заголовки `ETag` и `Cache-Control: private, no-cache`;
+  `If-None-Match` совпал → 304 без тела. Любой другой ключ (`call-tasks`, `estimate`, `faq`…) → 404, наружу отдаётся только `myasi-tasks`.
 - `GET /api/me` (тот же `[ApiToken]`) → `{"userId": "<Id пользователя>"}` — владелец токена, одинаков для всех его токенов;
   myasi по нему привязывает задачи в очереди к пользователю. Общий токен → Id администратора.
 - `POST /api/tasks` (`title`, `source` обязательны; `sourceText`, `externalId`, `createdAt` нет) → 201 + `Location`;
@@ -101,7 +108,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 
 ## Вкладка «Созвоны» (`/tasks/calls`)
 
-Вкладки трекера (`Components/Tools/TasksTabs.razor`): Задачи, Созвоны, API-токены и (только Admin) «Промпты ИИ» → `/admin/prompts`
+Вкладки трекера (`Components/Tools/TasksTabs.razor`): Задачи, Созвоны, API-токены, «Мои промпты» (`/tasks/prompts`) и (только Admin) «Промпты ИИ» → `/admin/prompts`
 (`/admin` на хосте `Tasks:Host` не блокируется, middleware трогает только `/tasks*`).
 Поток: пользователь грузит видео/аудио → ffmpeg (в образе) извлекает аудио → myasi распознаёт речь → LLM (OpenRouter) выделяет
 задачи → на `/tasks/calls/{id}` пользователь отмечает найденные и добавляет в свой трекер.

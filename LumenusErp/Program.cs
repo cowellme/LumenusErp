@@ -62,6 +62,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.Configure<AiLimitsOptions>(builder.Configuration.GetSection("AiLimits"));
 builder.Services.AddSingleton<AiRateLimiter>();
 builder.Services.AddSingleton<AiPromptStore>();
+builder.Services.AddSingleton<UserPromptService>();
 builder.Services.AddSingleton<MediaService>();
 builder.Services.AddSingleton<TaskService>();
 builder.Services.AddSingleton<UserApiTokenService>();

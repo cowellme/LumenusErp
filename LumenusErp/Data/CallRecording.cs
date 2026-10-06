@@ -29,6 +29,12 @@ public class CallRecording
 
     public string? Transcript { get; set; }
     public double? DurationSeconds { get; set; }
+
+    /// <summary>Каким промптом выделены задачи: "user" (личный) или "default" (общий); null — задачи ещё не выделялись.</summary>
+    public string? PromptSource { get; set; }
+
+    /// <summary>Время последнего изменения применённого промпта (UTC); null — текст из кода или не выделялось.</summary>
+    public DateTime? PromptUpdatedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

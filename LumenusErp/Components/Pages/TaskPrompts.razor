@@ -1,0 +1,221 @@
+@page "/tasks/prompts"
+@using System.Globalization
+@using System.Security.Claims
+@using LumenusErp.Data
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject UserPromptService Prompts
+@inject AuthenticationStateProvider AuthProvider
+
+<PageTitle>Мои промпты — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">TASKS</p>
+        <h1 class="hero__title mb-2">Мои промпты</h1>
+        <TasksTabs Active="my-prompts" />
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container" style="max-width: 900px;">
+        <div class="card-x p-3 mb-4">
+            <p class="small text-muted mb-0">
+                По умолчанию задачи выделяются общим промптом, который ведёт администратор. Можно задать свой: он действует только для вашего
+                аккаунта. «Сбросить к общему» удаляет вашу настройку.
+            </p>
+        </div>
+
+        @if (error is not null)
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        @if (message is not null)
+        {
+            <div class="alert alert-success" role="status">@message</div>
+        }
+
+        @if (!loaded)
+        {
+            <p class="text-muted">Загрузка…</p>
+        }
+        else
+        {
+            @foreach (var b in blocks)
+            {
+                <div class="card-x p-3 mb-4" @key="b.Key">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <h2 class="h5 mb-0 flex-grow-1">@b.Title</h2>
+                        <span class="pill @(b.Own is null ? "pill--outline" : "")">Действует: @(b.Own is null ? "общий" : "свой")</span>
+                    </div>
+
+                    @if (b.Own is not null && b.Common.UpdatedAt > b.Own.UpdatedAt)
+                    {
+                        <div class="alert alert-warning small" role="status">
+                            Общий промпт обновлён после вашей настройки.
+                            <details class="mt-2">
+                                <summary>Показать общий промпт</summary>
+                                <pre class="small mb-0" style="white-space:pre-wrap;">@b.Common.Text</pre>
+                            </details>
+                        </div>
+                    }
+
+                    @if (b.Editing)
+                    {
+                        <label class="form-label small fw-bold" for="p-@b.Key">Системный промпт</label>
+                        <textarea id="p-@b.Key" class="form-control font-monospace mb-3" rows="18" style="font-size:0.82rem;"
+                                  value="@b.Text" @oninput="e => b.Text = e.Value?.ToString() ?? string.Empty"></textarea>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold" for="m-@b.Key">Модель (необязательно)</label>
+                                <input id="m-@b.Key" class="form-control" maxlength="@UserPromptRules.MaxModel" placeholder="по умолчанию"
+                                       value="@b.Model" @oninput="e => b.Model = e.Value?.ToString()" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold" for="t-@b.Key">Температура 0–2 (необязательно)</label>
+                                <input id="t-@b.Key" class="form-control" inputmode="decimal"
+                                       value="@b.Temperature" @oninput="e => b.Temperature = e.Value?.ToString()" />
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <button type="button" class="btn btn-dark btn-sm" @onclick="() => SaveAsync(b)">Сохранить</button>
+                            <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => Cancel(b)">Отмена</button>
+                            @if (b.Own is not null)
+                            {
+                                @if (confirmResetKey == b.Key)
+                                {
+                                    <span class="small ms-auto">Сбросить к общему?</span>
+                                    <button type="button" class="btn btn-dark btn-sm" @onclick="() => ResetAsync(b)">Да</button>
+                                    <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => confirmResetKey = null">Нет</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-outline-dark btn-sm ms-auto" @onclick="() => confirmResetKey = b.Key">Сбросить к общему</button>
+                                }
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        @if (b.Own is null)
+                        {
+                            <details class="mb-3">
+                                <summary class="small">Общий промпт</summary>
+                                <pre class="small mb-0 mt-2" style="white-space:pre-wrap;">@b.Common.Text</pre>
+                            </details>
+                        }
+                        else
+                        {
+                            <pre class="small mb-3" style="white-space:pre-wrap;">@b.Own.SystemPrompt</pre>
+                        }
+                        <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => Edit(b)">@(b.Own is null ? "Настроить свой" : "Изменить")</button>
+                        @if (b.Own is not null)
+                        {
+                            @if (confirmResetKey == b.Key)
+                            {
+                                <span class="small ms-2">Сбросить к общему?</span>
+                                <button type="button" class="btn btn-dark btn-sm ms-1" @onclick="() => ResetAsync(b)">Да</button>
+                                <button type="button" class="btn btn-outline-dark btn-sm ms-1" @onclick="() => confirmResetKey = null">Нет</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-outline-dark btn-sm ms-1" @onclick="() => confirmResetKey = b.Key">Сбросить к общему</button>
+                            }
+                        }
+                    }
+                </div>
+            }
+        }
+    </div>
+</section>
+
+@code {
+    private sealed class Block
+    {
+        public string Key { get; init; } = "";
+        public string Title { get; init; } = "";
+        public UserAiPrompt? Own { get; set; }
+        public ResolvedPrompt Common { get; set; } = null!;
+        public bool Editing { get; set; }
+        public string Text { get; set; } = "";
+        public string? Model { get; set; }
+        public string? Temperature { get; set; }
+    }
+
+    private string? ownerId;
+    private readonly List<Block> blocks = new();
+    private string? error, message, confirmResetKey;
+    private bool loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        ownerId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (ownerId is null) return;
+        blocks.Add(new Block { Key = DefaultPrompts.MyasiTasksKey, Title = "Задачи с устройства (myasi)" });
+        blocks.Add(new Block { Key = DefaultPrompts.CallTasksKey, Title = "Задачи из созвонов" });
+        foreach (var b in blocks) await LoadAsync(b);
+        loaded = true;
+    }
+
+    private async Task LoadAsync(Block b)
+    {
+        if (ownerId is null) return;
+        (b.Own, b.Common) = await Prompts.GetBothAsync(ownerId, b.Key);
+        b.Editing = false;
+    }
+
+    private void Edit(Block b)
+    {
+        error = message = null;
+        confirmResetKey = null;
+        b.Text = b.Own?.SystemPrompt ?? b.Common.Text;
+        b.Model = b.Own?.Model ?? b.Common.Model;
+        b.Temperature = (b.Own is not null ? b.Own.Temperature : b.Common.Temperature)?.ToString(CultureInfo.InvariantCulture);
+        b.Editing = true;
+    }
+
+    private void Cancel(Block b)
+    {
+        confirmResetKey = null;
+        b.Editing = false;
+    }
+
+    private async Task SaveAsync(Block b)
+    {
+        error = message = null;
+        if (ownerId is null) return;
+        double? temperature = null;
+        if (!string.IsNullOrWhiteSpace(b.Temperature))
+        {
+            if (!double.TryParse(b.Temperature.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var t))
+            {
+                error = "Температура: число от 0 до 2.";
+                return;
+            }
+            temperature = t;
+        }
+        var r = await Prompts.SaveOwnAsync(ownerId, b.Key, b.Text, b.Model, temperature);
+        if (r.Error is not null)
+        {
+            error = r.Error;
+            return;
+        }
+        await LoadAsync(b);
+        message = $"«{b.Title}»: свой промпт сохранён.";
+    }
+
+    private async Task ResetAsync(Block b)
+    {
+        error = message = null;
+        if (ownerId is null) return;
+        await Prompts.ResetAsync(ownerId, b.Key);
+        confirmResetKey = null;
+        await LoadAsync(b);
+        message = $"«{b.Title}»: действует общий промпт.";
+    }
+}

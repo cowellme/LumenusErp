@@ -5,7 +5,7 @@ public class AiPrompt
 {
     public int Id { get; set; }
 
-    /// <summary>Идентификатор функции: "estimate" (калькулятор), "faq" (FAQ-ассистент), "call-tasks" (задачи из созвона); уникален.</summary>
+    /// <summary>Идентификатор функции: "estimate" (калькулятор), "faq" (FAQ-ассистент), "call-tasks" (задачи из созвона), "myasi-tasks" (задачи с устройства через myasi); уникален.</summary>
     public string Key { get; set; } = "";
     public string Title { get; set; } = "";
     public string SystemPrompt { get; set; } = "";

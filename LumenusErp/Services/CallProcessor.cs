@@ -12,7 +12,7 @@ namespace LumenusErp.Services;
 /// </summary>
 public class CallProcessor(
     CallQueue queue, CallSettings settings, IHttpClientFactory httpFactory,
-    IDbContextFactory<ApplicationDbContext> dbFactory, ILogger<CallProcessor> log) : BackgroundService
+    IDbContextFactory<ApplicationDbContext> dbFactory, UserPromptService prompts, ILogger<CallProcessor> log) : BackgroundService
 {
     public const string HttpClientName = "myasi";
     public const string InterruptedError = "Обработка прервана перезапуском сервера";
@@ -157,9 +157,17 @@ public class CallProcessor(
             forLlm = forLlm[..MaxTranscriptForLlm];
         }
         string raw;
+        ResolvedPrompt prompt;
         try
         {
-            raw = await AiModule.ExtractCallTasksAsync(forLlm);
+            // Промпт владельца записи: личный перекрывает общий
+            string ownerId;
+            await using (var db = await dbFactory.CreateDbContextAsync(ct))
+            {
+                ownerId = await db.CallRecordings.Where(x => x.Id == id).Select(x => x.OwnerId).FirstOrDefaultAsync(ct) ?? "";
+            }
+            prompt = await prompts.GetForUserAsync(ownerId, DefaultPrompts.CallTasksKey, ct);
+            raw = await AiModule.ExtractCallTasksAsync(forLlm, new AiPromptSettings(prompt.Text, prompt.Model, prompt.Temperature));
         }
         catch (AiNotConfiguredException)
         {
@@ -199,6 +207,8 @@ public class CallProcessor(
             }
             c.Status = CallRecording.StatusDone;
             c.Stage = "Готово";
+            c.PromptSource = prompt.Source;
+            c.PromptUpdatedAt = prompt.UpdatedAt == DateTime.MinValue ? null : prompt.UpdatedAt;
             c.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
         }

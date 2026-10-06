@@ -83,13 +83,13 @@ namespace LumenusErp.Services
 
         /// <summary>
         /// Выделение задач из транскрипта созвона (промпт "call-tasks"). Возвращает сырой текст ответа модели
-        /// (ожидается JSON-массив, разбирает <see cref="CallTaskParser"/>). Исключения — как у <see cref="EstimateProjectAsync"/>.
+        /// (ожидается JSON-массив, разбирает <see cref="CallTaskParser"/>). <paramref name="prompt"/> — уже выбранный (личный или общий) промпт; null — общий. Исключения — как у <see cref="EstimateProjectAsync"/>.
         /// </summary>
-        public static async Task<string> ExtractCallTasksAsync(string transcript)
+        public static async Task<string> ExtractCallTasksAsync(string transcript, AiPromptSettings? prompt = null)
         {
             var apiKey = GetKey("Ai:OpenRouterApiKey")
                 ?? throw new AiNotConfiguredException("Не задан ключ Ai:OpenRouterApiKey");
-            var settings = await GetPromptAsync(DefaultPrompts.CallTasksKey);
+            var settings = prompt ?? await GetPromptAsync(DefaultPrompts.CallTasksKey);
             var client = new OpenRouterClient(apiKey);
             var response = await client.SendChatCompletionAsync(
                 settings.Model ?? GetOpenRouterModel(), transcript, settings.SystemPrompt, CallTasksMaxTokens, settings.Temperature);
@@ -112,7 +112,7 @@ namespace LumenusErp.Services
             var maxTokens = key switch
             {
                 DefaultPrompts.EstimateKey => EstimateMaxTokens,
-                DefaultPrompts.CallTasksKey => CallTasksMaxTokens,
+                DefaultPrompts.CallTasksKey or DefaultPrompts.MyasiTasksKey => CallTasksMaxTokens,
                 _ => FaqMaxTokens,
             };
             var response = await client.SendChatCompletionAsync(

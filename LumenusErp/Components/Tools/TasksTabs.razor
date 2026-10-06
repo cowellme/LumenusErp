@@ -1,8 +1,9 @@
-@* Вкладки трекера: Active = tasks | calls | tokens | prompts. «Промпты ИИ» видны только администратору. *@
+@* Вкладки трекера: Active = tasks | calls | tokens | my-prompts | prompts. «Мои промпты» — для всех, «Промпты ИИ» видны только администратору. *@
 <ul class="nav nav-tabs mt-3" aria-label="Разделы трекера">
     <li class="nav-item"><a class="nav-link @Cls("tasks")" href="/tasks" aria-current="@Current("tasks")">Задачи</a></li>
     <li class="nav-item"><a class="nav-link @Cls("calls")" href="/tasks/calls" aria-current="@Current("calls")">Созвоны</a></li>
     <li class="nav-item"><a class="nav-link @Cls("tokens")" href="/tasks/tokens" aria-current="@Current("tokens")">API-токены</a></li>
+    <li class="nav-item"><a class="nav-link @Cls("my-prompts")" href="/tasks/prompts" aria-current="@Current("my-prompts")">Мои промпты</a></li>
     <AuthorizeView Roles="Admin">
         <li class="nav-item"><a class="nav-link @Cls("prompts")" href="/admin/prompts" aria-current="@Current("prompts")">Промпты ИИ</a></li>
     </AuthorizeView>
