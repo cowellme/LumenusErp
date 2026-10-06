@@ -20,7 +20,7 @@ LumenusErp/                     # проект (LumenusErp.csproj)
   Program.cs                    # DI, миграции при старте, сид ролей и админа
   Components/
     Pages/                      # Home, Faq, Calculator, Projects, ProjectDetails, Auth
-    Pages/Admin/                # Admin: /admin — хаб админки, /admin/users (старый /admin/roles) — пользователи и роли, /admin/projects, /admin/pages, /admin/prompts
+    Pages/Admin/                # Admin: /admin — хаб админки, /admin/users (старый /admin/roles) — пользователи и роли, /admin/projects, /admin/pages, /admin/prompts, /admin/models
     Pages/AnalysisOfSocial/     # /aos-panel, /aos-settings (Admin, Aos)
     Account/                    # шаблонные страницы Identity
     Layout/, Tools/             # layout, меню, MarkdownViewer, BpmnEditor, SeoMeta (мета/OG/JSON-LD), NoIndex
@@ -55,6 +55,12 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 - Системные промпты ИИ лежат в таблице `AiPrompts` (ключи `estimate`, `faq`, `call-tasks`, `myasi-tasks`), правятся в `/admin/prompts`;
   читаются через `AiPromptStore` (кэш 30 с). Тексты по умолчанию — `Services/DefaultPrompts.cs`: сидятся только
   при отсутствии ключа и служат запасным вариантом.
+- Модели ИИ по этапам — `/admin/models` (Admin; этапы — `Services/AiStages.cs`, каталог OpenRouter `GET https://openrouter.ai/api/v1/models` —
+  `Services/OpenRouterCatalog.cs`, кэш 1 час, при сбое последний удачный список; сохранение — `Services/AiStageModelService.cs`).
+  Для этапов с промптом (`estimate`, `faq`, `call-tasks`, `myasi-tasks`) модель хранится в `AiPrompts.Model` (то же поле, что в `/admin/prompts/{key}`);
+  для `myasi-dedup`, `myasi-asr`, `diarization` — таблица `AiStageModels` (`Stage` уникален, `Model`, `UpdatedAt`). Порядок выбора модели для текстовых этапов:
+  личный промпт с моделью → модель этапа (`AiPrompts.Model`) → `Ai:OpenRouterModel`; для myasi-этапов: `GET /api/ai-config` → env myasi
+  (asr: `OPENROUTER_ASR_MODEL` → `google/gemini-3.5-flash-lite`; dedup: `OPENROUTER_DEDUP_MODEL` → `OPENROUTER_MODEL` → `deepseek/deepseek-v4.1-flash`). null = по умолчанию.
 - Системные роли — `AdminUserService.SystemRoles`, их нельзя удалить; с себя и с последнего администратора роль Admin не снимается.
 - Личные промпты: для `myasi-tasks` (задачи с устройства через myasi) и `call-tasks` (созвоны) у пользователя может быть свой промпт
   (таблица `UserAiPrompts`, уникально `(OwnerId, Key)`, модель/температура необязательны), он перекрывает общий; «сбросить к общему» = удалить свой.
@@ -84,6 +90,9 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 - `GET /api/prompts/myasi-tasks` (тот же `[ApiToken]`) → `{"key","text","model","temperature","updatedAt","source"}`: действующий промпт владельца токена
   (`source` = `user` — личный, `default` — общий; `updatedAt` UTC с `Z` или null, если текст взят из кода). Заголовки `ETag` и `Cache-Control: private, no-cache`;
   `If-None-Match` совпал → 304 без тела. Любой другой ключ (`call-tasks`, `estimate`, `faq`…) → 404, наружу отдаётся только `myasi-tasks`.
+- `GET /api/ai-config` (тот же `[ApiToken]`) → `{"asrModel","dedupModel","diarizationModel","updatedAt"}`: модели аудио-этапов и проверки дублей для myasi
+  (строка или null = «как в env myasi»; `updatedAt` UTC с `Z` или null, если ничего не задано). `ETag` (хеш моделей и времени), `Cache-Control: private, no-cache`,
+  `If-None-Match` совпал → 304 без тела.
 - `GET /api/me` (тот же `[ApiToken]`) → `{"userId": "<Id пользователя>"}` — владелец токена, одинаков для всех его токенов;
   myasi по нему привязывает задачи в очереди к пользователю. Общий токен → Id администратора.
 - `POST /api/tasks` (`title`, `source` обязательны; `sourceText`, `externalId`, `createdAt`, `startAt`, `dueAt` нет) → 201 + `Location`;

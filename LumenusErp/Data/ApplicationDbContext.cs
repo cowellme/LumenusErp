@@ -10,6 +10,7 @@ namespace LumenusErp.Data
         public DbSet<Project> Projects => Set<Project>();
         public DbSet<AiPrompt> AiPrompts => Set<AiPrompt>();
         public DbSet<UserAiPrompt> UserAiPrompts => Set<UserAiPrompt>();
+        public DbSet<AiStageModel> AiStageModels => Set<AiStageModel>();
         public DbSet<ContentPage> ContentPages => Set<ContentPage>();
         public DbSet<ContentBlock> ContentBlocks => Set<ContentBlock>();
         public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
@@ -42,6 +43,13 @@ namespace LumenusErp.Data
                 e.HasIndex(p => p.Key).IsUnique();
                 e.Property(p => p.Key).HasMaxLength(50);
                 e.Property(p => p.Title).HasMaxLength(200);
+                e.Property(p => p.Model).HasMaxLength(200);
+            });
+
+            builder.Entity<AiStageModel>(e =>
+            {
+                e.HasIndex(p => p.Stage).IsUnique();
+                e.Property(p => p.Stage).HasMaxLength(50);
                 e.Property(p => p.Model).HasMaxLength(200);
             });
 

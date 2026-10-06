@@ -63,6 +63,9 @@ builder.Services.Configure<AiLimitsOptions>(builder.Configuration.GetSection("Ai
 builder.Services.AddSingleton<AiRateLimiter>();
 builder.Services.AddSingleton<AiPromptStore>();
 builder.Services.AddSingleton<UserPromptService>();
+builder.Services.AddSingleton<AiStageModelService>();
+builder.Services.AddHttpClient(OpenRouterCatalog.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<OpenRouterCatalog>();
 builder.Services.AddSingleton<MediaService>();
 builder.Services.AddSingleton<TaskService>();
 builder.Services.AddSingleton<UserApiTokenService>();

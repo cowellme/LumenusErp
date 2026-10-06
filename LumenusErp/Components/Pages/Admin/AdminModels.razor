@@ -1,0 +1,269 @@
+@page "/admin/models"
+@using System.Diagnostics
+@using System.Globalization
+@using LumenusErp.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject AiStageModelService StageModels
+@inject OpenRouterCatalog Catalog
+@inject AiPromptStore PromptStore
+
+<PageTitle>Модели ИИ — админка — LumenusTech</PageTitle>
+
+<section class="hero hero--sm">
+    <div class="container">
+        <p class="eyebrow">ADMIN</p>
+        <h1 class="hero__title mb-2">Модели ИИ</h1>
+        <p class="text-muted mb-0">Модель OpenRouter для каждого этапа. Для этапов с промптом значение то же, что в «Промптах ИИ» (применяется в течение 30 секунд); личный промпт пользователя с моделью важнее.</p>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container">
+        @if (error is not null)
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        @if (message is not null)
+        {
+            <div class="alert alert-success" role="status">@message</div>
+        }
+
+        <div class="table-responsive table-card mb-4">
+            <table class="table table-borderless mb-0 align-middle" style="min-width: 700px;">
+                <thead>
+                    <tr>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Этап</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Тип</th>
+                        <th scope="col" class="font-monospace small text-muted text-uppercase fw-bold px-3 py-3">Модель</th>
+                        <th scope="col" class="px-3 py-3"><span class="visually-hidden">Действия</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in rows)
+                    {
+                        <tr>
+                            <td class="small px-3 py-3 fw-semibold">
+                                @r.Stage.Title
+                                <div class="font-monospace text-muted fw-normal" style="font-size:0.75rem;">@r.Stage.Key</div>
+                            </td>
+                            <td class="small px-3 py-3">@(r.Stage.Kind == AiStages.Audio ? "Аудио" : "Текст")</td>
+                            <td class="font-monospace small px-3 py-3">
+                                @if (r.Model is not null)
+                                {
+                                    @r.Model
+                                }
+                                else
+                                {
+                                    <span class="text-muted">по умолчанию: @DefaultText(r.Stage)</span>
+                                }
+                            </td>
+                            <td class="px-3 py-3 text-end text-nowrap">
+                                <button type="button" class="btn btn-outline-dark btn-sm" @onclick="() => Edit(r)">Изменить</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (editing is not null)
+        {
+            <div class="card-x form-card">
+                <h2 class="h5 fw-bold mb-3">@editing.Title <span class="font-monospace text-muted small">@editing.Key</span></h2>
+
+                @if (catalogFailed)
+                {
+                    <div class="alert alert-warning" role="alert">
+                        @(catalog.Count == 0 ? "Не удалось загрузить список моделей OpenRouter — доступен только ручной ввод." : "Не удалось обновить список моделей OpenRouter — показан последний загруженный.")
+                    </div>
+                }
+
+                @if (catalog.Count > 0)
+                {
+                    <label class="form-label small fw-bold" for="m-search">Поиск по списку OpenRouter (@suitable.Count подходящих)</label>
+                    <input id="m-search" class="form-control mb-2" placeholder="название или id" value="@search" @oninput="e => search = e.Value?.ToString() ?? string.Empty" />
+                    <div class="table-responsive border rounded mb-3" style="max-height: 340px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead>
+                                <tr class="small text-muted">
+                                    <th scope="col">Модель</th>
+                                    <th scope="col">Контекст</th>
+                                    <th scope="col">Вход, $/1M</th>
+                                    <th scope="col">Выход, $/1M</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in Shown)
+                                {
+                                    <tr role="button" style="cursor:pointer;" class="@(m.Id == model ? "table-active" : null)" @onclick="() => model = m.Id">
+                                        <td class="small">@m.Name<div class="font-monospace text-muted" style="font-size:0.75rem;">@m.Id</div></td>
+                                        <td class="small text-nowrap">@(m.ContextLength?.ToString("N0", Ru) ?? "—")</td>
+                                        <td class="small text-nowrap">@Price(m.PromptPricePerM)</td>
+                                        <td class="small text-nowrap">@Price(m.CompletionPricePerM)</td>
+                                    </tr>
+                                }
+                                @if (Shown.Count == 0)
+                                {
+                                    <tr><td colspan="4" class="text-center text-muted small py-3">Ничего не найдено</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (SearchResult.Count > ShownLimit)
+                    {
+                        <p class="small text-muted">Показаны первые @ShownLimit из @SearchResult.Count — уточните поиск.</p>
+                    }
+                }
+
+                <label class="form-label small fw-bold" for="m-id">Id модели</label>
+                <input id="m-id" class="form-control font-monospace" maxlength="200" placeholder="@DefaultText(editing)" @bind="model" @bind:event="oninput" />
+                @if (NotInCatalog)
+                {
+                    <div class="form-text text-warning">Модели нет в списке OpenRouter (для этого типа этапа). Сохранить всё равно можно.</div>
+                }
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <button type="button" class="btn btn-dark" disabled="@busy" @onclick="SaveAsync">Сохранить</button>
+                    <button type="button" class="btn btn-outline-dark" disabled="@busy" @onclick="ResetAsync">По умолчанию</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Отмена</button>
+                    @if (editing.Kind == AiStages.Text)
+                    {
+                        <button type="button" class="btn btn-outline-dark" disabled="@testing" @onclick="TestAsync">@(testing ? "Ждём ответ..." : "Проверить")</button>
+                    }
+                </div>
+                @if (editing.Kind == AiStages.Audio)
+                {
+                    <p class="small text-muted mt-2 mb-0">Проверка аудио-моделей — в myasi.</p>
+                }
+                @if (testError is not null)
+                {
+                    <div class="alert alert-danger mt-3 mb-0" role="alert">@testError</div>
+                }
+                @if (testResult is not null)
+                {
+                    <div class="alert alert-info mt-3 mb-0" role="status">
+                        <div class="small mb-1">Ответ за @testMs мс:</div>
+                        <pre class="mb-0 small" style="white-space: pre-wrap;">@testResult</pre>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private const int ShownLimit = 50;
+    private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
+
+    private List<AiStageRow> rows = new();
+    private List<OpenRouterModel> catalog = new();
+    private bool catalogFailed;
+    private AiStage? editing;
+    private string? model;
+    private string search = "";
+    private bool busy;
+    private bool testing;
+    private string? error;
+    private string? message;
+    private string? testResult;
+    private string? testError;
+    private long testMs;
+
+    private List<OpenRouterModel> suitable => editing is null ? new() : OpenRouterCatalog.ForStage(catalog, editing.Kind);
+    private List<OpenRouterModel> SearchResult => OpenRouterCatalog.Search(suitable, search);
+    private List<OpenRouterModel> Shown => SearchResult.Take(ShownLimit).ToList();
+
+    private bool NotInCatalog => catalog.Count > 0 && !string.IsNullOrWhiteSpace(model) && !suitable.Any(m => m.Id == model.Trim());
+
+    protected override async Task OnInitializedAsync()
+    {
+        rows = await StageModels.GetAllAsync();
+        (catalog, catalogFailed) = await Catalog.GetAsync();
+    }
+
+    private static string DefaultText(AiStage s) => s.HasPrompt ? $"{s.DefaultNote} ({AiModule.DefaultModel})" : s.DefaultNote;
+
+    private static string Price(decimal? perM) => perM is null ? "переменная" : "$" + perM.Value.ToString("0.####", CultureInfo.InvariantCulture);
+
+    private void Edit(AiStageRow r)
+    {
+        editing = r.Stage;
+        model = r.Model;
+        search = "";
+        error = message = testResult = testError = null;
+    }
+
+    private void Cancel() => editing = null;
+
+    private Task ResetAsync()
+    {
+        model = null;
+        return SaveAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editing is null || busy) return;
+        busy = true;
+        error = message = null;
+        try
+        {
+            var err = await StageModels.SetAsync(editing.Key, model);
+            if (err is not null)
+            {
+                error = err;
+                return;
+            }
+            rows = await StageModels.GetAllAsync();
+            message = $"Сохранено: {editing.Title}.";
+            editing = null;
+        }
+        catch (Exception ex)
+        {
+            error = "Не удалось сохранить: " + ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task TestAsync()
+    {
+        if (editing is null || testing) return;
+        testing = true;
+        testResult = testError = null;
+        try
+        {
+            string systemPrompt;
+            string question;
+            double? temperature = null;
+            if (editing.HasPrompt)
+            {
+                var s = await PromptStore.GetAsync(editing.Key);
+                systemPrompt = s.SystemPrompt;
+                temperature = s.Temperature;
+                question = "Ответь одним словом: ок";
+            }
+            else
+            {
+                systemPrompt = "Ответь одним словом: ок";
+                question = "Проверка связи.";
+            }
+            var sw = Stopwatch.StartNew();
+            testResult = await AiModule.TestPromptAsync(editing.Key, systemPrompt, model, temperature, question);
+            testMs = sw.ElapsedMilliseconds;
+        }
+        catch (Exception ex)
+        {
+            testError = ex.Message;
+        }
+        finally
+        {
+            testing = false;
+        }
+    }
+}
