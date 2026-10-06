@@ -66,7 +66,8 @@
             @if (entity.Key == DefaultPrompts.CallTasksKey)
             {
                 <div class="alert alert-warning" role="alert">
-                    Ответ модели должен оставаться JSON-массивом объектов <code>title</code> и <code>quote</code>:
+                    Ответ модели должен оставаться JSON-массивом объектов <code>title</code>, <code>quote</code>, <code>start</code> и <code>deadline</code>
+                    (сроки — <code>YYYY-MM-DD</code>, <code>YYYY-MM-DDTHH:MM</code> или <code>null</code>; поля сроков необязательны):
                     по нему список задач на странице созвона. Если формат нарушить, задачи не будут выделены.
                 </div>
             }

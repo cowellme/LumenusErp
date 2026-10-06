@@ -25,4 +25,10 @@ public class TaskItem
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }
+
+    /// <summary>Когда начинать (UTC); null — не задано. «Только день» хранится как 00:00 местного времени.</summary>
+    public DateTime? StartAt { get; set; }
+
+    /// <summary>Дедлайн (UTC); null — не задан. «Только день» хранится как 23:59 местного времени.</summary>
+    public DateTime? DueAt { get; set; }
 }

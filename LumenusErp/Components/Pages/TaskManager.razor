@@ -29,10 +29,16 @@
             <div class="alert alert-danger" role="alert">@error</div>
         }
 
-        <form class="d-flex gap-2 mb-4" @onsubmit="AddAsync">
-            <input class="form-control" @bind="newTitle" @bind:event="oninput" maxlength="@TaskService.MaxTitle"
-                   placeholder="Новая задача" aria-label="Название новой задачи" />
-            <button type="submit" class="btn btn-dark text-nowrap" disabled="@(string.IsNullOrWhiteSpace(newTitle))">Добавить</button>
+        <form class="mb-4" @onsubmit="AddAsync">
+            <div class="d-flex gap-2">
+                <input class="form-control" @bind="newTitle" @bind:event="oninput" maxlength="@TaskService.MaxTitle"
+                       placeholder="Новая задача" aria-label="Название новой задачи" />
+                <button type="submit" class="btn btn-dark text-nowrap" disabled="@(string.IsNullOrWhiteSpace(newTitle))">Добавить</button>
+            </div>
+            <div class="d-flex flex-wrap gap-3 mt-2">
+                @DateInput("Начало", newStartDate, newStartTime, v => newStartDate = v, v => newStartTime = v, () => { newStartDate = newStartTime = ""; })
+                @DateInput("Дедлайн", newDueDate, newDueTime, v => newDueDate = v, v => newDueTime = v, () => { newDueDate = newDueTime = ""; })
+            </div>
         </form>
 
         <div class="btn-group mb-3" role="group" aria-label="Фильтр задач">
@@ -65,6 +71,10 @@
                                 {
                                     <input class="form-control" @ref="editInput" @bind="editTitle" @bind:event="oninput" maxlength="@TaskService.MaxTitle"
                                            @onkeydown="e => EditKeyAsync(e, t)" aria-label="Название задачи" />
+                                    <div class="d-flex flex-wrap gap-3 mt-2">
+                                        @DateInput("Начало", editStartDate, editStartTime, v => editStartDate = v, v => editStartTime = v, () => { editStartDate = editStartTime = ""; })
+                                        @DateInput("Дедлайн", editDueDate, editDueTime, v => editDueDate = v, v => editDueTime = v, () => { editDueDate = editDueTime = ""; })
+                                    </div>
                                     <div class="d-flex gap-2 mt-2">
                                         <button type="button" class="btn btn-dark btn-sm" @onclick="() => SaveEditAsync(t)">Сохранить</button>
                                         <button type="button" class="btn btn-outline-dark btn-sm" @onclick="CancelEdit">Отмена</button>
@@ -80,6 +90,24 @@
                                             <span class="pill pill--tag ms-1">@t.Source</span>
                                         }
                                     </div>
+                                    var dates = TaskDateFormat.Format(t.StartAt, t.DueAt, t.Status == TaskItem.StatusOpen, DateTime.UtcNow, utcOffsetMinutes);
+                                    @if (dates.Start is not null || dates.Due is not null)
+                                    {
+                                        <div class="small mt-1">
+                                            @if (dates.Start is not null)
+                                            {
+                                                <span>@dates.Start</span>
+                                            }
+                                            @if (dates.Start is not null && dates.Due is not null)
+                                            {
+                                                <span class="text-muted"> · </span>
+                                            }
+                                            @if (dates.Due is not null)
+                                            {
+                                                <span style="@(dates.Overdue ? "color:var(--c-danger);font-weight:600;" : "")">@dates.Due@(dates.Overdue ? " · просрочено" : "")</span>
+                                            }
+                                        </div>
+                                    }
                                     @if (!string.IsNullOrWhiteSpace(t.SourceText))
                                     {
                                         <details class="mt-2">
@@ -114,6 +142,21 @@
 </section>
 
 @code {
+    // Поле срока: дата + необязательное время (без времени: начало 00:00, дедлайн 23:59) и очистка.
+    private RenderFragment DateInput(string label, string date, string time, Action<string> setDate, Action<string> setTime, Action clear) => @<div>
+        <label class="form-label small fw-bold mb-1">@label</label>
+        <div class="d-flex align-items-center gap-1">
+            <input type="date" class="form-control form-control-sm" style="width:auto;" value="@date" aria-label="@(label + ": дата")"
+                   @onchange="e => setDate(e.Value?.ToString() ?? string.Empty)" />
+            <input type="time" class="form-control form-control-sm" style="width:auto;" value="@time" aria-label="@(label + ": время")"
+                   @onchange="e => setTime(e.Value?.ToString() ?? string.Empty)" />
+            @if (date.Length > 0 || time.Length > 0)
+            {
+                <button type="button" class="btn btn-outline-dark btn-sm" aria-label="@(label + ": убрать")" @onclick="clear">×</button>
+            }
+        </div>
+    </div>;
+
     private const string FilterOpen = "open", FilterDone = "done", FilterAll = "all";
     private static readonly (string Value, string Label)[] Filters =
         [(FilterOpen, "Открытые"), (FilterDone, "Выполненные"), (FilterAll, "Все")];
@@ -126,11 +169,19 @@
     private bool loaded;
     private Guid? editId, confirmDeleteId;
     private string editTitle = "";
+    private string newStartDate = "", newStartTime = "", newDueDate = "", newDueTime = "";
+    private string editStartDate = "", editStartTime = "", editDueDate = "", editDueTime = "";
     private int utcOffsetMinutes;
     private ElementReference editInput;
     private bool focusEdit;
 
-    private IEnumerable<TaskItem> Visible => filter == FilterAll ? all : all.Where(t => t.Status == filter);
+    // Открытые — по сроку (TaskDates.SortOpen); выполненные — как пришли из ListAsync (новые выше); «Все»: сначала открытые.
+    private IEnumerable<TaskItem> Visible => filter switch
+    {
+        FilterOpen => TaskDates.SortOpen(all.Where(t => t.Status == TaskItem.StatusOpen)),
+        FilterDone => all.Where(t => t.Status == TaskItem.StatusDone),
+        _ => TaskDates.SortOpen(all.Where(t => t.Status == TaskItem.StatusOpen)).Concat(all.Where(t => t.Status == TaskItem.StatusDone)),
+    };
     private List<TaskItem> shown = new();
     private int openCount => all.Count(t => t.Status == TaskItem.StatusOpen);
     private int doneCount => all.Count(t => t.Status == TaskItem.StatusDone);
@@ -177,14 +228,34 @@
     {
         error = null;
         if (ownerId is null) return;
-        var r = await Tasks.CreateManualAsync(ownerId, newTitle);
+        if (!ParseDates(newStartDate, newStartTime, newDueDate, newDueTime, out var start, out var due)) return;
+        var r = await Tasks.CreateManualAsync(ownerId, newTitle, start, due);
         if (r.Errors is not null)
         {
-            error = $"Название: 1–{TaskService.MaxTitle} символов.";
+            error = r.Errors.ContainsKey("startAt") ? TaskDates.OrderError : $"Название: 1–{TaskService.MaxTitle} символов.";
             return;
         }
         newTitle = "";
+        newStartDate = newStartTime = newDueDate = newDueTime = "";
         await ReloadAsync();
+    }
+
+    /// <summary>Поля ввода → UTC по смещению браузера; при ошибке выставляет error и возвращает false.</summary>
+    private bool ParseDates(string startDate, string startTime, string dueDate, string dueTime, out DateTime? start, out DateTime? due)
+    {
+        start = due = null;
+        if (!TaskDateFormat.TryFromInputs(startDate, startTime, false, utcOffsetMinutes, out start) ||
+            !TaskDateFormat.TryFromInputs(dueDate, dueTime, true, utcOffsetMinutes, out due))
+        {
+            error = "Дата или время указаны неверно.";
+            return false;
+        }
+        if (TaskDates.Validate(start, due) is { } order)
+        {
+            error = order;
+            return false;
+        }
+        return true;
     }
 
     private async Task ToggleAsync(TaskItem t)
@@ -201,6 +272,8 @@
         error = null;
         editId = t.Id;
         editTitle = t.Title;
+        (editStartDate, editStartTime) = TaskDateFormat.ToInputs(t.StartAt, false, utcOffsetMinutes);
+        (editDueDate, editDueTime) = TaskDateFormat.ToInputs(t.DueAt, true, utcOffsetMinutes);
         focusEdit = true;
     }
 
@@ -221,7 +294,9 @@
             error = $"Название: 1–{TaskService.MaxTitle} символов.";
             return;
         }
+        if (!ParseDates(editStartDate, editStartTime, editDueDate, editDueTime, out var start, out var due)) return;
         await Tasks.RenameAsync(ownerId, t.Id, editTitle);
+        await Tasks.SetDatesAsync(ownerId, t.Id, start, due);
         editId = null;
         await ReloadAsync();
     }

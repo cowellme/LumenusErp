@@ -7,8 +7,9 @@ namespace LumenusErp.Services;
 /// <summary>Результат создания задачи: Created=false — вернулась существующая (идемпотентность); Errors — ошибки валидации по полям.</summary>
 public record TaskCreateResult(TaskItem? Item, bool Created, Dictionary<string, string[]>? Errors = null);
 
-/// <summary>Ввод создания задачи (поля как в api/tasks).</summary>
-public record TaskInput(string? Title, string? SourceText, string? Source, string? ExternalId, DateTimeOffset? CreatedAt);
+/// <summary>Ввод создания задачи (поля как в api/tasks). Сроки — с любым смещением, хранятся в UTC.</summary>
+public record TaskInput(string? Title, string? SourceText, string? Source, string? ExternalId, DateTimeOffset? CreatedAt,
+    DateTimeOffset? StartAt = null, DateTimeOffset? DueAt = null);
 
 /// <summary>
 /// Операции над задачами пользователя; общий код для api/tasks и страницы /tasks.
@@ -55,6 +56,9 @@ public class TaskService(IDbContextFactory<ApplicationDbContext> dbFactory)
         if (source.Length is 0 or > MaxSource) errors["source"] = [$"Обязательно, 1–{MaxSource} символов."];
         if (sourceText.Length > MaxSourceText) errors["sourceText"] = [$"Не более {MaxSourceText} символов."];
         if (externalId is { Length: > MaxExternalId }) errors["externalId"] = [$"Не более {MaxExternalId} символов."];
+        var startAt = TaskDates.ToUtc(req.StartAt);
+        var dueAt = TaskDates.ToUtc(req.DueAt);
+        if (TaskDates.Validate(startAt, dueAt) is { } orderError) errors["startAt"] = [orderError];
         if (errors.Count > 0) return new(null, false, errors);
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -62,13 +66,24 @@ public class TaskService(IDbContextFactory<ApplicationDbContext> dbFactory)
         if (externalId is not null)
         {
             var same = await FindByExternalId(db, ownerId, source, externalId, ct);
-            if (same is not null) return new(same, false);
+            if (same is not null) return new(same, false); // сроки существующей задачи не меняем
         }
 
         var normalized = title.ToLowerInvariant();
-        var dup = await db.TaskItems.AsNoTracking().FirstOrDefaultAsync(t =>
+        var dup = await db.TaskItems.FirstOrDefaultAsync(t =>
             t.OwnerId == ownerId && t.DeletedAt == null && t.Source == source && t.Status == TaskItem.StatusOpen && t.TitleNormalized == normalized, ct);
-        if (dup is not null) return new(dup, false);
+        if (dup is not null)
+        {
+            // Дубль без сроков получает сроки из запроса, со сроками — не трогаем
+            if (TaskDates.ShouldFillDuplicate(dup.StartAt, dup.DueAt, startAt, dueAt))
+            {
+                dup.StartAt = startAt;
+                dup.DueAt = dueAt;
+                dup.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+            return new(dup, false);
+        }
 
         var created = req.CreatedAt?.UtcDateTime ?? DateTime.UtcNow;
         var item = new TaskItem
@@ -83,6 +98,8 @@ public class TaskService(IDbContextFactory<ApplicationDbContext> dbFactory)
             ExternalId = externalId,
             CreatedAt = created,
             UpdatedAt = created,
+            StartAt = startAt,
+            DueAt = dueAt,
         };
         db.TaskItems.Add(item);
         try
@@ -100,8 +117,24 @@ public class TaskService(IDbContextFactory<ApplicationDbContext> dbFactory)
     }
 
     /// <summary>Задача, созданная вручную в трекере (Source = "web").</summary>
-    public Task<TaskCreateResult> CreateManualAsync(string ownerId, string? title, CancellationToken ct = default) =>
-        CreateAsync(ownerId, new TaskInput(title, null, WebSource, null, null), ct);
+    public Task<TaskCreateResult> CreateManualAsync(string ownerId, string? title, DateTime? startUtc = null, DateTime? dueUtc = null, CancellationToken ct = default) =>
+        CreateAsync(ownerId, new TaskInput(title, null, WebSource, null, null, TaskDates.ToOffset(startUtc), TaskDates.ToOffset(dueUtc)), ct);
+
+    /// <summary>
+    /// Меняет сроки (null снимает срок). null — задачи нет; начало позже дедлайна — ArgumentException.
+    /// </summary>
+    public async Task<TaskItem?> SetDatesAsync(string ownerId, Guid id, DateTime? startUtc, DateTime? dueUtc, CancellationToken ct = default)
+    {
+        if (TaskDates.Validate(startUtc, dueUtc) is { } error) throw new ArgumentException(error, nameof(startUtc));
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var t = await db.TaskItems.FirstOrDefaultAsync(x => x.Id == id && x.OwnerId == ownerId && x.DeletedAt == null, ct);
+        if (t is null) return null;
+        t.StartAt = startUtc;
+        t.DueAt = dueUtc;
+        t.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return t;
+    }
 
     public async Task<TaskItem?> SetStatusAsync(string ownerId, Guid id, string status, CancellationToken ct = default)
     {

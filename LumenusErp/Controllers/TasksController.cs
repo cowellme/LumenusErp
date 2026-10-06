@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LumenusErp.Controllers
 {
-    public record CreateTaskRequest(string? Title, string? SourceText, string? Source, string? ExternalId, DateTimeOffset? CreatedAt);
+    public record CreateTaskRequest(string? Title, string? SourceText, string? Source, string? ExternalId, DateTimeOffset? CreatedAt,
+        DateTimeOffset? StartAt = null, DateTimeOffset? DueAt = null);
 
     public record UpdateTaskRequest(string? Status);
 
-    public record TaskDto(Guid Id, string Title, string Status, string SourceText, string Source, string? ExternalId, DateTime CreatedAt, DateTime UpdatedAt);
+    public record TaskDto(Guid Id, string Title, string Status, string SourceText, string Source, string? ExternalId, DateTime CreatedAt, DateTime UpdatedAt,
+        DateTime? StartAt, DateTime? DueAt);
 
     /// <summary>API задач для внешнего сервиса myasi. См. раздел «API задач» в CLAUDE.md.</summary>
     [ApiController]
@@ -40,7 +42,7 @@ namespace LumenusErp.Controllers
         [HttpPost]
         public async Task<ActionResult<TaskDto>> Create(CreateTaskRequest req, CancellationToken ct)
         {
-            var r = await tasks.CreateAsync(Owner, new TaskInput(req.Title, req.SourceText, req.Source, req.ExternalId, req.CreatedAt), ct);
+            var r = await tasks.CreateAsync(Owner, new TaskInput(req.Title, req.SourceText, req.Source, req.ExternalId, req.CreatedAt, req.StartAt, req.DueAt), ct);
             if (r.Errors is not null) return ValidationProblem(new ValidationProblemDetails(r.Errors));
             return r.Created ? Created($"/api/tasks/{r.Item!.Id}", ToDto(r.Item)) : Ok(ToDto(r.Item!));
         }
@@ -68,6 +70,7 @@ namespace LumenusErp.Controllers
         private static DateTime Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc);
 
         private static TaskDto ToDto(TaskItem t) =>
-            new(t.Id, t.Title, t.Status, t.SourceText, t.Source, t.ExternalId, Utc(t.CreatedAt), Utc(t.UpdatedAt));
+            new(t.Id, t.Title, t.Status, t.SourceText, t.Source, t.ExternalId, Utc(t.CreatedAt), Utc(t.UpdatedAt),
+                t.StartAt is { } s ? Utc(s) : null, t.DueAt is { } d ? Utc(d) : null);
     }
 }

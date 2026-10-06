@@ -70,6 +70,7 @@ builder.Services.AddSingleton<UserApiTokenService>();
 // Вкладка «Созвоны»: загрузка → ffmpeg → myasi → LLM, обработка по одной записи в фоне
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
 builder.Services.AddSingleton<CallSettings>();
+builder.Services.AddSingleton<TaskTimeZone>();
 builder.Services.AddSingleton<CallQueue>();
 builder.Services.AddSingleton<CallService>();
 builder.Services.AddHostedService<CallProcessor>();
@@ -115,7 +116,7 @@ using (var scope = app.Services.CreateScope())
     await dbContext.Database.MigrateAsync();
     await aosDbContext.Database.MigrateAsync();
     await ProjectSeed.EnsureSeededAsync(dbContext);
-    await AiPromptSeed.EnsureSeededAsync(dbContext);
+    await AiPromptSeed.EnsureSeededAsync(dbContext, app.Logger);
 
     // ── Засидировать роли ────────────────────────────────────────────
     foreach (var role in AdminUserService.SystemRoles)

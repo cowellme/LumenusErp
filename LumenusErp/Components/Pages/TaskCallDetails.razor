@@ -80,6 +80,11 @@
                                         <div class="fw-semibold" style="overflow-wrap:anywhere;">@s.Title</div>
                                         <div class="small mt-1"><span class="pill pill--tag">добавлена</span> <a href="/tasks" class="text-dark">к задачам</a></div>
                                     }
+                                    @{ var dates = TaskDateFormat.Format(s.StartAt, s.DueAt, false, DateTime.UtcNow, utcOffsetMinutes); }
+                                    @if (dates.Start is not null || dates.Due is not null)
+                                    {
+                                        <div class="small mt-1">@string.Join(" · ", new[] { dates.Start, dates.Due }.Where(x => x is not null))</div>
+                                    }
                                     @if (!string.IsNullOrWhiteSpace(s.SourceText))
                                     {
                                         <div class="small text-muted mt-1" style="overflow-wrap:anywhere;">«@s.SourceText»</div>
@@ -125,6 +130,7 @@
     private readonly Dictionary<Guid, string> titles = new();
     private readonly HashSet<Guid> known = new();
     private Timer? timer;
+    private int utcOffsetMinutes;
 
     private string StatusLabel => call!.Status switch
     {
@@ -139,6 +145,14 @@
         var state = await AuthProvider.GetAuthenticationStateAsync();
         ownerId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
         await ReloadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        // Часовой пояс браузера: сервер его не знает (нужен для показа сроков).
+        utcOffsetMinutes = await JS.InvokeAsync<int>("lmnTasks.utcOffsetMinutes");
+        StateHasChanged();
     }
 
     private async Task ReloadAsync()

@@ -12,7 +12,7 @@ namespace LumenusErp.Services;
 /// </summary>
 public class CallProcessor(
     CallQueue queue, CallSettings settings, IHttpClientFactory httpFactory,
-    IDbContextFactory<ApplicationDbContext> dbFactory, UserPromptService prompts, ILogger<CallProcessor> log) : BackgroundService
+    IDbContextFactory<ApplicationDbContext> dbFactory, UserPromptService prompts, TaskTimeZone taskTz, ILogger<CallProcessor> log) : BackgroundService
 {
     public const string HttpClientName = "myasi";
     public const string InterruptedError = "Обработка прервана перезапуском сервера";
@@ -162,12 +162,17 @@ public class CallProcessor(
         {
             // Промпт владельца записи: личный перекрывает общий
             string ownerId;
+            DateTime uploadedAt;
             await using (var db = await dbFactory.CreateDbContextAsync(ct))
             {
-                ownerId = await db.CallRecordings.Where(x => x.Id == id).Select(x => x.OwnerId).FirstOrDefaultAsync(ct) ?? "";
+                var rec = await db.CallRecordings.Where(x => x.Id == id).Select(x => new { x.OwnerId, x.CreatedAt }).FirstOrDefaultAsync(ct);
+                ownerId = rec?.OwnerId ?? "";
+                uploadedAt = rec?.CreatedAt ?? DateTime.UtcNow;
             }
             prompt = await prompts.GetForUserAsync(ownerId, DefaultPrompts.CallTasksKey, ct);
-            raw = await AiModule.ExtractCallTasksAsync(forLlm, new AiPromptSettings(prompt.Text, prompt.Model, prompt.Temperature));
+            // Первая строка — «сейчас» на момент загрузки записи: обсуждение было тогда, от этой даты считаются «до пятницы» и т. п.
+            var message = TaskTimeZone.DateContext(uploadedAt, taskTz.Info) + "\n\n" + forLlm;
+            raw = await AiModule.ExtractCallTasksAsync(message, new AiPromptSettings(prompt.Text, prompt.Model, prompt.Temperature));
         }
         catch (AiNotConfiguredException)
         {
@@ -186,7 +191,7 @@ public class CallProcessor(
             return;
         }
 
-        var tasks = CallTaskParser.Parse(raw);
+        var tasks = CallTaskParser.Parse(raw, taskTz.Info);
         if (tasks is null)
         {
             log.LogWarning("Созвоны: не разобран ответ модели, запись {Id}: {Raw}", id, Trim(raw));
@@ -203,6 +208,7 @@ public class CallProcessor(
                 db.CallTaskSuggestions.Add(new CallTaskSuggestion
                 {
                     Id = Guid.NewGuid(), CallRecordingId = id, Order = i, Title = tasks[i].Title, SourceText = tasks[i].Quote,
+                    StartAt = tasks[i].StartAt, DueAt = tasks[i].DueAt,
                 });
             }
             c.Status = CallRecording.StatusDone;

@@ -86,19 +86,27 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
   `If-None-Match` совпал → 304 без тела. Любой другой ключ (`call-tasks`, `estimate`, `faq`…) → 404, наружу отдаётся только `myasi-tasks`.
 - `GET /api/me` (тот же `[ApiToken]`) → `{"userId": "<Id пользователя>"}` — владелец токена, одинаков для всех его токенов;
   myasi по нему привязывает задачи в очереди к пользователю. Общий токен → Id администратора.
-- `POST /api/tasks` (`title`, `source` обязательны; `sourceText`, `externalId`, `createdAt` нет) → 201 + `Location`;
+- `POST /api/tasks` (`title`, `source` обязательны; `sourceText`, `externalId`, `createdAt`, `startAt`, `dueAt` нет) → 201 + `Location`;
   `GET /api/tasks?source=&status=open|done`; `GET|PATCH|DELETE /api/tasks/{id}` (PATCH: `{"status":"open|done"}`).
   DELETE мягкий (`DeletedAt`) → 204; удалённая задача для GET/PATCH/DELETE = 404 и в списках не видна.
 - Идемпотентность POST (вместо 201 возвращается 200 и существующая задача): та же пара (`source`, `externalId`) у того же владельца,
   **включая мягко удалённую** (не воскрешается); либо неудалённая открытая задача того же владельца и `source` с тем же названием
   без учёта регистра и крайних пробелов (`TitleNormalized`). Гонка по уникальному индексу (23505) разруливается перечитыванием.
+- Сроки: `startAt` (когда начинать) и `dueAt` (дедлайн) — ISO 8601 со смещением (`2026-10-09T23:59:00+03:00`), `null` или нет поля; хранятся в UTC
+  (`TaskItem.StartAt/DueAt`), в ответах — UTC с `Z` или `null`. Только день без времени myasi шлёт как `dueAt` 23:59 и `startAt` 00:00 местного времени —
+  трекер такие показывает без времени. `startAt` позже `dueAt` → 400 по полю `startAt`. Идемпотентный повтор по (`source`, `externalId`) сроки не меняет;
+  найденный открытый дубль по названию получает сроки из запроса, только если у него нет ни одного, иначе не трогается. `PATCH` по-прежнему только `status`
+  (правка сроков — в трекере, `TaskService.SetDatesAsync`). Логика — `Services/TaskDates.cs` (чистая, без БД), формат и перевод местное↔UTC — `Services/TaskDateFormat.cs`.
 - Время — UTC с суффиксом `Z` (при отдаче `DateTime.SpecifyKind(..., Utc)` из-за legacy timestamp); `createdAt` с офсетом приводится к UTC.
 
 Трекер (Blazor, `[Authorize]` — любой вошедший): `/tasks` (`Components/Pages/TaskManager.razor`) — свои задачи, фильтр
 Открытые/Выполненные/Все, отметка выполнения, правка названия, мягкое удаление, ручное создание (`Source = "web"`),
 исходный текст myasi по клику, время в часовом поясе браузера (смещение берётся через `wwwroot/js/tasks.js`).
 `/tasks/tokens` (`TaskTokens.razor`) — личные токены: создать (полный токен показывается один раз, в БД только хэш), отозвать;
-токен прописывается в myasi как `Authorization: Bearer <токен>`. Оба пути под `noindex` (`PrivatePrefixes` в `MainLayout`).
+токен прописывается в myasi как `Authorization: Bearer <токен>`.
+Сроки в `/tasks`: в строке «с 12 окт · до 20 окт», «до 9 окт, 10:00» в часовом поясе браузера (дедлайн 23:59 и начало 00:00 — без времени, не текущий год — с годом);
+просроченный дедлайн открытой задачи — цвет `--c-danger` и текст «просрочено». Открытые сортируются по дедлайну (потом без дедлайна, новые выше), «Все» — сначала открытые.
+Создание и правка: поля «Начало» и «Дедлайн» (дата + необязательное время; без времени — 00:00 / 23:59 местного), крестик снимает срок. Перевод по смещению браузера. Оба пути под `noindex` (`PrivatePrefixes` в `MainLayout`).
 
 Поддомен: `Tasks:Host` (на проде `app.lumenustech.ru`, env `TASKS_HOST`). Если задан: на этом хосте `GET /` → 302 `/tasks`, на любом другом
 `/tasks` и `/tasks/*` → 404 (middleware в `Program.cs` после `UseForwardedHeaders`; `UseAuthentication/UseAuthorization` вызваны
@@ -122,7 +130,12 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 - Обработка (`Services/CallProcessor.cs`, `BackgroundService` + `CallQueue` на `Channel<Guid>`) — по одной записи за раз. ffmpeg режет аудио
   на WAV 16 кГц моно s16 по 10 минут (лимит myasi ~60 МБ на запрос); куски по очереди идут в служебный `POST {Myasi:BaseUrl}/api/transcribe` с `Authorization: Bearer {Myasi:Token}` (= `TRANSCRIBE_TOKEN` myasi; только текст, без задач и без отправки в Lumenus)
   (таймаут 15 минут на кусок), тексты склеиваются пробелом. Транскрипт сохраняется сразу после распознавания (виден и при сбое LLM).
-  Задачи — промпт `call-tasks` (`/admin/prompts`), ответ — JSON-массив `[{"title","quote"}]`, разбор в `CallTaskParser`; транскрипт длиннее
+  Задачи — промпт `call-tasks` (`/admin/prompts`), ответ — JSON-массив `[{"title","quote","start","deadline"}]`, разбор в `CallTaskParser`
+  (`start`/`deadline` — `YYYY-MM-DD` или `YYYY-MM-DDTHH:MM` местного времени `Tasks:TimeZone` или null; только дата: начало 00:00, дедлайн 23:59; невалидное → null,
+  `start` позже `deadline` → `start = null`; поля необязательны). Первая строка сообщения модели — «Сейчас: 2026-10-05, понедельник, 13:15, часовой пояс Europe/Moscow (UTC+03:00)»
+  на момент загрузки записи (`CallRecording.CreatedAt`). Сроки сохраняются в `CallTaskSuggestion.StartAt/DueAt` и переходят в задачу при добавлении в трекер.
+  `AiPromptSeed` при старте заменяет `call-tasks` в БД новым текстом, если он (с точностью до trim и `\r\n`) равен прежнему `DefaultPrompts.CallTasksV1`;
+  правленый админом не трогает, а пишет предупреждение в лог. Личные промпты (`UserAiPrompts`) не затрагиваются; транскрипт длиннее
   120 000 символов обрезается для модели. Нет ключа OpenRouter → статус `done` с `Error` «ИИ не настроен — задачи не выделены».
 - Рабочий каталог — `Calls:WorkPath` (по умолчанию `<Media:Path>/calls-tmp`, то есть том `uploads`; в нём подкаталог на запись). Исходный файл
   удаляется после конвертации, каталог записи — всегда в `finally`.
@@ -148,6 +161,7 @@ deploy/                         # deploy.sh, remote.sh, Caddyfile
 | `Myasi:Token` | служебный токен `POST /api/transcribe` myasi, совпадает с его `TRANSCRIBE_TOKEN` (env `MYASI_TOKEN`) |
 | `Calls:MaxBytes` | максимум размера записи созвона, по умолчанию 2 ГБ (env `CALLS_MAX_BYTES`) |
 | `Calls:WorkPath` | каталог временных файлов созвонов, по умолчанию `<Media:Path>/calls-tmp` |
+| `Tasks:TimeZone` | часовой пояс дат в «Созвонах» и строки «Сейчас» для модели (по умолчанию `Europe/Moscow`; нет tzdata — фиксированный UTC+3) |
 | `Ai:OpenRouterApiKey`, `Ai:DeepSeekApiKey` | ключи LLM |
 | `Ai:OpenRouterModel` | модель OpenRouter для калькулятора и FAQ (пусто = `anthropic/claude-sonnet-5.5`) |
 | `Ai:Yandex:AccessKeyId`, `Ai:Yandex:SecretAccessKey`, `Ai:Yandex:FolderId` | YandexGPT |

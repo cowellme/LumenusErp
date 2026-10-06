@@ -89,6 +89,7 @@ namespace LumenusErp.Data
                 e.HasOne(t => t.Owner).WithMany().HasForeignKey(t => t.OwnerId).OnDelete(DeleteBehavior.Cascade);
                 e.HasIndex(t => new { t.OwnerId, t.Source, t.ExternalId }).IsUnique();
                 e.HasIndex(t => new { t.OwnerId, t.Source, t.Status, t.TitleNormalized });
+                e.HasIndex(t => new { t.OwnerId, t.Status, t.DueAt });
                 e.Property(t => t.Title).HasMaxLength(300);
                 e.Property(t => t.TitleNormalized).HasMaxLength(300);
                 e.Property(t => t.Status).HasMaxLength(20);

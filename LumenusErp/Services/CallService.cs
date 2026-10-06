@@ -69,7 +69,7 @@ public class CallService(IDbContextFactory<ApplicationDbContext> dbFactory, Task
             var sourceText = s.SourceText + "\n\nСозвон: " + call.FileName;
             if (sourceText.Length > TaskService.MaxSourceText) sourceText = sourceText[..TaskService.MaxSourceText];
             var r = await tasks.CreateAsync(ownerId,
-                new TaskInput(title, sourceText, TaskService.CallSource, $"{callId}:{s.Id}", null), ct);
+                new TaskInput(title, sourceText, TaskService.CallSource, $"{callId}:{s.Id}", null, TaskDates.ToOffset(s.StartAt), TaskDates.ToOffset(s.DueAt)), ct);
             if (r.Item is null)
             {
                 errors.Add($"«{title}»: название должно быть 1–{TaskService.MaxTitle} символов.");

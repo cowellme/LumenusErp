@@ -53,6 +53,10 @@ public class CallTaskSuggestion
     /// <summary>Цитата из транскрипта (≤2000).</summary>
     public string SourceText { get; set; } = "";
 
+    /// <summary>Сроки из ответа модели (UTC); null — не названы. Переносятся в задачу при добавлении в трекер.</summary>
+    public DateTime? StartAt { get; set; }
+    public DateTime? DueAt { get; set; }
+
     /// <summary>Задача, созданная из этой подсказки; null — ещё не добавлена. При удалении задачи ссылка обнуляется.</summary>
     public Guid? TaskItemId { get; set; }
     public TaskItem? TaskItem { get; set; }
