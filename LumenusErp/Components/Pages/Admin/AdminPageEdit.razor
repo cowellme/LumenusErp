@@ -120,7 +120,7 @@
                                 <div class="col-lg-6">
                                     <label class="form-label small fw-bold" for="@("t-" + b.Uid)">Текст (markdown)</label>
                                     <textarea id="@("t-" + b.Uid)" class="form-control font-monospace" rows="10"
-                                              value="@b.Text" @oninput="e => b.Text = e.Value?.ToString() ?? string.Empty"></textarea>
+                                              @bind="b.Text" @bind:event="oninput"></textarea>
                                 </div>
                                 <div class="col-lg-6">
                                     <p class="form-label small fw-bold">Превью</p>
